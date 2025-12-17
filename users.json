@@ -1,0 +1,14 @@
+{
+    "Daniel5242": {
+        "password": "scrypt:32768:8:1$Y7Hi2ct3sjCXyWXD$a3ee452d46d5b908bacc077be8cc47870df1aa57b528d377fa7e330f23ab5cf330e29c0b3201e1ddc29c07059f100581e8f55069f64d9c4f0881f516f326007f",
+        "email": "danielamaral15325@gmail.com"
+    },
+    "Daniel Amaral": {
+        "password": "scrypt:32768:8:1$bYcU4K5hTe7rU0n4$2e7d7c86eaefa6d99a26deb5d00b016241bbc52ef497bc849a527c4e529d231dad7beb4c31c343b3193edc0cefa345b09a31ed7c2f7a35f3d35bb3af821aea46",
+        "email": "danielamaral15325@gmail.com"
+    },
+    "rafael": {
+        "password": "scrypt:32768:8:1$jRmWyBxI4QyqbD8W$704b56147c5e2807b9df13991ece02a7aca273905ce33b3a82f400fe08595c62fe89f281c9e27db0ac9e985d6233047f8896abc359cc931e1db029f7000b434d",
+        "email": "compras.rafael@polimaquinas.com.br"
+    }
+}

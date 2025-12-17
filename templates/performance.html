@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance - Lead Time</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/css/bootstrap-select.min.css">
+    
+    <style>
+        /* ========================================
+           VARIÁVEIS CSS - DESIGN SYSTEM
+        ======================================== */
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --sidebar-bg: #212529;
+            --primary-blue: #0d6efd;
+            --secondary-gray: #6c757d;
+            --text-primary: #1a1a2e;
+            --text-secondary: #6c757d;
+            --border-color: #e9ecef;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --transition: all 0.25s ease;
+        }
+
+        /* ========================================
+           RESET & BASE
+        ======================================== */
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            overflow-x: hidden;
+            line-height: 1.5;
+        }
+
+        /* ========================================
+           LAYOUT COM SIDEBAR
+        ======================================== */
+        .wrapper { display: flex; width: 100%; align-items: stretch; }
+        
+        .sidebar {
+            min-width: 250px;
+            max-width: 250px;
+            background: linear-gradient(180deg, #1a1d21 0%, #212529 100%);
+            color: #fff;
+            min-height: 100vh;
+            transition: var(--transition);
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .sidebar.collapsed { margin-left: -250px; }
+        
+        .sidebar .sidebar-header {
+            padding: 24px 20px;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .sidebar .sidebar-header h4 { font-weight: 700; letter-spacing: -0.5px; }
+        .sidebar ul.components { padding: 16px 0; }
+        .sidebar ul li { padding: 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        
+        .sidebar ul li a {
+            color: rgba(255,255,255,0.7);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            transition: var(--transition);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .sidebar ul li a i { width: 20px; margin-right: 12px; text-align: center; }
+        .sidebar ul li a:hover { color: #fff; background: rgba(255,255,255,0.08); padding-left: 24px; }
+        .sidebar ul li.active > a { color: #fff; background: var(--primary-blue); border-left: 4px solid #fff; }
+
+        /* ========================================
+           CONTEÚDO PRINCIPAL
+        ======================================== */
+        .content {
+            width: 100%;
+            padding: 24px 28px;
+            margin-left: 250px;
+            transition: margin-left 0.3s;
+            min-height: 100vh;
+        }
+        
+        .content.expanded { margin-left: 0; }
+
+        /* ========================================
+           BOTÃO TOGGLE SIDEBAR
+        ======================================== */
+        .sidebar-toggle {
+            position: fixed;
+            top: 18px;
+            left: 262px;
+            z-index: 1001;
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .sidebar-toggle:hover { background: #0b5ed7; transform: scale(1.08); }
+        .sidebar-toggle.collapsed { left: 12px; }
+
+        /* ========================================
+           HEADER DA PÁGINA
+        ======================================== */
+        .page-header { margin-bottom: 24px; }
+        .page-header h4 { font-weight: 700; font-size: 1.5rem; color: var(--text-primary); margin-bottom: 4px; }
+        .page-header small { color: var(--text-secondary); font-size: 0.85rem; }
+
+        /* ========================================
+           CARD PADRÃO (Design System)
+        ======================================== */
+        .card-modern {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: var(--transition);
+        }
+
+        .card-modern:hover { box-shadow: var(--shadow-md); }
+
+        .card-modern .card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-modern .card-title i { font-size: 1rem; }
+        .card-modern .card-title.text-danger { color: #dc3545 !important; }
+        .card-modern .card-title.text-warning { color: #e67e00 !important; }
+
+        /* ========================================
+           FILTROS
+        ======================================== */
+        .filter-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            margin-bottom: 24px;
+        }
+
+        .form-label-sm {
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .bootstrap-select > .dropdown-toggle {
+            border: 1px solid var(--border-color) !important;
+            background-color: #fff !important;
+            height: calc(1.5em + 0.5rem + 2px) !important;
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.875rem !important;
+            border-radius: var(--radius-sm) !important;
+        }
+        
+        .bootstrap-select > .dropdown-toggle:focus {
+            border-color: var(--primary-blue) !important;
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15) !important;
+        }
+
+        .form-control, .form-select { border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.875rem; }
+        .form-control:focus, .form-select:focus { border-color: var(--primary-blue); box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15); }
+
+        /* ========================================
+           KPIs
+        ======================================== */
+        .kpi-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 24px 20px;
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            height: 100%;
+            border-left: 4px solid transparent;
+            transition: var(--transition);
+            position: relative;
+            cursor: help;
+        }
+
+        .kpi-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+        .kpi-card.border-blue { border-left-color: var(--primary-blue); }
+        .kpi-card.border-green { border-left-color: #198754; }
+        .kpi-card.border-warning { border-left-color: #ffc107; }
+
+        .kpi-value { font-size: 2rem; font-weight: 800; color: var(--text-primary); margin-bottom: 6px; letter-spacing: -1px; }
+        .kpi-label { font-size: 0.7rem; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.8px; font-weight: 600; }
+        .kpi-subtitle { font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px; }
+
+        /* ========================================
+           GRÁFICOS
+        ======================================== */
+        .chart-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            height: 100%;
+            min-height: 380px;
+        }
+        
+        .chart-header {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .chart-canvas-container { position: relative; height: 300px; width: 100%; }
+
+        /* ========================================
+           TABELAS MODERNAS
+        ======================================== */
+        .table-container { max-height: 400px; overflow-y: auto; border-radius: var(--radius-sm); }
+        .table-container::-webkit-scrollbar { width: 6px; }
+        .table-container::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
+        .table-container::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+        .table-container::-webkit-scrollbar-thumb:hover { background: #a1a1a1; }
+
+        .table-modern { margin-bottom: 0; font-size: 0.8rem; }
+
+        .table-modern thead th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            padding: 12px 10px;
+            border-bottom: 2px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            cursor: help;
+        }
+
+        .table-modern thead th[data-bs-toggle="tooltip"] { border-bottom: 2px dashed #6c757d; }
+        .table-modern tbody td { padding: 10px; vertical-align: middle; border-bottom: 1px solid #f0f0f0; }
+        .table-modern tbody tr:hover { background-color: rgba(13, 110, 253, 0.04); }
+        .table-modern tbody tr.fornecedor-row { cursor: pointer; transition: var(--transition); }
+        .table-modern tbody tr.fornecedor-row:hover { background-color: rgba(13, 110, 253, 0.08) !important; }
+
+        /* ========================================
+           BADGES
+        ======================================== */
+        .badge { font-weight: 600; padding: 5px 10px; border-radius: 20px; font-size: 0.7rem; }
+
+        /* ========================================
+           TOOLTIPS PERSONALIZADOS
+        ======================================== */
+        .tooltip-inner { background: #1a1a2e; font-size: 0.75rem; padding: 8px 12px; border-radius: var(--radius-sm); max-width: 280px; }
+        .tooltip.bs-tooltip-top .tooltip-arrow::before { border-top-color: #1a1a2e; }
+        .tooltip.bs-tooltip-bottom .tooltip-arrow::before { border-bottom-color: #1a1a2e; }
+
+        .sql-origin { display: inline-flex; align-items: center; gap: 4px; }
+        .sql-origin i { font-size: 0.65rem; opacity: 0.6; }
+
+        /* ========================================
+           RESPONSIVIDADE
+        ======================================== */
+        @media (max-width: 992px) {
+            .sidebar { margin-left: -250px; }
+            .sidebar.show { margin-left: 0; }
+            .content { margin-left: 0; padding: 16px; }
+            .sidebar-toggle { left: 12px; }
+            .kpi-card { margin-bottom: 12px; }
+        }
+
+        @media (max-width: 768px) {
+            .page-header h4 { font-size: 1.25rem; }
+            .kpi-value { font-size: 1.5rem; }
+            .chart-card { min-height: 320px; }
+        }
+
+        /* ========================================
+           ANIMAÇÕES
+        ======================================== */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+    </style>
+</head>
+<body>
+
+<!-- Botão de Toggle da Sidebar -->
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+    <i class="fas fa-bars"></i>
+</button>
+
+<div class="wrapper">
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h4 class="mb-0"><i class="fas fa-cubes me-2"></i>Polimaquinas</h4>
+            <small class="text-muted" style="font-size: 0.75rem;">Portal de Compras</small>
+        </div>
+        <ul class="list-unstyled components">
+            <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-chart-line"></i> Dashboard Financeiro</a></li>
+            <li><a href="{{ url_for('status_pedidos') }}"><i class="fas fa-tasks"></i> Status de Pedidos</a></li>
+            <li class="active"><a href="{{ url_for('performance') }}"><i class="fas fa-tachometer-alt"></i> Performance</a></li>
+            <li><a href="{{ url_for('variacao_preco') }}"><i class="fas fa-balance-scale"></i> Variação de Preço</a></li>
+        </ul>
+    </nav>
+
+    <div class="content" id="content">
+        <!-- HEADER -->
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div>
+                <h4><i class="fas fa-chart-area me-2 text-primary"></i>Análise de Performance</h4>
+                <small>Métricas de Lead Time, OTD e eficiência de entregas</small>
+            </div>
+            <div>
+                <span class="badge bg-light text-dark border px-3 py-2">
+                    <i class="fas fa-user-circle me-1"></i> Admin
+                </span>
+            </div>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-danger fade-in">
+            <i class="fas fa-exclamation-triangle me-2"></i> {{ error }}
+        </div>
+        {% endif %}
+
+        <!-- FILTROS -->
+        <div class="filter-card fade-in">
+            <form method="POST">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label-sm">Data Início</label>
+                        <input type="date" class="form-control form-control-sm" name="data_inicio" value="{{ filtros.data_inicio }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label-sm">Data Fim</label>
+                        <input type="date" class="form-control form-control-sm" name="data_fim" value="{{ filtros.data_fim }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label-sm">Fornecedores</label>
+                        <select class="selectpicker form-control" name="fornecedores" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 2" title="Selecione...">
+                            {% for forn in fornecedores %}
+                            <option value="{{ forn }}" {% if forn in filtros.fornecedores %}selected{% endif %}>{{ forn }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label-sm">Busca Geral</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" name="busca_geral" placeholder="Pedido, Produto..." value="{{ filtros.busca_geral }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label-sm">Comprador</label>
+                        <select class="form-select form-select-sm" name="comprador">
+                            <option value="">Todos</option>
+                            {% for comp in compradores %}
+                            <option value="{{ comp }}" {% if filtros.comprador == comp %}selected{% endif %}>{{ comp }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <div class="d-flex gap-1">
+                            <button type="submit" class="btn btn-primary btn-sm flex-grow-1" title="Filtrar"><i class="fas fa-filter"></i></button>
+                            <a href="{{ url_for('limpar_filtros') }}" class="btn btn-outline-secondary btn-sm" title="Limpar"><i class="fas fa-eraser"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- KPIs -->
+        {% if kpis %}
+        <div class="row g-3 mb-4 fade-in">
+            <div class="col-md-4">
+                <div class="kpi-card border-blue" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Origem: {{ sql_meta.lead_time_interno if sql_meta else 'N/A' }}">
+                    <div class="kpi-value text-primary">{{ kpis.media_interno }}</div>
+                    <div class="kpi-label">Lead Time Interno (dias)</div>
+                    <div class="kpi-subtitle">Solicitação → Pedido</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="kpi-card border-green" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Origem: {{ sql_meta.otd if sql_meta else 'N/A' }}">
+                    <div class="kpi-value text-success">{{ kpis.percentual_otd }}%</div>
+                    <div class="kpi-label">OTD (On-Time Delivery)</div>
+                    <div class="kpi-subtitle">Entregas no Prazo</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="kpi-card border-warning" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Origem: {{ sql_meta.total_pedidos if sql_meta else 'N/A' }}">
+                    <div class="kpi-value text-warning">{{ kpis.total_pedidos }}</div>
+                    <div class="kpi-label">Total de Pedidos</div>
+                    <div class="kpi-subtitle">No período selecionado</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- GRÁFICOS LEAD TIME -->
+        <div class="row g-4 mb-4 fade-in">
+            <div class="col-lg-6">
+                <div class="chart-card">
+                    <div class="chart-header"><i class="fas fa-clock me-2 text-primary"></i>Lead Time Interno por Comprador</div>
+                    <div class="chart-canvas-container"><canvas id="chartInterno"></canvas></div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="chart-card">
+                    <div class="chart-header"><i class="fas fa-truck me-2 text-danger"></i>Lead Time Fornecedor por Comprador</div>
+                    <div class="chart-canvas-container"><canvas id="chartFornecedor"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GRÁFICO MENSAL -->
+        <div class="row g-4 mb-4 fade-in">
+            <div class="col-12">
+                <div class="chart-card" style="min-height: 450px;">
+                    <div class="chart-header">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Índice de Atendimento - Pedidos de Compra (Evolução Mensal)
+                        <small class="text-muted ms-2" style="font-size: 0.75rem;"><i class="fas fa-mouse-pointer"></i> Clique nas barras para detalhes</small>
+                    </div>
+                    <div class="chart-canvas-container" style="height: 360px;"><canvas id="chartMensal"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABELAS LADO A LADO -->
+        <div class="row g-4 mb-4 fade-in">
+            <!-- FORNECEDORES COM ATRASOS -->
+            <div class="col-lg-6">
+                <div class="card-modern h-100">
+                    <div class="card-title text-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Fornecedores com Atrasos
+                        <small class="text-muted fw-normal ms-auto" style="font-size: 0.7rem;"><i class="fas fa-hand-pointer"></i> clique para filtrar</small>
+                    </div>
+                    <div class="table-container">
+                        <table class="table table-modern" id="tabelaFornecedores">
+                            <thead>
+                                <tr>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Código <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Fornecedor <i class="fas fa-database"></i></span></th>
+                                    <th class="text-center sortable-header" data-column="qtd" data-bs-toggle="tooltip" title="📊 Clique para ordenar"><span class="sql-origin" style="cursor: pointer;">Qtd. <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center sortable-header" data-column="dias" data-bs-toggle="tooltip" title="📊 Clique para ordenar"><span class="sql-origin" style="cursor: pointer;">Dias <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center sortable-header" data-column="leadtime" data-bs-toggle="tooltip" title="📊 Clique para ordenar"><span class="sql-origin" style="cursor: pointer;">Lead Time <i class="fas fa-sort"></i></span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for forn in top_fornecedores_atrasados %}
+                                <tr class="fornecedor-row" onclick="filtrarPorFornecedor('{{ forn.Fornecedor }}')" title="Clique para filtrar por {{ forn.Fornecedor }}">
+                                    <td><small class="text-muted">{{ forn.CodFornecedor }}</small></td>
+                                    <td class="text-truncate" style="max-width: 180px;" title="{{ forn.Fornecedor }}">{{ forn.Fornecedor }}</td>
+                                    <td class="text-center"><span class="badge bg-danger">{{ forn.TotalAtrasos }}</span></td>
+                                    <td class="text-center"><span class="badge bg-warning text-dark">{{ forn.MediaDiasAtraso }}d</span></td>
+                                    <td class="text-center"><span class="badge bg-info">{{ forn.LeadTimeMedio }}d</span></td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="5" class="text-center text-success py-4"><i class="fas fa-check-circle fa-2x mb-2 d-block"></i>Nenhum atraso registrado! 🎉</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRODUTOS COM ATRASOS -->
+            <div class="col-lg-6">
+                <div class="card-modern h-100">
+                    <div class="card-title text-warning"><i class="fas fa-box"></i>Produtos com Atrasos</div>
+                    <div class="table-container">
+                        <table class="table table-modern" id="tabelaProdutos">
+                            <thead>
+                                <tr>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_produto if sql_meta else 'N/A' }}"><span class="sql-origin">Código <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 SB1010.B1_TIPO"><span class="sql-origin">Tipo <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.desc_produto if sql_meta else 'N/A' }}"><span class="sql-origin">Produto <i class="fas fa-database"></i></span></th>
+                                    <th class="text-center sortable-header" data-column="qtd" data-bs-toggle="tooltip" title="📊 Clique para ordenar"><span class="sql-origin" style="cursor: pointer;">Qtd. <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center sortable-header" data-column="dias" data-bs-toggle="tooltip" title="📊 Clique para ordenar"><span class="sql-origin" style="cursor: pointer;">Dias <i class="fas fa-sort"></i></span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for prod in top_produtos_atrasados %}
+                                <tr>
+                                    <td><small class="text-muted">{{ prod.CodProduto }}</small></td>
+                                    <td><span class="badge bg-info">{{ prod.TipoProduto }}</span></td>
+                                    <td class="text-truncate" style="max-width: 180px;" title="{{ prod.Produto }}">{{ prod.Produto }}</td>
+                                    <td class="text-center"><span class="badge bg-danger">{{ prod.TotalAtrasos }}</span></td>
+                                    <td class="text-center"><span class="badge bg-warning text-dark">{{ prod.MediaDiasAtraso }}d</span></td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="5" class="text-center text-success py-4"><i class="fas fa-check-circle fa-2x mb-2 d-block"></i>Nenhum atraso registrado! 🎉</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LISTA DE PEDIDOS ATRASADOS (100% largura) -->
+        <div class="row g-4 fade-in">
+            <div class="col-12">
+                <div class="card-modern">
+                    <div class="card-title text-danger"><i class="fas fa-list-alt"></i>Lista de Pendências - Pedidos Atrasados (Top 50 Piores)</div>
+                    <div class="table-container" style="max-height: 500px;">
+                        <table class="table table-modern">
+                            <thead>
+                                <tr>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.num_pedido if sql_meta else 'N/A' }}"><span class="sql-origin">Pedido <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Cód. Forn. <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Fornecedor <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_produto if sql_meta else 'N/A' }}"><span class="sql-origin">Cód. Produto <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.desc_produto if sql_meta else 'N/A' }}"><span class="sql-origin">Produto <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_necessidade if sql_meta else 'N/A' }}"><span class="sql-origin">Dt. Necessidade <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_recebimento if sql_meta else 'N/A' }}"><span class="sql-origin">Dt. Recebimento <i class="fas fa-database"></i></span></th>
+                                    <th class="text-center" data-bs-toggle="tooltip" title="📊 {{ sql_meta.dias_atraso if sql_meta else 'N/A' }}"><span class="sql-origin">Dias Atraso <i class="fas fa-database"></i></span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pedido in pedidos_atrasados %}
+                                <tr>
+                                    <td class="fw-bold text-primary">{{ pedido.NumeroPedido }}</td>
+                                    <td><small class="text-muted">{{ pedido.CodFornecedor }}</small></td>
+                                    <td class="text-truncate" style="max-width: 160px;" title="{{ pedido.NomeFornecedor }}">{{ pedido.NomeFornecedor }}</td>
+                                    <td><small class="text-muted">{{ pedido.CodProduto }}</small></td>
+                                    <td class="text-truncate" style="max-width: 200px;" title="{{ pedido.DescricaoProduto }}">{{ pedido.DescricaoProduto }}</td>
+                                    <td>{{ pedido.DataNecessidade.strftime('%d/%m/%Y') if pedido.DataNecessidade else '-' }}</td>
+                                    <td>{{ pedido.DataRecebimento.strftime('%d/%m/%Y') if pedido.DataRecebimento else '-' }}</td>
+                                    <td class="text-center"><span class="badge bg-danger">{{ pedido.DiasAtraso }} dias</span></td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="8" class="text-center text-success py-4"><i class="fas fa-check-circle fa-2x mb-2 d-block"></i>Nenhum pedido atrasado! 🎉</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE DRILL-DOWN MENSAL -->
+<div class="modal fade" id="modalDetalhesMes" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-circle me-2"></i>Fornecedores Atrasados - <span id="mesDetalhado"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="conteudoDetalhes">
+                    <div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/js/bootstrap-select.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+
+<script>
+    // ========================================
+    // INICIALIZAÇÃO
+    // ========================================
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inicializa todos os tooltips do Bootstrap
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+
+        // Inicializa bootstrap-select
+        $('.selectpicker').selectpicker();
+
+        // Restaura estado do sidebar
+        if (localStorage.getItem('sidebarCollapsed') === 'true') {
+            document.getElementById('sidebar').classList.add('collapsed');
+            document.getElementById('content').classList.add('expanded');
+            document.getElementById('sidebarToggle').classList.add('collapsed');
+        }
+    });
+
+    // ========================================
+    // SIDEBAR TOGGLE
+    // ========================================
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const content = document.getElementById('content');
+        const toggleBtn = document.getElementById('sidebarToggle');
+        
+        sidebar.classList.toggle('collapsed');
+        content.classList.toggle('expanded');
+        toggleBtn.classList.toggle('collapsed');
+        
+        localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+    }
+
+    // ========================================
+    // DADOS DOS GRÁFICOS
+    // ========================================
+    const compradores = {{ compradores_chart|default('[]')|safe }};
+    const leadtimeInterno = {{ leadtime_interno_chart|default('[]')|safe }};
+    const leadtimeFornecedor = {{ leadtime_fornecedor_chart|default('[]')|safe }};
+    const mensalLabels = {{ mensal_labels|default('[]')|safe }};
+    const mensalNoPrazo = {{ mensal_noprazo|default('[]')|safe }};
+    const mensalAtrasado = {{ mensal_atrasado|default('[]')|safe }};
+
+    Chart.register(ChartDataLabels);
+
+    // ========================================
+    // GRÁFICO MENSAL (Stacked 100%)
+    // ========================================
+    new Chart(document.getElementById('chartMensal'), {
+        type: 'bar',
+        data: {
+            labels: mensalLabels,
+            datasets: [
+                { label: 'No Prazo', data: mensalNoPrazo, backgroundColor: 'rgba(40, 167, 69, 0.85)', borderColor: 'rgba(40, 167, 69, 1)', borderWidth: 1 },
+                { label: 'Atrasado', data: mensalAtrasado, backgroundColor: 'rgba(220, 53, 69, 0.85)', borderColor: 'rgba(220, 53, 69, 1)', borderWidth: 1 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (event, elements) => { if (elements.length > 0) mostrarDetalhesMes(mensalLabels[elements[0].index]); },
+            plugins: {
+                legend: { display: true, position: 'bottom' },
+                tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%' } },
+                datalabels: { color: '#ffffff', font: { weight: 'bold', size: 11 }, anchor: 'center', align: 'center', formatter: v => v > 5 ? v.toFixed(1) + '%' : '' }
+            },
+            scales: {
+                x: { stacked: true, grid: { display: false } },
+                y: { stacked: true, beginAtZero: true, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Percentual (%)', font: { weight: 'bold' } } }
+            }
+        }
+    });
+
+    // ========================================
+    // GRÁFICO LEAD TIME INTERNO
+    // ========================================
+    new Chart(document.getElementById('chartInterno'), {
+        type: 'bar',
+        data: { labels: compradores, datasets: [{ label: 'Lead Time Interno', data: leadtimeInterno, backgroundColor: 'rgba(13, 110, 253, 0.75)', borderColor: 'rgba(13, 110, 253, 1)', borderWidth: 2, borderRadius: 6 }] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (event, activeElements) => {
+                if (activeElements.length > 0) {
+                    const comp = compradores[activeElements[0].index];
+                    const select = document.querySelector('select[name="comprador"]');
+                    select.value = select.value === comp ? '' : comp;
+                    document.querySelector('form').submit();
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: ctx => ctx.parsed.y + ' dias' } },
+                datalabels: { color: '#fff', font: { weight: 'bold', size: 11 }, anchor: 'center', formatter: v => v > 0 ? v.toFixed(1) : '' }
+            },
+            scales: { y: { beginAtZero: true, title: { display: true, text: 'Dias', font: { weight: 'bold' } }, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } }
+        }
+    });
+
+    // ========================================
+    // GRÁFICO LEAD TIME FORNECEDOR
+    // ========================================
+    new Chart(document.getElementById('chartFornecedor'), {
+        type: 'bar',
+        data: { labels: compradores, datasets: [{ label: 'Lead Time Fornecedor', data: leadtimeFornecedor, backgroundColor: 'rgba(220, 53, 69, 0.75)', borderColor: 'rgba(220, 53, 69, 1)', borderWidth: 2, borderRadius: 6 }] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (event, activeElements) => {
+                if (activeElements.length > 0) {
+                    const comp = compradores[activeElements[0].index];
+                    const select = document.querySelector('select[name="comprador"]');
+                    select.value = select.value === comp ? '' : comp;
+                    document.querySelector('form').submit();
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: ctx => ctx.parsed.y + ' dias' } },
+                datalabels: { color: '#fff', font: { weight: 'bold', size: 11 }, anchor: 'center', formatter: v => v > 0 ? v.toFixed(1) : '' }
+            },
+            scales: { y: { beginAtZero: true, title: { display: true, text: 'Dias', font: { weight: 'bold' } }, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } }
+        }
+    });
+
+    // ========================================
+    // FUNÇÕES AUXILIARES
+    // ========================================
+    function mostrarDetalhesMes(mes) {
+        document.getElementById('mesDetalhado').textContent = mes;
+        const modal = new bootstrap.Modal(document.getElementById('modalDetalhesMes'));
+        modal.show();
+        
+        fetch(`/performance/detalhes_mes/${mes}`)
+            .then(r => r.json())
+            .then(data => {
+                let html = '';
+                if (data.success) {
+                    if (data.fornecedores.length === 0) {
+                        html = `<div class="alert alert-success text-center"><i class="fas fa-check-circle fa-2x mb-2"></i><p class="mb-0">${data.message || 'Nenhum atraso neste mês!'}</p></div>`;
+                    } else {
+                        html = `<div class="alert alert-info mb-3"><strong>Total entregas:</strong> ${data.total_entregas} | <strong>Atrasadas:</strong> ${data.total_atrasados}</div>
+                                <table class="table table-striped table-hover"><thead class="table-danger"><tr><th>Fornecedor</th><th class="text-center">Qtd</th><th class="text-center">Média Dias</th></tr></thead><tbody>`;
+                        data.fornecedores.forEach(f => { html += `<tr><td>${f.Fornecedor}</td><td class="text-center"><span class="badge bg-danger">${f.QtdAtrasos}</span></td><td class="text-center"><span class="badge bg-warning text-dark">${f.MediaDias}d</span></td></tr>`; });
+                        html += '</tbody></table>';
+                    }
+                } else { html = `<div class="alert alert-warning">${data.message}</div>`; }
+                document.getElementById('conteudoDetalhes').innerHTML = html;
+            })
+            .catch(err => { document.getElementById('conteudoDetalhes').innerHTML = `<div class="alert alert-danger">Erro: ${err}</div>`; });
+    }
+
+    function filtrarPorFornecedor(nome) {
+        const select = document.querySelector('select[name="fornecedores"]');
+        if (!select) return;
+        const selecionados = $(select).val() || [];
+        const idx = selecionados.indexOf(nome);
+        if (idx > -1) { selecionados.splice(idx, 1); } else { selecionados.push(nome); }
+        $(select).val(selecionados).selectpicker('refresh');
+        document.querySelector('form').submit();
+    }
+
+    // ========================================
+    // ORDENAÇÃO DE TABELAS
+    // ========================================
+    function setupTableSorting() {
+        // Configurar ordenação para Fornecedores
+        const tabelaFornecedores = document.getElementById('tabelaFornecedores');
+        if (tabelaFornecedores) {
+            const headersForn = tabelaFornecedores.querySelectorAll('.sortable-header');
+            headersForn.forEach(header => {
+                header.addEventListener('click', function() {
+                    const column = this.dataset.column;
+                    const tbody = tabelaFornecedores.querySelector('tbody');
+                    const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => row.cells.length > 1);
+                    
+                    // Verifica direção atual
+                    const currentDirection = this.dataset.sortDirection || 'none';
+                    const newDirection = currentDirection === 'desc' ? 'asc' : 'desc';
+                    
+                    // Remove indicadores de outros headers
+                    headersForn.forEach(h => {
+                        h.dataset.sortDirection = 'none';
+                        const icon = h.querySelector('i');
+                        if (icon) icon.className = 'fas fa-sort';
+                    });
+                    
+                    // Atualiza direção e ícone
+                    this.dataset.sortDirection = newDirection;
+                    const icon = this.querySelector('i');
+                    if (icon) {
+                        icon.className = newDirection === 'desc' ? 'fas fa-sort-down' : 'fas fa-sort-up';
+                    }
+                    
+                    // Ordena as linhas
+                    rows.sort((a, b) => {
+                        let valueA, valueB;
+                        if (column === 'qtd') {
+                            valueA = parseInt(a.cells[2].textContent.trim());
+                            valueB = parseInt(b.cells[2].textContent.trim());
+                        } else if (column === 'dias') {
+                            valueA = parseFloat(a.cells[3].textContent.replace('d', '').trim());
+                            valueB = parseFloat(b.cells[3].textContent.replace('d', '').trim());
+                        } else if (column === 'leadtime') {
+                            valueA = parseFloat(a.cells[4].textContent.replace('d', '').trim());
+                            valueB = parseFloat(b.cells[4].textContent.replace('d', '').trim());
+                        }
+                        
+                        if (newDirection === 'desc') {
+                            return valueB - valueA;
+                        } else {
+                            return valueA - valueB;
+                        }
+                    });
+                    
+                    // Reinsere as linhas ordenadas
+                    rows.forEach(row => tbody.appendChild(row));
+                });
+            });
+        }
+        
+        // Configurar ordenação para Produtos
+        const tabelaProdutos = document.getElementById('tabelaProdutos');
+        if (tabelaProdutos) {
+            const headersProd = tabelaProdutos.querySelectorAll('.sortable-header');
+            headersProd.forEach(header => {
+                header.addEventListener('click', function() {
+                    const column = this.dataset.column;
+                    const tbody = tabelaProdutos.querySelector('tbody');
+                    const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => row.cells.length > 1);
+                    
+                    // Verifica direção atual
+                    const currentDirection = this.dataset.sortDirection || 'none';
+                    const newDirection = currentDirection === 'desc' ? 'asc' : 'desc';
+                    
+                    // Remove indicadores de outros headers
+                    headersProd.forEach(h => {
+                        h.dataset.sortDirection = 'none';
+                        const icon = h.querySelector('i');
+                        if (icon) icon.className = 'fas fa-sort';
+                    });
+                    
+                    // Atualiza direção e ícone
+                    this.dataset.sortDirection = newDirection;
+                    const icon = this.querySelector('i');
+                    if (icon) {
+                        icon.className = newDirection === 'desc' ? 'fas fa-sort-down' : 'fas fa-sort-up';
+                    }
+                    
+                    // Ordena as linhas
+                    rows.sort((a, b) => {
+                        let valueA, valueB;
+                        if (column === 'qtd') {
+                            valueA = parseInt(a.cells[3].textContent.trim());
+                            valueB = parseInt(b.cells[3].textContent.trim());
+                        } else if (column === 'dias') {
+                            valueA = parseFloat(a.cells[4].textContent.replace('d', '').trim());
+                            valueB = parseFloat(b.cells[4].textContent.replace('d', '').trim());
+                        }
+                        
+                        if (newDirection === 'desc') {
+                            return valueB - valueA;
+                        } else {
+                            return valueA - valueB;
+                        }
+                    });
+                    
+                    // Reinsere as linhas ordenadas
+                    rows.forEach(row => tbody.appendChild(row));
+                });
+            });
+        }
+    }
+    
+    // Inicializar ordenação quando o documento estiver pronto
+    setupTableSorting();
+</script>
+</body>
+</html>

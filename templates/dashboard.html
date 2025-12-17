@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Financeiro</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/css/bootstrap-select.min.css">
+    
+    <style>
+        /* ========================================
+           VARIÁVEIS CSS - DESIGN SYSTEM
+        ======================================== */
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --sidebar-bg: #212529;
+            --primary-blue: #0d6efd;
+            --secondary-gray: #6c757d;
+            --text-primary: #1a1a2e;
+            --text-secondary: #6c757d;
+            --border-color: #e9ecef;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --transition: all 0.25s ease;
+        }
+
+        /* ========================================
+           RESET & BASE
+        ======================================== */
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            overflow-x: hidden;
+            line-height: 1.5;
+        }
+
+        /* ========================================
+           LAYOUT COM SIDEBAR
+        ======================================== */
+        .wrapper { display: flex; width: 100%; align-items: stretch; }
+        
+        .sidebar {
+            min-width: 250px;
+            max-width: 250px;
+            background: linear-gradient(180deg, #1a1d21 0%, #212529 100%);
+            color: #fff;
+            min-height: 100vh;
+            transition: var(--transition);
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .sidebar.collapsed { margin-left: -250px; }
+        
+        .sidebar .sidebar-header {
+            padding: 24px 20px;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .sidebar .sidebar-header h4 { font-weight: 700; letter-spacing: -0.5px; }
+        .sidebar ul.components { padding: 16px 0; }
+        .sidebar ul li { padding: 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        
+        .sidebar ul li a {
+            color: rgba(255,255,255,0.7);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            transition: var(--transition);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .sidebar ul li a i { width: 20px; margin-right: 12px; text-align: center; }
+        .sidebar ul li a:hover { color: #fff; background: rgba(255,255,255,0.08); padding-left: 24px; }
+        .sidebar ul li.active > a { color: #fff; background: var(--primary-blue); border-left: 4px solid #fff; }
+
+        /* ========================================
+           CONTEÚDO PRINCIPAL
+        ======================================== */
+        .content {
+            width: 100%;
+            padding: 24px 28px;
+            margin-left: 250px;
+            transition: margin-left 0.3s;
+            min-height: 100vh;
+        }
+        
+        .content.expanded { margin-left: 0; }
+
+        /* ========================================
+           BOTÃO TOGGLE SIDEBAR
+        ======================================== */
+        .sidebar-toggle {
+            position: fixed;
+            top: 18px;
+            left: 262px;
+            z-index: 1001;
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .sidebar-toggle:hover { background: #0b5ed7; transform: scale(1.08); }
+        .sidebar-toggle.collapsed { left: 12px; }
+
+        /* ========================================
+           HEADER DA PÁGINA
+        ======================================== */
+        .page-header { margin-bottom: 24px; }
+        .page-header h4 { font-weight: 700; font-size: 1.5rem; color: var(--text-primary); margin-bottom: 4px; }
+        .page-header small { color: var(--text-secondary); font-size: 0.85rem; }
+
+        /* ========================================
+           CARD PADRÃO (Design System)
+        ======================================== */
+        .card-modern {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: var(--transition);
+        }
+
+        .card-modern:hover { box-shadow: var(--shadow-md); }
+
+        .card-modern .card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-modern .card-title i { font-size: 1rem; }
+
+        /* ========================================
+           FILTROS
+        ======================================== */
+        .filter-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            margin-bottom: 24px;
+        }
+
+        .form-label-sm {
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .bootstrap-select > .dropdown-toggle {
+            border: 1px solid var(--border-color) !important;
+            background-color: #fff !important;
+            height: calc(1.5em + 0.5rem + 2px) !important;
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.875rem !important;
+            border-radius: var(--radius-sm) !important;
+        }
+        
+        .bootstrap-select > .dropdown-toggle:focus {
+            border-color: var(--primary-blue) !important;
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15) !important;
+        }
+
+        .form-control, .form-select { border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.875rem; }
+        .form-control:focus, .form-select:focus { border-color: var(--primary-blue); box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15); }
+
+        /* ========================================
+           KPIs
+        ======================================== */
+        .kpi-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 24px 20px;
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            height: 100%;
+            border-left: 4px solid transparent;
+            transition: var(--transition);
+            position: relative;
+            cursor: help;
+        }
+
+        .kpi-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+        .kpi-card.border-blue { border-left-color: var(--primary-blue); }
+        .kpi-card.border-red { border-left-color: #dc3545; }
+        .kpi-card.border-green { border-left-color: #198754; }
+        .kpi-card.border-orange { border-left-color: #fd7e14; }
+
+        .kpi-value { font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-bottom: 6px; letter-spacing: -1px; }
+        .kpi-label { font-size: 0.7rem; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.8px; font-weight: 600; }
+        .kpi-subtitle { font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px; }
+
+        /* ========================================
+           GRÁFICOS
+        ======================================== */
+        .chart-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            height: 100%;
+            min-height: 380px;
+            position: relative;
+        }
+        
+        .chart-header {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .chart-canvas-container { position: relative; height: 300px; width: 100%; }
+
+        /* ========================================
+           TABELAS MODERNAS
+        ======================================== */
+        .table-container { max-height: 500px; overflow-y: auto; border-radius: var(--radius-sm); }
+        .table-container::-webkit-scrollbar { width: 6px; }
+        .table-container::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
+        .table-container::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+        .table-container::-webkit-scrollbar-thumb:hover { background: #a1a1a1; }
+
+        .table-modern { margin-bottom: 0; font-size: 0.8rem; }
+
+        .table-modern thead th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            padding: 12px 10px;
+            border-bottom: 2px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            cursor: help;
+        }
+
+        .table-modern thead th[data-bs-toggle="tooltip"] { border-bottom: 2px dashed #6c757d; }
+        .table-modern tbody td { padding: 10px; vertical-align: middle; border-bottom: 1px solid #f0f0f0; }
+        .table-modern tbody tr:hover { background-color: rgba(13, 110, 253, 0.04); }
+
+        /* ========================================
+           BADGES
+        ======================================== */
+        .badge { font-weight: 600; padding: 5px 10px; border-radius: 20px; font-size: 0.7rem; }
+
+        /* ========================================
+           TOOLTIPS PERSONALIZADOS
+        ======================================== */
+        .tooltip-inner { background: #1a1a2e; font-size: 0.75rem; padding: 8px 12px; border-radius: var(--radius-sm); max-width: 280px; }
+        .tooltip.bs-tooltip-top .tooltip-arrow::before { border-top-color: #1a1a2e; }
+        .tooltip.bs-tooltip-bottom .tooltip-arrow::before { border-bottom-color: #1a1a2e; }
+
+        .sql-origin { display: inline-flex; align-items: center; gap: 4px; }
+        .sql-origin i { font-size: 0.65rem; opacity: 0.6; }
+
+        /* ========================================
+           RESPONSIVIDADE
+        ======================================== */
+        @media (max-width: 992px) {
+            .sidebar { margin-left: -250px; }
+            .sidebar.show { margin-left: 0; }
+            .content { margin-left: 0; padding: 16px; }
+            .sidebar-toggle { left: 12px; }
+            .kpi-card { margin-bottom: 12px; }
+        }
+
+        @media (max-width: 768px) {
+            .page-header h4 { font-size: 1.25rem; }
+            .kpi-value { font-size: 1.5rem; }
+            .chart-card { min-height: 320px; }
+        }
+
+        /* ========================================
+           ANIMAÇÕES
+        ======================================== */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+    </style>
+</head>
+<body>
+
+<!-- Botão de Toggle da Sidebar -->
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+    <i class="fas fa-bars"></i>
+</button>
+
+<div class="wrapper">
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h4 class="mb-0"><i class="fas fa-cubes me-2"></i>Polimaquinas</h4>
+            <small class="text-muted" style="font-size: 0.75rem;">Portal de Compras</small>
+        </div>
+        <ul class="list-unstyled components">
+            <li class="active"><a href="{{ url_for('dashboard') }}"><i class="fas fa-chart-line"></i> Dashboard Financeiro</a></li>
+            <li><a href="{{ url_for('status_pedidos') }}"><i class="fas fa-tasks"></i> Status de Pedidos</a></li>
+            <li><a href="{{ url_for('performance') }}"><i class="fas fa-tachometer-alt"></i> Performance</a></li>
+            <li><a href="{{ url_for('variacao_preco') }}"><i class="fas fa-balance-scale"></i> Variação de Preço</a></li>
+        </ul>
+    </nav>
+
+    <div class="content" id="content">
+        <!-- HEADER -->
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div>
+                <h4><i class="fas fa-coins me-2 text-primary"></i>Visão Geral Financeira</h4>
+                <small>Análise de gastos e indicadores de compras</small>
+            </div>
+            <div>
+                <span class="badge bg-light text-dark border px-3 py-2">
+                    <i class="fas fa-user-circle me-1"></i> Admin
+                </span>
+            </div>
+        </div>
+
+        <!-- FILTROS -->
+        <div class="filter-card fade-in">
+            <form id="filterForm" action="{{ url_for('dashboard') }}" method="POST">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-1">
+                        <label class="form-label-sm">Início</label>
+                        <input type="date" class="form-control form-control-sm" name="data_inicio" value="{{ filtros.data_inicio }}">
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label-sm">Fim</label>
+                        <input type="date" class="form-control form-control-sm" name="data_fim" value="{{ filtros.data_fim }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label-sm">Fornecedores</label>
+                        <select class="selectpicker form-control" name="fornecedores" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 2" title="Selecione..." id="fornecedores_select">
+                            {% for f in dados.opcoes_fornecedores %}
+                            <option value="{{ f }}" {% if f in filtros.fornecedores %}selected{% endif %}>{{ f }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label-sm">Busca</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" name="busca_geral" id="busca_geral" placeholder="Buscar..." value="{{ filtros.busca_geral }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label-sm">Comprador</label>
+                        <select class="form-select form-select-sm" name="comprador">
+                            <option value="Todos">Todos</option>
+                            {% for c in dados.opcoes_compradores %}
+                            <option value="{{ c }}" {% if filtros.comprador == c %}selected{% endif %}>{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label-sm">Tipo</label>
+                        <select class="form-select form-select-sm selectpicker" name="tipos_produto" multiple data-actions-box="true" data-selected-text-format="count > 2" data-size="8" title="Todos">
+                            {% for tipo in dados.opcoes_tipos_produto %}
+                            <option value="{{ tipo }}" {% if tipo in filtros.tipos_produto %}selected{% endif %}>{{ tipo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="d-flex gap-1">
+                            <button type="submit" class="btn btn-primary btn-sm flex-grow-1" title="Filtrar"><i class="fas fa-filter"></i></button>
+                            <a href="{{ url_for('limpar_filtros') }}" class="btn btn-outline-secondary btn-sm" title="Limpar"><i class="fas fa-eraser"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- KPIs -->
+        <div class="row g-3 mb-4 fade-in">
+            <div class="col-md-3">
+                <div class="kpi-card border-blue" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Origem: {{ sql_meta.total_emitido if sql_meta else 'N/A' }}">
+                    <div class="kpi-value text-primary">{{ dados.kpi_total }}</div>
+                    <div class="kpi-label">Total Emitido</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card border-red" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Origem: {{ sql_meta.backlog if sql_meta else 'N/A' }} | Clique para ver projeção de pagamentos" style="cursor: pointer;" onclick="abrirModalPrevisao()">
+                    <div class="kpi-value text-danger">{{ dados.kpi_pendente }}</div>
+                    <div class="kpi-label">Backlog (A Receber)</div>
+                    <div class="kpi-subtitle"><i class="fas fa-chart-bar me-1"></i>Clique para ver projeção</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card border-green" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Origem: {{ sql_meta.qtd_pedidos if sql_meta else 'N/A' }}">
+                    <div class="kpi-value text-success">{{ dados.kpi_qtd }}</div>
+                    <div class="kpi-label">Qtd Pedidos</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card border-orange" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Origem: {{ sql_meta.ticket_medio if sql_meta else 'N/A' }}">
+                    <div class="kpi-value text-dark">{{ dados.kpi_ticket }}</div>
+                    <div class="kpi-label">Ticket Médio</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GRÁFICOS -->
+        <div class="row g-4 mb-4 fade-in">
+            <div class="col-lg-4">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <i class="fas fa-building me-2 text-primary"></i>Top 10 Fornecedores (Valor)
+                        {% if filtros.fornecedores %}
+                        <button onclick="limparFiltroFornecedores()" class="btn btn-sm btn-danger ms-2" title="Limpar Fornecedores"><i class="fas fa-times"></i></button>
+                        {% endif %}
+                    </div>
+                    <div class="chart-canvas-container"><canvas id="chartFornecedores"></canvas></div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <i class="fas fa-credit-card me-2 text-success"></i>Condição de Pagamento (%)
+                        {% if filtros.busca_geral %}
+                        <button onclick="limparFiltroTexto()" class="btn btn-sm btn-danger ms-2" title="Limpar Busca"><i class="fas fa-times"></i></button>
+                        {% endif %}
+                    </div>
+                    <div class="chart-canvas-container"><canvas id="chartPagamentos"></canvas></div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="chart-card">
+                    <div class="chart-header"><i class="fas fa-chart-line me-2 text-info"></i>Evolução Mensal</div>
+                    {% if dados.graf_mes_values %}
+                    {% set media = (dados.graf_mes_values | sum) / (dados.graf_mes_values | length) %}
+                    <div class="text-center mb-2">
+                        <span class="badge bg-danger fs-6 px-3 py-2">
+                            <i class="fas fa-chart-line"></i> Média: R$ {{ "{:,.2f}".format(media) }}
+                        </span>
+                    </div>
+                    {% endif %}
+                    <div class="chart-canvas-container"><canvas id="chartMes"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABELA DE DETALHAMENTO -->
+        <div class="row fade-in">
+            <div class="col-12">
+                <div class="card-modern">
+                    <div class="card-title text-primary"><i class="fas fa-list-alt"></i>Detalhamento Financeiro (Últimos 200)</div>
+                    <div class="table-container">
+                        <table class="table table-modern table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.num_pedido if sql_meta else 'N/A' }}"><span class="sql-origin">Pedido <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_emissao if sql_meta else 'N/A' }}"><span class="sql-origin">Emissão <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_entrega_prevista if sql_meta else 'N/A' }}"><span class="sql-origin">Entrega Prev. <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.status_detalhado if sql_meta else 'N/A' }}"><span class="sql-origin">Status <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.numero_nota if sql_meta else 'N/A' }}"><span class="sql-origin">Nota Fiscal <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.condicao_pagamento if sql_meta else 'N/A' }}"><span class="sql-origin">Pagto <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.desc_produto if sql_meta else 'N/A' }}"><span class="sql-origin">Produto <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Fornecedor <i class="fas fa-database"></i></span></th>
+                                    <th class="text-end" data-bs-toggle="tooltip" title="📊 {{ sql_meta.valor_total if sql_meta else 'N/A' }}"><span class="sql-origin">Valor Total <i class="fas fa-database"></i></span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for linha in dados.tabela %}
+                                <tr>
+                                    <td class="fw-bold text-primary">{{ linha.NumeroPedido }}</td>
+                                    <td>{{ linha.DataEmissao.strftime('%d/%m/%y') if linha.DataEmissao else '-' }}</td>
+                                    <td>{{ linha.DataEntregaPrevista.strftime('%d/%m/%y') if linha.DataEntregaPrevista else '-' }}</td>
+                                    <td>
+                                        {% if linha.StatusEntrega == 'Entregue' %}
+                                            <span class="badge bg-success">Entregue</span>
+                                        {% elif linha.StatusEntrega == 'Atrasado' %}
+                                            <span class="badge bg-danger">Atrasado</span>
+                                        {% else %}
+                                            <span class="badge bg-primary">No Prazo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if linha.NumeroNota == 'Pendente' %}
+                                            <span class="badge bg-danger bg-opacity-75">Pend.</span>
+                                        {% else %}
+                                            <span class="badge bg-success bg-opacity-75">{{ linha.NumeroNota }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><small class="text-secondary">{{ linha.CondicaoPagamento }}</small></td>
+                                    <td class="text-truncate" style="max-width: 200px;" title="{{ linha.DescricaoProduto }}">{{ linha.DescricaoProduto }}</td>
+                                    <td class="text-truncate" style="max-width: 150px;" title="{{ linha.NomeFornecedor }}">{{ linha.NomeFornecedor }}</td>
+                                    <td class="text-end fw-bold">R$ {{ "{:,.2f}".format(linha.ValorTotal) }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="9" class="text-center py-4 text-muted"><i class="fas fa-inbox fa-2x mb-2 d-block"></i>Nenhum dado encontrado.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: PROJEÇÃO DE PAGAMENTOS -->
+<div class="modal fade" id="modalPrevisaoPagamentos" tabindex="-1" aria-labelledby="modalPrevisaoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalPrevisaoLabel">
+                    <i class="fas fa-calendar-alt me-2"></i>Projeção de Pagamentos Futuros
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted text-center mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Estimativa baseada na Data de Entrega Prevista + Condição de Pagamento
+                    <span class="badge bg-primary ms-2">
+                        <i class="fas fa-mouse-pointer"></i> Clique nas barras para ver detalhes
+                    </span>
+                </p>
+                <div style="height: 400px; position: relative;">
+                    <canvas id="chartPrevisaoPagamentos"></canvas>
+                </div>
+                
+                <!-- Detalhamento de Pedidos por Mês -->
+                <div id="detalhesPedidosMes" style="display: none;" class="mt-4">
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-primary mb-0">
+                            <i class="fas fa-list-ul me-2"></i>
+                            Pedidos de <span id="mesSelecionado"></span>
+                        </h6>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="fecharDetalhes()">
+                            <i class="fas fa-times"></i> Fechar
+                        </button>
+                    </div>
+                    
+                    <!-- Tabela de Pedidos -->
+                    <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
+                        <table class="table table-sm table-hover table-striped" style="font-size: 0.85rem;">
+                            <thead class="table-dark" style="position: sticky; top: 0; z-index: 10;">
+                                <tr>
+                                    <th>Pedido</th>
+                                    <th>Fornecedor</th>
+                                    <th>Produto</th>
+                                    <th>Condição</th>
+                                    <th>Entrega</th>
+                                    <th>Vencimento</th>
+                                    <th class="text-end">Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaPedidosMes"></tbody>
+                        </table>
+                    </div>
+                    <div class="text-end mt-2">
+                        <strong>Total do Mês: <span id="totalMes" class="text-danger"></span></strong>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="text-muted me-auto small">
+                    <i class="fas fa-exclamation-triangle me-1 text-warning"></i>
+                    Projeção estimada - valores reais podem variar conforme entregas
+                </span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/js/bootstrap-select.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+
+<script>
+    // ========================================
+    // INICIALIZAÇÃO
+    // ========================================
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inicializa todos os tooltips do Bootstrap
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+
+        // Inicializa bootstrap-select
+        $('.selectpicker').selectpicker();
+
+        // Restaura estado do sidebar
+        if (localStorage.getItem('sidebarCollapsed') === 'true') {
+            document.getElementById('sidebar').classList.add('collapsed');
+            document.getElementById('content').classList.add('expanded');
+            document.getElementById('sidebarToggle').classList.add('collapsed');
+        }
+    });
+
+    // ========================================
+    // SIDEBAR TOGGLE
+    // ========================================
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const content = document.getElementById('content');
+        const toggleBtn = document.getElementById('sidebarToggle');
+        
+        sidebar.classList.toggle('collapsed');
+        content.classList.toggle('expanded');
+        toggleBtn.classList.toggle('collapsed');
+        
+        localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+    }
+
+    // ========================================
+    // CONFIGURAÇÕES DOS GRÁFICOS
+    // ========================================
+    Chart.register(ChartDataLabels);
+
+    const colors = {
+        blue: '#0d6efd',
+        cyan: '#0dcaf0',
+        palette: ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545', '#fd7e14', '#20c997', '#ffc107', '#0dcaf0', '#6c757d'],
+        greenPalette: ['#198754', '#20c997', '#0dcaf0', '#0d6efd', '#ffc107', '#fd7e14']
+    };
+
+    const formatBRL = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value);
+
+    const moneyTooltip = {
+        callbacks: {
+            label: function(context) {
+                let label = context.dataset.label || context.label || '';
+                if (label) { label += ': '; }
+                if (context.raw !== null) { label += formatBRL(context.raw); }
+                return label;
+            }
+        }
+    };
+
+    // ========================================
+    // FUNÇÕES DE FILTRO
+    // ========================================
+    function toggleFiltroFornecedor(texto) {
+        if (!texto) return;
+        const select = $('#fornecedores_select');
+        let optionExists = false;
+        select.find('option').each(function() {
+            if ($(this).val() === texto) { optionExists = true; return false; }
+        });
+        if (optionExists) {
+            let values = select.val() || [];
+            const index = values.indexOf(texto);
+            if (index > -1) { values.splice(index, 1); } else { values.push(texto); }
+            select.selectpicker('val', values);
+            document.getElementById('filterForm').submit();
+        }
+    }
+    
+    function limparFiltroFornecedores() {
+        $('#fornecedores_select').selectpicker('val', []);
+        document.getElementById('filterForm').submit();
+    }
+
+    function toggleFiltroTexto(texto) {
+        if (!texto) return;
+        const inputBusca = document.getElementById('busca_geral');
+        let termos = inputBusca.value.split(',').map(t => t.trim()).filter(t => t !== '');
+        const index = termos.indexOf(texto);
+        if (index > -1) { termos.splice(index, 1); } else { termos.push(texto); }
+        inputBusca.value = termos.join(', ');
+        document.getElementById('filterForm').submit();
+    }
+
+    function limparFiltroTexto() {
+        document.getElementById('busca_geral').value = '';
+        document.getElementById('filterForm').submit();
+    }
+
+    // ========================================
+    // GRÁFICO FORNECEDORES
+    // ========================================
+    new Chart(document.getElementById('chartFornecedores'), {
+        type: 'bar',
+        data: {
+            labels: {{ dados.graf_forn_labels | tojson }},
+            datasets: [{ label: 'Total', data: {{ dados.graf_forn_values | tojson }}, backgroundColor: colors.blue, borderRadius: 6, clip: false }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { right: 80, left: 10 } },
+            onClick: (e, elements, chart) => {
+                if (elements.length > 0) { toggleFiltroFornecedor(chart.data.labels[elements[0].index]); }
+                else {
+                    const canvasPosition = Chart.helpers.getRelativePosition(e, chart);
+                    const dataY = chart.scales.y.getValueForPixel(canvasPosition.y);
+                    const index = Math.round(dataY);
+                    if (index >= 0 && index < chart.data.labels.length) { toggleFiltroFornecedor(chart.data.labels[index]); }
+                }
+            },
+            onHover: (event, chartElement) => { event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default'; },
+            plugins: { 
+                legend: { display: false },
+                tooltip: moneyTooltip,
+                datalabels: { color: 'white', anchor: 'center', align: 'center', font: { weight: 'bold', size: 10 }, formatter: v => formatBRL(v) }
+            },
+            scales: { 
+                x: { display: false }, 
+                y: { grid: { display: false }, ticks: { font: { size: 10 }, autoSkip: false, callback: function(value) { const label = this.getLabelForValue(value); return label.length > 25 ? label.substring(0, 25) + '...' : label; } } }
+            }
+        }
+    });
+
+    // ========================================
+    // GRÁFICO PAGAMENTOS
+    // ========================================
+    new Chart(document.getElementById('chartPagamentos'), {
+        type: 'pie',
+        data: {
+            labels: {{ dados.graf_cond_labels | tojson }},
+            datasets: [{ data: {{ dados.graf_cond_values | tojson }}, backgroundColor: colors.greenPalette, borderWidth: 2, borderColor: '#fff' }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (e, elements, chart) => { if (elements.length > 0) { toggleFiltroTexto(chart.data.labels[elements[0].index]); } },
+            onHover: (event, chartElement) => { event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default'; },
+            plugins: { 
+                legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } },
+                tooltip: moneyTooltip,
+                datalabels: { color: '#fff', font: { weight: 'bold', size: 11 }, formatter: (value, ctx) => { let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0); return (value * 100 / sum).toFixed(1) + "%"; } }
+            }
+        }
+    });
+
+    // ========================================
+    // GRÁFICO MENSAL
+    // ========================================
+    const valoresMensais = {{ dados.graf_mes_values | tojson }};
+    const mediaMensal = valoresMensais.length > 0 ? valoresMensais.reduce((a, b) => a + b, 0) / valoresMensais.length : 0;
+    
+    new Chart(document.getElementById('chartMes'), {
+        type: 'line',
+        data: {
+            labels: {{ dados.graf_mes_labels | tojson }},
+            datasets: [
+                { label: 'Compras', data: valoresMensais, borderColor: colors.cyan, backgroundColor: 'rgba(13, 202, 240, 0.1)', fill: true, tension: 0.4, pointRadius: 4, clip: false, order: 1 },
+                { label: 'Média', data: new Array(valoresMensais.length).fill(mediaMensal), borderColor: '#dc3545', borderWidth: 2, borderDash: [10, 5], pointRadius: 0, fill: false, tension: 0, order: 2 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { top: 25, right: 15, left: 15 } },
+            plugins: { 
+                legend: { display: true, position: 'top', labels: { boxWidth: 15, font: { size: 10 }, usePointStyle: true } },
+                tooltip: moneyTooltip,
+                datalabels: { color: '#444', align: 'top', anchor: 'end', offset: 4, font: { weight: 'bold', size: 9 }, formatter: (value, ctx) => { if (ctx.datasetIndex === 1) return ''; if(value > 1000000) return (value/1000000).toFixed(1) + 'M'; if(value > 1000) return (value/1000).toFixed(0) + 'k'; return value; } }
+            },
+            scales: { x: { grid: { display: false } }, y: { display: false } }
+        }
+    });
+
+    // ========================================
+    // MODAL E GRÁFICO DE PREVISÃO DE PAGAMENTOS
+    // ========================================
+    const previsaoLabels = {{ dados.previsao_labels | tojson }};
+    const previsaoValues = {{ dados.previsao_values | tojson }};
+    let chartPrevisao = null;
+
+    function abrirModalPrevisao() {
+        const modal = new bootstrap.Modal(document.getElementById('modalPrevisaoPagamentos'));
+        modal.show();
+        
+        // Aguarda o modal abrir antes de renderizar o gráfico
+        document.getElementById('modalPrevisaoPagamentos').addEventListener('shown.bs.modal', function() {
+            renderizarGraficoPrevisao();
+        }, { once: true });
+    }
+
+    function renderizarGraficoPrevisao() {
+        const ctx = document.getElementById('chartPrevisaoPagamentos').getContext('2d');
+        
+        // Destrói o gráfico anterior se existir
+        if (chartPrevisao) {
+            chartPrevisao.destroy();
+        }
+
+        // Verifica se há dados
+        if (previsaoLabels.length === 0) {
+            ctx.font = '16px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#6c757d';
+            ctx.fillText('Nenhum pagamento pendente para projetar', ctx.canvas.width / 2, ctx.canvas.height / 2);
+            return;
+        }
+
+        // Calcula a média para linha de referência
+        const mediaPrevisao = previsaoValues.reduce((a, b) => a + b, 0) / previsaoValues.length;
+
+        chartPrevisao = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: previsaoLabels,
+                datasets: [
+                    {
+                        label: 'Valor Previsto',
+                        data: previsaoValues,
+                        backgroundColor: 'rgba(220, 53, 69, 0.7)',
+                        borderColor: '#dc3545',
+                        borderWidth: 2,
+                        borderRadius: 6,
+                        order: 2
+                    },
+                    {
+                        label: 'Média Mensal',
+                        data: new Array(previsaoValues.length).fill(mediaPrevisao),
+                        type: 'line',
+                        borderColor: '#0d6efd',
+                        borderWidth: 2,
+                        borderDash: [8, 4],
+                        pointRadius: 0,
+                        fill: false,
+                        order: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { 
+                    padding: { top: 30, right: 20, left: 10, bottom: 10 } 
+                },
+                onClick: (e, elements, chart) => {
+                    // Clique nas barras
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const mesClicado = previsaoLabels[index];
+                        carregarDetalhesMes(mesClicado);
+                        return;
+                    }
+                    
+                    // Clique nos labels do eixo X
+                    const canvasPosition = Chart.helpers.getRelativePosition(e, chart);
+                    const dataX = chart.scales.x.getValueForPixel(canvasPosition.x);
+                    
+                    if (dataX !== undefined && dataX >= 0 && dataX < previsaoLabels.length) {
+                        const index = Math.round(dataX);
+                        const mesClicado = previsaoLabels[index];
+                        carregarDetalhesMes(mesClicado);
+                    }
+                },
+                onHover: (event, chartElement, chart) => { 
+                    // Verifica se está sobre uma barra
+                    if (chartElement[0]) {
+                        event.native.target.style.cursor = 'pointer';
+                        return;
+                    }
+                    
+                    // Verifica se está sobre os labels do eixo X
+                    const canvasPosition = Chart.helpers.getRelativePosition(event, chart);
+                    const dataX = chart.scales.x.getValueForPixel(canvasPosition.x);
+                    
+                    if (dataX !== undefined && dataX >= 0 && dataX < previsaoLabels.length) {
+                        // Verifica se está na área dos labels (parte inferior do gráfico)
+                        const yScale = chart.scales.y;
+                        if (canvasPosition.y > yScale.bottom) {
+                            event.native.target.style.cursor = 'pointer';
+                            return;
+                        }
+                    }
+                    
+                    event.native.target.style.cursor = 'default';
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { 
+                            boxWidth: 15, 
+                            font: { size: 11 },
+                            usePointStyle: true 
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) { label += ': '; }
+                                if (context.raw !== null) { 
+                                    label += formatBRL(context.raw); 
+                                }
+                                return label;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        color: '#1a1a2e',
+                        anchor: 'end',
+                        align: 'top',
+                        offset: 4,
+                        font: { weight: 'bold', size: 10 },
+                        formatter: (value, ctx) => {
+                            if (ctx.datasetIndex === 1) return ''; // Não mostra label na linha de média
+                            if (value > 1000000) return 'R$ ' + (value/1000000).toFixed(1) + 'M';
+                            if (value > 1000) return 'R$ ' + (value/1000).toFixed(0) + 'k';
+                            return formatBRL(value);
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { 
+                            font: { size: 10, weight: '600' },
+                            color: '#495057',
+                            maxRotation: 45,
+                            minRotation: 0,
+                            autoSkip: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { 
+                            color: 'rgba(0,0,0,0.05)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                if (value >= 1000000) return 'R$ ' + (value/1000000).toFixed(1) + 'M';
+                                if (value >= 1000) return 'R$ ' + (value/1000).toFixed(0) + 'k';
+                                return 'R$ ' + value;
+                            },
+                            font: { size: 10 },
+                            color: '#6c757d'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // ========================================
+    // CARREGAR DETALHES DOS PEDIDOS POR MÊS
+    // ========================================
+    function carregarDetalhesMes(mesAno) {
+        console.log('Buscando detalhes para:', mesAno);
+        const url = `/api/detalhes_previsao/${encodeURIComponent(mesAno)}`;
+        console.log('URL:', url);
+        
+        fetch(url)
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Dados recebidos:', data);
+                if (data.success) {
+                    exibirDetalhesMes(data);
+                } else {
+                    alert(data.message || 'Erro ao carregar detalhes');
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao buscar detalhes:', error);
+                alert('Erro ao buscar detalhes do mês: ' + error.message);
+            });
+    }
+
+    function exibirDetalhesMes(data) {
+        // Exibe a seção de detalhes
+        document.getElementById('detalhesPedidosMes').style.display = 'block';
+        document.getElementById('mesSelecionado').textContent = data.mes;
+        document.getElementById('totalMes').textContent = formatBRL(data.total);
+        
+        // Preenche tabela de pedidos
+        const tbody = document.getElementById('tabelaPedidosMes');
+        if (data.pedidos && data.pedidos.length > 0) {
+            let htmlTabela = '';
+            data.pedidos.forEach(p => {
+                const produtoTruncado = p.DescricaoProduto.length > 50 
+                    ? p.DescricaoProduto.substring(0, 50) + '...' 
+                    : p.DescricaoProduto;
+                
+                htmlTabela += `
+                    <tr>
+                        <td><strong class="text-primary">${p.NumeroPedido}</strong></td>
+                        <td>
+                            <strong style="font-size: 0.9rem;">${p.NomeFornecedor}</strong>
+                            <br><span class="badge bg-secondary" style="font-size: 0.65rem;">${p.CodFornecedor}</span>
+                        </td>
+                        <td><small title="${p.DescricaoProduto}">${produtoTruncado}</small></td>
+                        <td><small>${p.CondicaoPagamento}</small></td>
+                        <td><small class="text-muted">${p.DataEntregaPrevista}</small></td>
+                        <td><small><strong class="text-danger">${p.DataVencimento}</strong></small></td>
+                        <td class="text-end">
+                            <strong class="text-success">${formatBRL(p.ValorParcela)}</strong>
+                            ${p.Fator !== '100%' ? '<br><small class="text-muted">' + p.Fator + '</small>' : ''}
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = htmlTabela;
+        } else {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Nenhum pedido encontrado</td></tr>';
+        }
+        
+        // Scroll suave até os detalhes
+        document.getElementById('detalhesPedidosMes').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function fecharDetalhes() {
+        document.getElementById('detalhesPedidosMes').style.display = 'none';
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTD - Protheus</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .kpi-card { border: none; border-radius: 8px; transition: transform 0.2s; cursor: pointer; }
+        .kpi-card:hover { transform: translateY(-3px); }
+        .filter-bar { background-color: #fff; padding: 15px; border-bottom: 1px solid #dee2e6; margin-bottom: 20px; }
+        .nav-link.active { font-weight: bold; border-bottom: 2px solid white; }
+        .linha-entregue { color: #6c757d; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="#"><i class="bi bi-graph-up"></i> Analytics Protheus</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item"><a class="nav-link" href="/dashboard">Financeiro</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="/otd">Entregas / OTD</a></li>
+                </ul>
+                <span class="navbar-text text-white me-3">Olá, {{ user }}</span>
+                <a href="/logout" class="btn btn-sm btn-outline-light">Sair</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="filter-bar shadow-sm">
+        <form action="/otd" method="GET" class="row g-2 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-secondary">Data Início</label>
+                <input type="date" name="data_inicio" class="form-control form-control-sm" value="{{ filtros.data_inicio }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-secondary">Data Fim</label>
+                <input type="date" name="data_fim" class="form-control form-control-sm" value="{{ filtros.data_fim }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-secondary">Comprador</label>
+                <select name="comprador" class="form-select form-select-sm">
+                    <option value="Todos">Todos</option>
+                    <option value="Aline Chen" {% if filtros.comprador == 'Aline Chen' %}selected{% endif %}>Aline Chen</option>
+                    <option value="Hélio Doce" {% if filtros.comprador == 'Hélio Doce' %}selected{% endif %}>Hélio Doce</option>
+                    <option value="Diego Moya" {% if filtros.comprador == 'Diego Moya' %}selected{% endif %}>Diego Moya</option>
+                    <option value="Daniel Amaral" {% if filtros.comprador == 'Daniel Amaral' %}selected{% endif %}>Daniel Amaral</option>
+                    <option value="Outros" {% if filtros.comprador == 'Outros' %}selected{% endif %}>Outros</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-secondary">Fornecedor</label>
+                <input type="text" name="fornecedor" class="form-control form-control-sm" placeholder="Nome ou Código..." value="{{ filtros.fornecedor or '' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-secondary">Produto</label>
+                <input type="text" name="produto" class="form-control form-control-sm" placeholder="Nome ou Código..." value="{{ filtros.produto or '' }}">
+            </div>
+            <div class="col-md-2 d-grid">
+                <button type="submit" class="btn btn-primary btn-sm fw-bold"><i class="bi bi-filter"></i> Filtrar</button>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-secondary">Ignorar Fornecedores</label>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100 text-start text-truncate" type="button" id="dropdownExclusao" data-bs-toggle="dropdown" aria-expanded="false">Selecione...</button>
+                    <ul class="dropdown-menu p-2 shadow" aria-labelledby="dropdownExclusao" style="max-height: 300px; overflow-y: auto; width: 300px;">
+                        <li><h6 class="dropdown-header">Marque para excluir</h6></li><li><hr class="dropdown-divider"></li>
+                        <li class="px-2 mb-2"><input type="text" class="form-control form-control-sm" placeholder="Buscar..." onkeyup="filtrarDropdown(this)"></li>
+                        {% for forn in fornecedores %}
+                            {% set is_checked = false %}
+                            {% if filtros.excluir_fornecedor_cod %}
+                                {% set excluidos = filtros.excluir_fornecedor_cod %}
+                                {% if isinstance(excluidos, list) %}
+                                    {% if forn.A2_COD in excluidos %} {% set is_checked = true %} {% endif %}
+                                {% else %}
+                                    {% if forn.A2_COD == excluidos %} {% set is_checked = true %} {% endif %}
+                                {% endif %}
+                            {% endif %}
+                            <li class="form-check item-fornecedor">
+                                <input class="form-check-input" type="checkbox" name="excluir_fornecedor_cod" value="{{ forn.A2_COD }}" id="chk_{{ forn.A2_COD }}" {% if is_checked %}checked{% endif %}>
+                                <label class="form-check-label small text-truncate w-100" for="chk_{{ forn.A2_COD }}" title="{{ forn.A2_NOME }}">{{ forn.A2_NOME }} <span class="text-muted">({{ forn.A2_COD }})</span></label>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="container-fluid px-4">
+        {% if dados and dados.erro %}
+            <div class="alert alert-danger shadow-sm mt-3">
+                <h4><i class="bi bi-wifi-off"></i> Erro de Conexão</h4>
+                <p>Não foi possível conectar ao banco do Protheus. Verifique se a VPN está ligada.</p>
+                <small class="text-muted">Detalhe: {{ dados.erro }}</small>
+            </div>
+        {% elif dados and dados.vazio %}
+            <div class="alert alert-warning shadow-sm mt-3">Nenhum dado encontrado para o período selecionado.</div>
+        {% elif dados %}
+            <div class="row mb-4 mt-3">
+                <div class="col-md-4"><div class="card kpi-card shadow-sm p-3 border-start border-warning border-5" onclick="filtrarTabela('Todos')"><span class="text-muted small">ÍNDICE OTD</span><h3 class="text-warning fw-bold">{{ dados.kpi_otd }}</h3></div></div>
+                <div class="col-md-4"><div class="card kpi-card shadow-sm p-3 border-start border-danger border-5" onclick="filtrarTabela('Atrasado')"><span class="text-muted small">PEDIDOS ATRASADOS</span><h3 class="text-danger fw-bold">{{ dados.qtd_atrasados }}</h3></div></div>
+                <div class="col-md-4"><div class="card kpi-card shadow-sm p-3 border-start border-secondary border-5" onclick="filtrarTabela('Todos')"><span class="text-muted small">TOTAL MONITORADO</span><h3 class="text-secondary fw-bold">{{ dados.kpi_qtd }}</h3></div></div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-4"><div class="card shadow-sm h-100"><div class="card-header bg-white">Status Geral (Clique)</div><div class="card-body"><canvas id="chartStatus"></canvas></div></div></div>
+                <div class="col-md-8"><div class="card shadow-sm h-100"><div class="card-header bg-white text-danger fw-bold">Piores Fornecedores (Atrasos)</div><div class="card-body"><canvas id="chartPiores"></canvas></div></div></div>
+            </div>
+
+            <div class="card shadow-sm border-secondary" id="card-tabela">
+                <div class="card-header bg-secondary text-white d-flex justify-content-between" id="header-tabela"><span id="titulo-tabela">Histórico de Itens</span><button class="btn btn-sm btn-light" onclick="filtrarTabela('Todos')">Limpar Filtro</button></div>
+                <div class="card-body table-responsive p-0" style="max-height: 500px;"> 
+                    <table class="table table-hover mb-0 small table-striped">
+                        <thead class="table-light sticky-top"><tr><th>Prev. Entrega</th><th>Status</th><th>Pedido</th><th>Fornecedor</th><th>Produto</th><th class="text-center">Qtd</th><th class="text-end">Preço Unit.</th><th class="text-end">Valor</th></tr></thead>
+                        <tbody>
+                            {% for row in dados.tabela %}
+                                <tr class="{% if row.StatusEntrega == 'Atrasado' %}linha-atrasado{% elif row.StatusEntrega == 'Entregue' %}linha-entregue{% else %}linha-no-prazo{% endif %}">
+                                    <td class="fw-bold {% if row.StatusEntrega == 'Atrasado' %}text-danger{% elif row.StatusEntrega == 'Entregue' %}text-muted{% else %}text-success{% endif %}">{{ row.DataEntregaPrevista.strftime('%d/%m/%Y') }}</td>
+                                    <td>{% if row.StatusEntrega == 'Atrasado' %}<span class="badge bg-danger">Atrasado</span>{% elif row.StatusEntrega == 'Entregue' %}<span class="badge bg-secondary">Entregue</span>{% else %}<span class="badge bg-success">No Prazo</span>{% endif %}</td>
+                                    <td>{{ row.NumeroPedido }}</td>
+                                    <td><span class="badge bg-light text-dark border">{{ row.CodFornecedor }}</span> {{ row.NomeFornecedor }}</td>
+                                    <td><span class="badge bg-light text-dark border">{{ row.CodProduto }}</span><br>{{ row.DescricaoProduto }}</td>
+                                    <td class="text-center">{{ "%.0f"|format(row.QtdPedida) }}</td>
+                                    <td class="text-end">R$ {{ "%.2f"|format(row.PrecoUnitario) }}</td>
+                                    <td class="text-end">R$ {{ "%.2f"|format(row.ValorTotal) }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function filtrarDropdown(input) {
+            var filter = input.value.toUpperCase();
+            var items = document.getElementsByClassName("item-fornecedor");
+            for (var i = 0; i < items.length; i++) {
+                var label = items[i].getElementsByTagName("label")[0];
+                var txtValue = label.textContent || label.innerText;
+                if (txtValue.toUpperCase().indexOf(filter) > -1) items[i].style.display = ""; else items[i].style.display = "none";
+            }
+        }
+        document.addEventListener("DOMContentLoaded", function() {
+            const checkboxes = document.querySelectorAll('input[name="excluir_fornecedor_cod"]');
+            const btn = document.getElementById('dropdownExclusao');
+            function updateBtnText() {
+                const count = document.querySelectorAll('input[name="excluir_fornecedor_cod"]:checked').length;
+                if (count > 0) btn.innerText = count + " Excluído(s)"; else btn.innerText = "Nenhum Excluído";
+            }
+            checkboxes.forEach(chk => chk.addEventListener('change', updateBtnText));
+            updateBtnText();
+        });
+
+        function filtrarTabela(tipo) {
+            const linhasAtrasado = document.querySelectorAll('.linha-atrasado');
+            const linhasNoPrazo = document.querySelectorAll('.linha-no-prazo');
+            const linhasEntregue = document.querySelectorAll('.linha-entregue');
+            const header = document.getElementById('header-tabela');
+            const titulo = document.getElementById('titulo-tabela');
+            const card = document.getElementById('card-tabela');
+            [...linhasAtrasado, ...linhasNoPrazo, ...linhasEntregue].forEach(r => r.style.display = 'none');
+            if (tipo === 'Atrasado') {
+                linhasAtrasado.forEach(r => r.style.display = '');
+                header.className = 'card-header bg-danger text-white d-flex justify-content-between';
+                card.className = 'card shadow-sm border-danger';
+                titulo.innerText = 'Itens Críticos (Atrasados)';
+            } else if (tipo === 'No Prazo') {
+                linhasNoPrazo.forEach(r => r.style.display = '');
+                header.className = 'card-header bg-success text-white d-flex justify-content-between';
+                card.className = 'card shadow-sm border-success';
+                titulo.innerText = 'Itens em Aberto (No Prazo)';
+            } else if (tipo === 'Entregue') {
+                linhasEntregue.forEach(r => r.style.display = '');
+                header.className = 'card-header bg-secondary text-white d-flex justify-content-between';
+                card.className = 'card shadow-sm border-secondary';
+                titulo.innerText = 'Itens Já Entregues';
+            } else {
+                [...linhasAtrasado, ...linhasNoPrazo, ...linhasEntregue].forEach(r => r.style.display = '');
+                header.className = 'card-header bg-secondary text-white d-flex justify-content-between';
+                card.className = 'card shadow-sm border-secondary';
+                titulo.innerText = 'Histórico Completo';
+            }
+            document.getElementById('card-tabela').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // --- CORREÇÃO DO ERRO ---
+        {% if dados and dados.tabela %}
+        const chartStatus = new Chart(document.getElementById('chartStatus'), {
+            type: 'doughnut',
+            data: {
+                labels: {{ dados.graf_otd_labels | tojson }},
+                datasets: [{ data: {{ dados.graf_otd_values | tojson }}, backgroundColor: ['#6c757d', '#198754', '#dc3545'] }]
+            },
+            options: { 
+                responsive: true, maintainAspectRatio: false, 
+                plugins: { legend: { position: 'bottom' } },
+                onClick: (e, activeElements) => {
+                    if (activeElements.length > 0) filtrarTabela(chartStatus.data.labels[activeElements[0].index]);
+                    else filtrarTabela('Todos');
+                }
+            }
+        });
+
+        new Chart(document.getElementById('chartPiores'), {
+            type: 'bar',
+            data: {
+                labels: {{ dados.graf_piores_labels | tojson }},
+                datasets: [{ label: 'Valor (R$)', data: {{ dados.graf_piores_values | tojson }}, backgroundColor: '#dc3545' }]
+            }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+        });
+        {% endif %}
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

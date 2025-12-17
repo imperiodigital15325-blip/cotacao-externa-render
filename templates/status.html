@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Follow-up de Entregas</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/css/bootstrap-select.min.css">
+    
+    <style>
+        /* ========================================
+           VARIÁVEIS CSS - DESIGN SYSTEM
+        ======================================== */
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --sidebar-bg: #212529;
+            --primary-blue: #0d6efd;
+            --secondary-gray: #6c757d;
+            --text-primary: #1a1a2e;
+            --text-secondary: #6c757d;
+            --border-color: #e9ecef;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --transition: all 0.25s ease;
+        }
+
+        /* ========================================
+           RESET & BASE
+        ======================================== */
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            overflow-x: hidden;
+            line-height: 1.5;
+        }
+
+        /* ========================================
+           LAYOUT COM SIDEBAR
+        ======================================== */
+        .wrapper { display: flex; width: 100%; align-items: stretch; }
+        
+        .sidebar {
+            min-width: 250px;
+            max-width: 250px;
+            background: linear-gradient(180deg, #1a1d21 0%, #212529 100%);
+            color: #fff;
+            min-height: 100vh;
+            transition: var(--transition);
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .sidebar.collapsed { margin-left: -250px; }
+        
+        .sidebar .sidebar-header {
+            padding: 24px 20px;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .sidebar .sidebar-header h4 { font-weight: 700; letter-spacing: -0.5px; }
+        .sidebar ul.components { padding: 16px 0; }
+        .sidebar ul li { padding: 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        
+        .sidebar ul li a {
+            color: rgba(255,255,255,0.7);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            transition: var(--transition);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .sidebar ul li a i { width: 20px; margin-right: 12px; text-align: center; }
+        .sidebar ul li a:hover { color: #fff; background: rgba(255,255,255,0.08); padding-left: 24px; }
+        .sidebar ul li.active > a { color: #fff; background: var(--primary-blue); border-left: 4px solid #fff; }
+
+        /* ========================================
+           CONTEÚDO PRINCIPAL
+        ======================================== */
+        .content {
+            width: 100%;
+            padding: 24px 28px;
+            margin-left: 250px;
+            transition: margin-left 0.3s;
+            min-height: 100vh;
+        }
+        
+        .content.expanded { margin-left: 0; }
+
+        /* ========================================
+           BOTÃO TOGGLE SIDEBAR
+        ======================================== */
+        .sidebar-toggle {
+            position: fixed;
+            top: 18px;
+            left: 262px;
+            z-index: 1001;
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 38px;
+            height: 38px;
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .sidebar-toggle:hover { background: #0b5ed7; transform: scale(1.08); }
+        .sidebar-toggle.collapsed { left: 12px; }
+
+        /* ========================================
+           HEADER DA PÁGINA
+        ======================================== */
+        .page-header { margin-bottom: 24px; }
+        .page-header h4 { font-weight: 700; font-size: 1.5rem; color: var(--text-primary); margin-bottom: 4px; }
+        .page-header small { color: var(--text-secondary); font-size: 0.85rem; }
+
+        /* ========================================
+           CARD PADRÃO (Design System)
+        ======================================== */
+        .card-modern {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: var(--transition);
+        }
+
+        .card-modern:hover { box-shadow: var(--shadow-md); }
+
+        .card-modern .card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-modern .card-title i { font-size: 1rem; }
+
+        /* ========================================
+           FILTROS
+        ======================================== */
+        .filter-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            margin-bottom: 24px;
+        }
+
+        .form-label-sm {
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .bootstrap-select > .dropdown-toggle {
+            border: 1px solid var(--border-color) !important;
+            background-color: #fff !important;
+            height: calc(1.5em + 0.5rem + 2px) !important;
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.875rem !important;
+            border-radius: var(--radius-sm) !important;
+        }
+        
+        .bootstrap-select > .dropdown-toggle:focus {
+            border-color: var(--primary-blue) !important;
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15) !important;
+        }
+
+        .form-control, .form-select { border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.875rem; }
+        .form-control:focus, .form-select:focus { border-color: var(--primary-blue); box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15); }
+
+        /* ========================================
+           KPIs
+        ======================================== */
+        .kpi-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 24px 20px;
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            height: 100%;
+            border-left: 4px solid transparent;
+            transition: var(--transition);
+            position: relative;
+            cursor: help;
+        }
+
+        .kpi-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+        .kpi-card.border-blue { border-left-color: var(--primary-blue); }
+        .kpi-card.border-red { border-left-color: #dc3545; }
+        .kpi-card.border-green { border-left-color: #198754; }
+
+        .kpi-value { font-size: 2rem; font-weight: 800; color: var(--text-primary); margin-bottom: 6px; letter-spacing: -1px; }
+        .kpi-label { font-size: 0.7rem; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.8px; font-weight: 600; }
+        .kpi-subtitle { font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px; }
+
+        /* ========================================
+           GRÁFICOS
+        ======================================== */
+        .chart-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            height: 100%;
+            min-height: 380px;
+            position: relative;
+        }
+        
+        .chart-header {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .chart-canvas-container { position: relative; height: 300px; width: 100%; }
+
+        /* ========================================
+           TABELAS MODERNAS
+        ======================================== */
+        .table-container { max-height: 500px; overflow-y: auto; border-radius: var(--radius-sm); }
+        .table-container::-webkit-scrollbar { width: 6px; }
+        .table-container::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
+        .table-container::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+        .table-container::-webkit-scrollbar-thumb:hover { background: #a1a1a1; }
+
+        .table-modern { margin-bottom: 0; font-size: 0.8rem; }
+
+        .table-modern thead th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            padding: 12px 10px;
+            border-bottom: 2px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            cursor: help;
+        }
+
+        .table-modern thead th[data-bs-toggle="tooltip"] { border-bottom: 2px dashed #6c757d; }
+        .table-modern tbody td { padding: 10px; vertical-align: middle; border-bottom: 1px solid #f0f0f0; }
+        .table-modern tbody tr:hover { background-color: rgba(13, 110, 253, 0.04); }
+        .table-modern tbody tr.clickable-row { cursor: pointer; transition: var(--transition); }
+        .table-modern tbody tr.clickable-row:hover { background-color: rgba(13, 110, 253, 0.08) !important; transform: scale(1.005); box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15); }
+
+        /* ========================================
+           BADGES
+        ======================================== */
+        .badge { font-weight: 600; padding: 5px 10px; border-radius: 20px; font-size: 0.7rem; }
+
+        /* ========================================
+           TOOLTIPS PERSONALIZADOS
+        ======================================== */
+        .tooltip-inner { background: #1a1a2e; font-size: 0.75rem; padding: 8px 12px; border-radius: var(--radius-sm); max-width: 280px; }
+        .tooltip.bs-tooltip-top .tooltip-arrow::before { border-top-color: #1a1a2e; }
+        .tooltip.bs-tooltip-bottom .tooltip-arrow::before { border-bottom-color: #1a1a2e; }
+
+        .sql-origin { display: inline-flex; align-items: center; gap: 4px; }
+        .sql-origin i { font-size: 0.65rem; opacity: 0.6; }
+
+        /* ========================================
+           RESPONSIVIDADE
+        ======================================== */
+        @media (max-width: 992px) {
+            .sidebar { margin-left: -250px; }
+            .sidebar.show { margin-left: 0; }
+            .content { margin-left: 0; padding: 16px; }
+            .sidebar-toggle { left: 12px; }
+            .kpi-card { margin-bottom: 12px; }
+        }
+
+        @media (max-width: 768px) {
+            .page-header h4 { font-size: 1.25rem; }
+            .kpi-value { font-size: 1.5rem; }
+            .chart-card { min-height: 320px; }
+        }
+
+        /* ========================================
+           ANIMAÇÕES
+        ======================================== */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+    </style>
+</head>
+<body>
+
+<!-- Botão de Toggle da Sidebar -->
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+    <i class="fas fa-bars"></i>
+</button>
+
+<div class="wrapper">
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h4 class="mb-0"><i class="fas fa-cubes me-2"></i>Polimaquinas</h4>
+            <small class="text-muted" style="font-size: 0.75rem;">Portal de Compras</small>
+        </div>
+        <ul class="list-unstyled components">
+            <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-chart-line"></i> Dashboard Financeiro</a></li>
+            <li class="active"><a href="{{ url_for('status_pedidos') }}"><i class="fas fa-tasks"></i> Status de Pedidos</a></li>
+            <li><a href="{{ url_for('performance') }}"><i class="fas fa-tachometer-alt"></i> Performance</a></li>
+            <li><a href="{{ url_for('variacao_preco') }}"><i class="fas fa-balance-scale"></i> Variação de Preço</a></li>
+        </ul>
+    </nav>
+
+    <div class="content" id="content">
+        <!-- HEADER -->
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div>
+                <h4><i class="fas fa-clipboard-list me-2 text-primary"></i>Follow-up de Entregas</h4>
+                <small>Acompanhamento de prazos e pendências</small>
+            </div>
+            <div>
+                <span class="badge bg-light text-dark border px-3 py-2">
+                    <i class="fas fa-user-circle me-1"></i> Admin
+                </span>
+            </div>
+        </div>
+
+        <!-- FILTROS -->
+        <div class="filter-card fade-in">
+            <form id="filterForm" action="{{ url_for('status_pedidos') }}" method="POST">
+                <input type="hidden" name="status_grafico" id="status_grafico" value="{{ filtros.status_grafico }}">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label-sm">Data Início</label>
+                        <input type="date" class="form-control form-control-sm" name="data_inicio" value="{{ filtros.data_inicio }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label-sm">Data Fim</label>
+                        <input type="date" class="form-control form-control-sm" name="data_fim" value="{{ filtros.data_fim }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label-sm">Fornecedores</label>
+                        <select class="selectpicker form-control" name="fornecedores" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 2" title="Selecione..." id="fornecedores_select">
+                            {% for f in dados.opcoes_fornecedores %}
+                            <option value="{{ f }}" {% if f in filtros.fornecedores %}selected{% endif %}>{{ f }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label-sm">Busca Geral</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" name="busca_geral" id="busca_geral" placeholder="Pedido, Produto..." value="{{ filtros.busca_geral }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label-sm">Comprador</label>
+                        <select class="form-select form-select-sm" name="comprador" id="comprador_select">
+                            <option value="Todos">Todos</option>
+                            {% for c in dados.opcoes_compradores %}
+                            <option value="{{ c }}" {% if filtros.comprador == c %}selected{% endif %}>{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <div class="d-flex gap-1">
+                            <button type="submit" class="btn btn-primary btn-sm flex-grow-1" title="Filtrar"><i class="fas fa-filter"></i></button>
+                            <a href="{{ url_for('limpar_filtros') }}" class="btn btn-outline-secondary btn-sm" title="Limpar"><i class="fas fa-eraser"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- KPIs -->
+        <div class="row g-3 mb-4 fade-in">
+            <div class="col-md-4">
+                <div class="kpi-card border-blue" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Origem: {{ sql_meta.pedidos_aberto if sql_meta else 'N/A' }}">
+                    <div class="kpi-value text-primary">{{ dados.kpi_aberto }}</div>
+                    <div class="kpi-label">Pedidos em Aberto</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="kpi-card border-red" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Origem: {{ sql_meta.itens_atrasados if sql_meta else 'N/A' }}">
+                    <div class="kpi-value text-danger">{{ dados.kpi_atrasado }}</div>
+                    <div class="kpi-label">Itens Atrasados</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="kpi-card border-green" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Origem: {{ sql_meta.eficiencia_prazo if sql_meta else 'N/A' }}">
+                    {% set percent = 0 %}
+                    {% if dados.kpi_aberto > 0 %}
+                        {% set percent = ((dados.kpi_aberto - dados.kpi_atrasado) / dados.kpi_aberto * 100) | round(1) %}
+                    {% endif %}
+                    <div class="kpi-value text-success">{{ percent }}%</div>
+                    <div class="kpi-label">Eficiência de Prazo</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GRÁFICOS -->
+        <div class="row g-4 mb-4 fade-in">
+            <div class="col-lg-5">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <i class="fas fa-chart-pie me-2 text-danger"></i>Status Geral
+                        {% if filtros.status_grafico %}
+                        <button onclick="limparFiltroStatus()" class="btn btn-sm btn-danger ms-2" title="Limpar Filtro Status"><i class="fas fa-times"></i></button>
+                        {% endif %}
+                    </div>
+                    <div class="chart-canvas-container"><canvas id="chartStatus"></canvas></div>
+                </div>
+            </div>
+            <div class="col-lg-7">
+                <div class="chart-card">
+                    <div class="chart-header"><i class="fas fa-users me-2 text-primary"></i>Pendências por Comprador</div>
+                    <div class="chart-canvas-container"><canvas id="chartCompradores"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABELA DE PENDÊNCIAS -->
+        <div class="row fade-in">
+            <div class="col-12">
+                <div class="card-modern">
+                    <div class="card-title text-primary">
+                        <i class="fas fa-list-alt"></i>Lista de Pendências
+                        <small class="text-muted fw-normal ms-auto" style="font-size: 0.7rem;"><i class="fas fa-hand-pointer"></i> clique na linha para ver detalhes</small>
+                    </div>
+                    <div class="table-container">
+                        <table class="table table-modern table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.num_pedido if sql_meta else 'N/A' }}"><span class="sql-origin">Pedido <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_emissao if sql_meta else 'N/A' }}"><span class="sql-origin">Emissão <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_entrega_prevista if sql_meta else 'N/A' }}"><span class="sql-origin">Entrega Prev. <i class="fas fa-database"></i></span></th>
+                                    <th class="text-center" data-bs-toggle="tooltip" title="📊 {{ sql_meta.dias_atraso if sql_meta else 'N/A' }}"><span class="sql-origin">Dias Atraso <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.status_detalhado if sql_meta else 'N/A' }}"><span class="sql-origin">Status <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Fornecedor <i class="fas fa-database"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_comprador if sql_meta else 'N/A' }}"><span class="sql-origin">Comprador <i class="fas fa-database"></i></span></th>
+                                    <th>Contato</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for linha in dados.tabela %}
+                                <tr class="clickable-row" onclick="abrirDetalhesPedido('{{ linha.NumeroPedido }}')" title="Clique para ver todos os itens deste pedido">
+                                    <td class="fw-bold text-primary">{{ linha.NumeroPedido }}</td>
+                                    <td>{{ linha.DataEmissao.strftime('%d/%m/%y') if linha.DataEmissao else '-' }}</td>
+                                    <td>{{ linha.DataEntregaPrevista.strftime('%d/%m/%y') if linha.DataEntregaPrevista else '-' }}</td>
+                                    <td class="text-center">
+                                        {% if linha.DiasAtraso > 0 %}
+                                            <span class="badge bg-danger">{{ linha.DiasAtraso }} dias</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if linha.StatusDetalhado == 'Atrasado' %}
+                                            <span class="badge bg-danger">Atrasado</span>
+                                        {% else %}
+                                            <span class="badge bg-success">No Prazo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-truncate" style="max-width: 200px;" title="{{ linha.NomeFornecedor }}">{{ linha.NomeFornecedor }}</td>
+                                    <td>{{ linha.NomeComprador }}</td>
+                                    <td>
+                                        <div class="d-flex gap-2">
+                                            {% if linha.TelefoneLimpo %}
+                                                <a href="https://wa.me/55{{ linha.TelefoneLimpo }}" target="_blank" class="btn btn-sm btn-outline-success border-0" title="WhatsApp" onclick="event.stopPropagation();">
+                                                    <i class="fab fa-whatsapp fa-lg"></i>
+                                                </a>
+                                            {% else %}
+                                                <span class="text-muted small align-self-center">Sem nº</span>
+                                            {% endif %}
+
+                                            {% if linha.EmailFornecedor %}
+                                                <button onclick="event.stopPropagation(); enviarEmail('{{ linha.EmailFornecedor }}', '{{ linha.NumeroPedido }}', '{{ linha.NomeFornecedor }}', '{{ linha.DataEntregaPrevista.strftime('%d/%m/%Y') }}');" 
+                                                        class="btn btn-sm btn-outline-primary border-0" title="Enviar E-mail">
+                                                    <i class="fas fa-envelope fa-lg"></i>
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="8" class="text-center py-4 text-muted"><i class="fas fa-check-circle fa-2x mb-2 d-block text-success"></i>Nenhum pedido pendente encontrado.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalhes do Pedido -->
+<div class="modal fade" id="modalDetalhesPedido" tabindex="-1" aria-labelledby="modalTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-gradient text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div>
+                    <h5 class="modal-title mb-0" id="modalTitulo">Detalhes do Pedido</h5>
+                    <small id="modalFornecedor" class="d-block mt-1 opacity-90"></small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm align-middle mb-0" style="font-size: 0.9rem;">
+                        <thead style="background: linear-gradient(to right, #f8f9fa, #e9ecef); position: sticky; top: 0; z-index: 10;">
+                            <tr>
+                                <th class="py-3 ps-3" style="border-bottom: 2px solid #667eea;"><i class="fas fa-hashtag me-1"></i>Item</th>
+                                <th class="py-3" style="border-bottom: 2px solid #667eea;"><i class="fas fa-barcode me-1"></i>Código</th>
+                                <th class="py-3" style="border-bottom: 2px solid #667eea;"><i class="fas fa-tag me-1"></i>Produto</th>
+                                <th class="text-center py-3" style="border-bottom: 2px solid #667eea;"><i class="fas fa-shopping-cart me-1"></i>Pedida</th>
+                                <th class="text-center py-3" style="border-bottom: 2px solid #667eea;"><i class="fas fa-check-double me-1"></i>Entregue</th>
+                                <th class="text-center py-3" style="border-bottom: 2px solid #667eea;" title="Quantidade que ainda falta ser entregue"><i class="fas fa-hourglass-half me-1"></i>A Receber</th>
+                                <th class="py-3" style="border-bottom: 2px solid #667eea;"><i class="fas fa-dollar-sign me-1"></i>R$ A Receber</th>
+                                <th class="text-center py-3" style="border-bottom: 2px solid #667eea;"><i class="fas fa-calendar-check me-1"></i>Entrega</th>
+                                <th class="text-center py-3" style="border-bottom: 2px solid #667eea;"><i class="fas fa-info-circle me-1"></i>Status</th>
+                                <th class="text-center py-3 pe-3" style="border-bottom: 2px solid #667eea;"><i class="fas fa-envelope me-1"></i>Email</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itensTableBody" style="background: #fff;"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-0">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/js/bootstrap-select.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+
+<script>
+    // ========================================
+    // INICIALIZAÇÃO
+    // ========================================
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inicializa todos os tooltips do Bootstrap
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+
+        // Inicializa bootstrap-select
+        $('.selectpicker').selectpicker();
+
+        // Restaura estado do sidebar
+        if (localStorage.getItem('sidebarCollapsed') === 'true') {
+            document.getElementById('sidebar').classList.add('collapsed');
+            document.getElementById('content').classList.add('expanded');
+            document.getElementById('sidebarToggle').classList.add('collapsed');
+        }
+    });
+
+    // ========================================
+    // SIDEBAR TOGGLE
+    // ========================================
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const content = document.getElementById('content');
+        const toggleBtn = document.getElementById('sidebarToggle');
+        
+        sidebar.classList.toggle('collapsed');
+        content.classList.toggle('expanded');
+        toggleBtn.classList.toggle('collapsed');
+        
+        localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+    }
+
+    // ========================================
+    // CONFIGURAÇÕES DOS GRÁFICOS
+    // ========================================
+    Chart.register(ChartDataLabels);
+
+    const colors = { red: '#dc3545', green: '#198754', blue: '#0d6efd' };
+
+    // ========================================
+    // FUNÇÕES DE EMAIL
+    // ========================================
+    function enviarEmail(email, pedido, fornecedor, data) {
+        const assunto = `Cobrança de Entrega - Pedido ${pedido} - ${fornecedor}`;
+        const corpo = `Prezados, ${fornecedor}\n\nGostaria de solicitar uma atualização sobre o status do pedido ${pedido}.\nA previsão de entrega consta para ${data}.\n\nPoderiam nos informar a previsão real de entrega?\n\nAtt,\nDepartamento de Compras`;
+        window.location.href = `mailto:${email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+    }
+
+    // ========================================
+    // FUNÇÕES DE FILTRO
+    // ========================================
+    function filtrarStatus(status) {
+        document.getElementById('status_grafico').value = status;
+        document.getElementById('filterForm').submit();
+    }
+
+    function limparFiltroStatus() {
+        document.getElementById('status_grafico').value = '';
+        document.getElementById('filterForm').submit();
+    }
+
+    function filtrarComprador(nome) {
+        document.getElementById('comprador_select').value = nome;
+        document.getElementById('filterForm').submit();
+    }
+
+    // ========================================
+    // GRÁFICO STATUS (Pizza)
+    // ========================================
+    new Chart(document.getElementById('chartStatus'), {
+        type: 'doughnut',
+        data: {
+            labels: {{ dados.graf_status_labels | default([]) | tojson }},
+            datasets: [{ data: {{ dados.graf_status_values | default([]) | tojson }}, backgroundColor: [colors.red, colors.green], borderWidth: 2, borderColor: '#fff' }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (e, elements, chart) => { if (elements.length > 0) { filtrarStatus(chart.data.labels[elements[0].index]); } },
+            onHover: (event, chartElement) => { event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default'; },
+            plugins: {
+                legend: { position: 'right' },
+                datalabels: { color: '#fff', font: { weight: 'bold' }, formatter: (value, ctx) => { let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0); return (value * 100 / sum).toFixed(1) + "%"; } }
+            }
+        }
+    });
+
+    // ========================================
+    // GRÁFICO COMPRADORES (Barras Empilhadas)
+    // ========================================
+    new Chart(document.getElementById('chartCompradores'), {
+        type: 'bar',
+        data: {
+            labels: {{ dados.graf_comp_labels | default([]) | tojson }},
+            datasets: [
+                { label: 'Atrasado', data: {{ dados.graf_comp_atrasado | default([]) | tojson }}, backgroundColor: colors.red, borderRadius: 4 },
+                { label: 'No Prazo', data: {{ dados.graf_comp_prazo | default([]) | tojson }}, backgroundColor: colors.green, borderRadius: 4 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { x: { stacked: true }, y: { stacked: true, grid: { display: false } } },
+            onClick: (e, elements, chart) => { if (elements.length > 0) { filtrarComprador(chart.data.labels[elements[0].index]); } },
+            onHover: (event, chartElement) => { event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default'; },
+            plugins: {
+                legend: { position: 'top' },
+                datalabels: { color: 'white', font: { weight: 'bold', size: 10 }, display: ctx => ctx.dataset.data[ctx.dataIndex] > 0 }
+            }
+        }
+    });
+
+    // ========================================
+    // MODAL DE DETALHES DO PEDIDO
+    // ========================================
+    function abrirDetalhesPedido(numeroPedido) {
+        fetch(`/detalhes_pedido/${numeroPedido}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const modal = document.getElementById('modalDetalhesPedido');
+                    const tbody = document.getElementById('itensTableBody');
+                    const titulo = document.getElementById('modalTitulo');
+                    const fornecedor = document.getElementById('modalFornecedor');
+                    
+                    titulo.innerHTML = `<i class="fas fa-file-invoice me-2"></i>Pedido ${numeroPedido}`;
+                    fornecedor.textContent = `Fornecedor: ${data.fornecedor}`;
+                    
+                    tbody.innerHTML = '';
+                    
+                    data.itens.forEach(item => {
+                        const saldoQtd = (item.QtdPedida - item.QtdEntregue).toFixed(2);
+                        const saldoValor = (saldoQtd / item.QtdPedida * item.ValorTotal).toFixed(2);
+                        
+                        const statusBadge = item.StatusItem === 'Atrasado' 
+                            ? '<span class="badge bg-danger">Atrasado</span>'
+                            : item.StatusItem === 'Entregue'
+                            ? '<span class="badge bg-secondary">Entregue</span>'
+                            : '<span class="badge bg-success">No Prazo</span>';
+                        
+                        const btnEmail = saldoQtd > 0 && data.email
+                            ? `<button class="btn btn-sm btn-primary" onclick="enviarEmailItem('${data.email}', '${numeroPedido}', '${item.ItemPedido}', '${item.DescricaoProduto}', '${item.DataEntregaPrevistaFormatada}', '${data.fornecedor}')" title="Enviar cobrança deste item"><i class="fas fa-envelope"></i></button>`
+                            : '<span class="text-muted">-</span>';
+                        
+                        const rowClass = item.StatusItem === 'Atrasado' ? 'table-danger' : (item.StatusItem === 'Entregue' ? 'table-secondary' : '');
+                        
+                        const row = `
+                            <tr class="${rowClass}">
+                                <td class="fw-bold text-primary ps-3">${item.ItemPedido}</td>
+                                <td><code class="text-muted small">${item.CodProduto || '-'}</code></td>
+                                <td class="text-truncate" style="max-width: 200px;" title="${item.DescricaoProduto}"><i class="fas fa-box text-muted me-1"></i>${item.DescricaoProduto}</td>
+                                <td class="text-center"><span class="badge bg-light text-dark">${item.QtdPedida.toFixed(2)}</span></td>
+                                <td class="text-center"><span class="badge bg-info text-dark">${item.QtdEntregue.toFixed(2)}</span></td>
+                                <td class="text-center"><span class="badge ${saldoQtd > 0 ? 'bg-danger' : 'bg-success'} fs-6"><i class="fas fa-${saldoQtd > 0 ? 'exclamation-triangle' : 'check-circle'} me-1"></i>${saldoQtd}</span></td>
+                                <td class="fw-bold text-success">R$ ${parseFloat(saldoValor).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                                <td class="text-center"><small class="text-muted"><i class="far fa-calendar-alt me-1"></i>${item.DataEntregaPrevistaFormatada || '-'}</small></td>
+                                <td class="text-center">${statusBadge}</td>
+                                <td class="text-center pe-3">${btnEmail}</td>
+                            </tr>
+                        `;
+                        tbody.innerHTML += row;
+                    });
+                    
+                    new bootstrap.Modal(modal).show();
+                } else {
+                    alert('Erro: ' + data.message);
+                }
+            })
+            .catch(error => { console.error('Erro:', error); alert('Erro ao buscar detalhes do pedido.'); });
+    }
+
+    // ========================================
+    // EMAIL ITEM ESPECÍFICO
+    // ========================================
+    function enviarEmailItem(email, pedido, item, produto, dataEntrega, fornecedor) {
+        if (!confirm(`Enviar e-mail de cobrança do item ${item} (${produto})?`)) return;
+        
+        fetch('/enviar_cobranca', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, pedido: `${pedido} - Item ${item}`, fornecedor: fornecedor, data: dataEntrega, produto: produto })
+        })
+        .then(response => response.json())
+        .then(data => { alert(data.success ? '✅ E-mail enviado com sucesso!' : '❌ Erro ao enviar: ' + data.message); })
+        .catch(error => { console.error('Erro:', error); alert('❌ Erro ao enviar e-mail.'); });
+    }
+</script>
+</body>
+</html>
