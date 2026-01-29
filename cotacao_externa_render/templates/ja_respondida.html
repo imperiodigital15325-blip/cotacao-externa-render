@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotação Já Respondida</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card-respondida {
+            max-width: 600px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .card-header-success {
+            background: linear-gradient(135deg, #198754 0%, #157347 100%);
+            padding: 40px 30px;
+            text-align: center;
+            color: white;
+        }
+        .card-header-success i {
+            font-size: 60px;
+            margin-bottom: 15px;
+        }
+        .card-body-custom {
+            padding: 30px;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .info-value {
+            font-weight: 600;
+            color: #212529;
+        }
+    </style>
+</head>
+<body>
+    <div class="card-respondida">
+        <div class="card-header-success">
+            <i class="fas fa-check-circle"></i>
+            <h3 class="mb-0">Cotação Já Respondida</h3>
+        </div>
+        <div class="card-body-custom">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Esta cotação já foi respondida e sua proposta foi registrada.
+            </div>
+            
+            <div class="bg-light p-3 rounded">
+                <h6 class="mb-3"><i class="fas fa-file-invoice me-2"></i>Detalhes da Cotação</h6>
+                
+                <div class="info-item">
+                    <span class="info-label">Código da Cotação</span>
+                    <span class="info-value">{{ cotacao.codigo }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Fornecedor</span>
+                    <span class="info-value">{{ cotacao.fornecedor.nome }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Data de Envio</span>
+                    <span class="info-value">{{ data_envio }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Total de Itens</span>
+                    <span class="info-value">{{ cotacao.itens | length }}</span>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <p class="text-muted small mb-0">
+                    <i class="fas fa-shield-alt me-1"></i>
+                    Suas respostas foram registradas com segurança.
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

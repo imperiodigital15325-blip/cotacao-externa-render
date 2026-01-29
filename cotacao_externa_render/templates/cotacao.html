@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotação {{ cotacao.codigo }} - {{ cotacao.fornecedor.nome }}</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #0d6efd;
+            --success: #198754;
+            --warning: #ffc107;
+            --danger: #dc3545;
+            --dark: #212529;
+            --light: #f8f9fa;
+        }
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+        
+        .cotacao-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        .cotacao-header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 100%);
+            color: white;
+            padding: 25px 30px;
+        }
+        
+        .cotacao-header h4 {
+            margin: 0;
+            font-weight: 600;
+        }
+        
+        .cotacao-header .codigo {
+            background: rgba(255,255,255,0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        
+        .info-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .info-card h6 {
+            color: #1e3a5f;
+            font-weight: 600;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #0d6efd;
+            padding-bottom: 8px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            color: #6c757d;
+            font-size: 13px;
+        }
+        
+        .info-value {
+            color: #212529;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .itens-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        .itens-table thead th {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 100%);
+            color: white;
+            padding: 12px 15px;
+            font-weight: 500;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+        }
+        
+        .itens-table thead th:first-child {
+            border-radius: 8px 0 0 0;
+        }
+        
+        .itens-table thead th:last-child {
+            border-radius: 0 8px 0 0;
+        }
+        
+        .itens-table tbody td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: middle;
+        }
+        
+        .itens-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .produto-info {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .produto-codigo {
+            font-weight: 600;
+            color: #0d6efd;
+            font-size: 14px;
+        }
+        
+        .produto-descricao {
+            color: #495057;
+            font-size: 13px;
+            margin-top: 2px;
+        }
+        
+        .quantidade-badge {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        
+        .input-preco, .input-prazo, .input-obs {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .input-preco:focus, .input-prazo:focus, .input-obs:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+            outline: none;
+        }
+        
+        .input-preco {
+            min-width: 100px;
+        }
+        
+        .input-prazo {
+            min-width: 70px;
+            text-align: center;
+        }
+        
+        .input-obs {
+            min-width: 120px;
+        }
+        
+        .cotacao-footer {
+            background: #f8f9fa;
+            padding: 25px 30px;
+            border-top: 2px solid #e9ecef;
+        }
+        
+        .btn-enviar {
+            background: linear-gradient(135deg, #198754 0%, #157347 100%);
+            border: none;
+            padding: 15px 40px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 10px;
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-enviar:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(25, 135, 84, 0.4);
+            background: linear-gradient(135deg, #157347 0%, #0d5a36 100%);
+        }
+        
+        .btn-enviar:disabled {
+            background: #6c757d;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .expira-badge {
+            background: #fff3cd;
+            color: #856404;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        
+        .alert-instrucoes {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border: 1px solid #81c784;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-instrucoes h6 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .alert-instrucoes ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .alert-instrucoes li {
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+        
+        /* Sucesso */
+        .sucesso-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        .sucesso-box {
+            background: white;
+            padding: 50px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            animation: bounceIn 0.5s ease;
+        }
+        
+        @keyframes bounceIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .sucesso-icon {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #198754 0%, #157347 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }
+        
+        .sucesso-icon i {
+            font-size: 50px;
+            color: white;
+        }
+        
+        /* Spinner */
+        .spinner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        .spinner-box {
+            background: white;
+            padding: 30px 50px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .cotacao-header {
+                padding: 15px 20px;
+            }
+            
+            .cotacao-header h4 {
+                font-size: 18px;
+            }
+            
+            .itens-table thead th,
+            .itens-table tbody td {
+                padding: 10px 8px;
+                font-size: 12px;
+            }
+            
+            .input-preco, .input-prazo {
+                padding: 6px 8px;
+                font-size: 13px;
+            }
+            
+            .btn-enviar {
+                width: 100%;
+                padding: 12px 20px;
+            }
+        }
+        
+        .item-obs-comprador {
+            font-size: 11px;
+            color: #6c757d;
+            font-style: italic;
+            margin-top: 3px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Spinner de carregamento -->
+    <div class="spinner-overlay" id="spinnerOverlay">
+        <div class="spinner-box">
+            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;"></div>
+            <p class="mb-0">Enviando cotação...</p>
+        </div>
+    </div>
+    
+    <!-- Overlay de sucesso -->
+    <div class="sucesso-overlay" id="sucessoOverlay">
+        <div class="sucesso-box">
+            <div class="sucesso-icon">
+                <i class="fas fa-check"></i>
+            </div>
+            <h3 class="text-success mb-3">Cotação Enviada!</h3>
+            <p class="text-muted mb-3">Sua proposta foi registrada com sucesso.</p>
+            <p class="mb-0"><strong>Protocolo:</strong> <span id="protocoloEnvio">-</span></p>
+        </div>
+    </div>
+    
+    <div class="cotacao-container">
+        <!-- Header -->
+        <div class="cotacao-header">
+            <div class="d-flex justify-content-between align-items-start flex-wrap">
+                <div>
+                    <h4><i class="fas fa-file-invoice me-2"></i>Solicitação de Cotação</h4>
+                    <span class="codigo">{{ cotacao.codigo }}</span>
+                </div>
+                <div class="text-end mt-2 mt-md-0">
+                    <span class="expira-badge">
+                        <i class="fas fa-clock me-1"></i>Válido até: {{ expires_at }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Body -->
+        <div class="p-4">
+            <!-- Informações -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <h6><i class="fas fa-building me-2"></i>Fornecedor</h6>
+                        <div class="info-row">
+                            <span class="info-label">Razão Social</span>
+                            <span class="info-value">{{ cotacao.fornecedor.nome }}</span>
+                        </div>
+                        {% if cotacao.fornecedor.codigo %}
+                        <div class="info-row">
+                            <span class="info-label">Código</span>
+                            <span class="info-value">{{ cotacao.fornecedor.codigo }}</span>
+                        </div>
+                        {% endif %}
+                        {% if cotacao.fornecedor.email %}
+                        <div class="info-row">
+                            <span class="info-label">E-mail</span>
+                            <span class="info-value">{{ cotacao.fornecedor.email }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <h6><i class="fas fa-info-circle me-2"></i>Detalhes</h6>
+                        <div class="info-row">
+                            <span class="info-label">Total de Itens</span>
+                            <span class="info-value">{{ cotacao.itens | length }}</span>
+                        </div>
+                        {% if cotacao.data_validade %}
+                        <div class="info-row">
+                            <span class="info-label">Data Limite</span>
+                            <span class="info-value">{{ cotacao.data_validade }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Instruções -->
+            <div class="alert-instrucoes">
+                <h6><i class="fas fa-clipboard-list me-2"></i>Instruções para Preenchimento</h6>
+                <ul>
+                    <li><strong>Preencha</strong> o preço unitário (R$) e prazo de entrega (dias) para cada item</li>
+                    <li>Use o campo <strong>Observação</strong> para informações específicas (marca, condições, etc.)</li>
+                    <li>Preencha as <strong>Informações Gerais</strong> abaixo da tabela (frete, condição de pagamento)</li>
+                    <li>Clique em <strong>"Enviar Cotação"</strong> ao finalizar</li>
+                </ul>
+            </div>
+            
+            <!-- Informações do comprador -->
+            {% if cotacao.informacao_fornecedor %}
+            <div class="info-card mb-3">
+                <h6><i class="fas fa-comment-alt me-2"></i>Informações do Comprador</h6>
+                <p class="mb-0" style="white-space: pre-wrap;">{{ cotacao.informacao_fornecedor }}</p>
+            </div>
+            {% endif %}
+            
+            <!-- Tabela de Itens -->
+            <form id="formCotacao">
+                <div class="table-responsive mb-4" style="border-radius: 8px; overflow: hidden; border: 1px solid #dee2e6;">
+                    <table class="itens-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%;">#</th>
+                                <th style="width: 35%;">Produto</th>
+                                <th style="width: 12%;">Quantidade</th>
+                                <th style="width: 15%;">Preço Unit. (R$)</th>
+                                <th style="width: 10%;">Prazo (dias)</th>
+                                <th style="width: 23%;">Observação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in cotacao.itens %}
+                            <tr>
+                                <td class="text-center fw-bold text-muted">{{ loop.index }}</td>
+                                <td>
+                                    <div class="produto-info">
+                                        <span class="produto-codigo">{{ item.cod_produto or '-' }}</span>
+                                        <span class="produto-descricao">{{ item.descricao }}</span>
+                                        {% if item.observacao %}
+                                        <span class="item-obs-comprador">
+                                            <i class="fas fa-info-circle me-1"></i>{{ item.observacao }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="quantidade-badge">
+                                        {{ item.quantidade }} {{ item.unidade or 'UN' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <input type="number" 
+                                           class="input-preco" 
+                                           name="preco_{{ item.id }}"
+                                           id="preco_{{ item.id }}"
+                                           data-item-id="{{ item.id }}"
+                                           step="0.01" 
+                                           min="0" 
+                                           placeholder="0,00"
+                                           required>
+                                </td>
+                                <td>
+                                    <input type="number" 
+                                           class="input-prazo" 
+                                           name="prazo_{{ item.id }}"
+                                           id="prazo_{{ item.id }}"
+                                           data-item-id="{{ item.id }}"
+                                           step="1" 
+                                           min="0" 
+                                           placeholder="0"
+                                           required>
+                                </td>
+                                <td>
+                                    <input type="text" 
+                                           class="input-obs" 
+                                           name="obs_{{ item.id }}"
+                                           id="obs_{{ item.id }}"
+                                           data-item-id="{{ item.id }}"
+                                           placeholder="Observação">
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Informações Gerais -->
+                <div class="info-card">
+                    <h6><i class="fas fa-cog me-2"></i>Informações Gerais</h6>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Valor do Frete (R$)</label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="freteTotal"
+                                   step="0.01" 
+                                   min="0" 
+                                   placeholder="0,00">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Condição de Pagamento</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="condicaoPagamento"
+                                   placeholder="Ex: 30/60/90 dias">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Validade da Proposta</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="validadeProposta"
+                                   placeholder="Ex: 15 dias">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Observação Geral</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="observacaoGeral"
+                                   placeholder="Observações gerais">
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Footer -->
+        <div class="cotacao-footer">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div class="text-muted">
+                    <small>
+                        <i class="fas fa-shield-alt me-1"></i>
+                        Conexão segura • Token: {{ token[:8] }}...
+                    </small>
+                </div>
+                
+                <button type="button" 
+                        class="btn btn-enviar" 
+                        id="btnEnviar"
+                        onclick="enviarCotacao()">
+                    <i class="fas fa-paper-plane me-2"></i>Enviar Cotação
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const TOKEN = "{{ token }}";
+        
+        function enviarCotacao() {
+            const btn = document.getElementById('btnEnviar');
+            const spinner = document.getElementById('spinnerOverlay');
+            
+            // Validar preenchimento
+            const precoInputs = document.querySelectorAll('.input-preco');
+            let valido = true;
+            
+            precoInputs.forEach(input => {
+                const preco = parseFloat(input.value) || 0;
+                const prazoInput = document.getElementById('prazo_' + input.dataset.itemId);
+                const prazo = parseInt(prazoInput.value) || 0;
+                
+                if (preco <= 0 || prazo <= 0) {
+                    input.classList.add('is-invalid');
+                    prazoInput.classList.add('is-invalid');
+                    valido = false;
+                } else {
+                    input.classList.remove('is-invalid');
+                    prazoInput.classList.remove('is-invalid');
+                }
+            });
+            
+            if (!valido) {
+                alert('Por favor, preencha preço e prazo para todos os itens.');
+                return;
+            }
+            
+            // Coletar respostas dos itens
+            const respostas = [];
+            
+            precoInputs.forEach(input => {
+                const itemId = input.dataset.itemId;
+                const preco = parseFloat(input.value) || 0;
+                const prazo = parseInt(document.getElementById('prazo_' + itemId).value) || 0;
+                const obs = document.getElementById('obs_' + itemId).value || '';
+                
+                respostas.push({
+                    item_id: parseInt(itemId),
+                    preco_unitario: preco,
+                    prazo_entrega: prazo,
+                    observacao: obs
+                });
+            });
+            
+            // Coletar informações gerais
+            const frete = parseFloat(document.getElementById('freteTotal').value) || 0;
+            const condicao = document.getElementById('condicaoPagamento').value || '';
+            const validade = document.getElementById('validadeProposta').value || '';
+            const obsGeral = document.getElementById('observacaoGeral').value || '';
+            
+            // Montar payload
+            const payload = {
+                token: TOKEN,
+                respostas: respostas,
+                frete_total: frete,
+                condicao_pagamento: condicao,
+                validade_proposta: validade,
+                observacao_geral: obsGeral
+            };
+            
+            // Mostrar spinner
+            spinner.style.display = 'flex';
+            btn.disabled = true;
+            
+            // Enviar via API
+            fetch('/api/responder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                spinner.style.display = 'none';
+                
+                if (data.success) {
+                    // Mostrar sucesso
+                    document.getElementById('protocoloEnvio').textContent = data.protocolo;
+                    document.getElementById('sucessoOverlay').style.display = 'flex';
+                } else {
+                    alert('Erro: ' + (data.error || 'Erro ao enviar cotação'));
+                    btn.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                spinner.style.display = 'none';
+                alert('Erro de conexão. Verifique sua internet e tente novamente.');
+                btn.disabled = false;
+            });
+        }
+        
+        // Formatar input de preço
+        document.querySelectorAll('.input-preco').forEach(input => {
+            input.addEventListener('blur', function() {
+                if (this.value && !isNaN(this.value)) {
+                    this.value = parseFloat(this.value).toFixed(2);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
