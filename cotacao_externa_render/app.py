@@ -108,8 +108,14 @@ def api_key_required(f):
 
 @app.route('/')
 def index():
-    """Página inicial - redireciona ou mostra informação"""
-    return render_template('index.html')
+    """
+    Rota raiz - bloqueada para evitar navegação pública.
+    Retorna HTTP 403 com mensagem de acesso não autorizado.
+    """
+    return render_template('erro.html',
+                         titulo='Acesso Não Autorizado',
+                         mensagem='Este sistema não possui acesso público.',
+                         detalhes='Utilize apenas o link de cotação enviado pelo comprador.'), 403
 
 
 @app.route('/cotar')

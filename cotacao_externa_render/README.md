@@ -230,6 +230,27 @@ URL final: `https://cotacao-externa.onrender.com`
 
 ## 🔐 Segurança
 
+### 🔒 Controle de Acesso
+
+Este sistema é **ISOLADO** e **NÃO possui acesso público navegável**.
+
+#### Rotas Públicas (Limitadas)
+- ✅ `/cotar?token=XXXX` - Acesso via link de cotação com token válido
+- ✅ `/api/responder` - Endpoint para fornecedor enviar resposta (POST)
+- ✅ `/health` - Health check para monitoramento
+
+#### Rotas Bloqueadas
+- ❌ `/` (raiz) - **HTTP 403 - Acesso Não Autorizado**
+- ❌ Qualquer outra rota sem token ou API Key
+
+**Comportamento da rota `/`:**
+```
+Acesso: https://cotacao-externa.onrender.com/
+Resultado: HTTP 403
+Mensagem: "Este sistema não possui acesso público. 
+           Utilize apenas o link de cotação enviado pelo comprador."
+```
+
 ### Tokens
 
 - **Geração**: `secrets.token_urlsafe(32)` - 256 bits de entropia
@@ -261,8 +282,9 @@ Cada resposta inclui hash SHA256 dos dados para detectar alterações.
 
 ### Proteção de Rotas
 
-- Rotas públicas: `/cotar`, `/api/responder`
-- Rotas protegidas (API Key): `/api/cotacao/*`
+- **Rotas públicas limitadas**: `/cotar` (com token), `/api/responder`, `/health`
+- **Rotas protegidas (API Key)**: `/api/cotacao/*`, `/api/stats`, `/api/respostas/pendentes`
+- **Rotas bloqueadas**: `/` e qualquer outra não especificada
 
 ---
 

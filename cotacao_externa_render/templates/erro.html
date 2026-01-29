@@ -3,66 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ titulo }} - Cotação Externa</title>
+    <title>{{ titulo }}</title>
+    
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
         body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 20px;
         }
-        .error-card {
-            max-width: 500px;
+        
+        .erro-container {
+            max-width: 600px;
+            width: 100%;
             background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             overflow: hidden;
+            text-align: center;
         }
-        .error-header {
+        
+        .erro-header {
             background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
             padding: 40px 30px;
-            text-align: center;
-            color: white;
         }
-        .error-header i {
-            font-size: 60px;
-            margin-bottom: 15px;
+        
+        .erro-header i {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.9;
         }
-        .error-body {
-            padding: 30px;
-            text-align: center;
-        }
-        .btn-voltar {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            padding: 12px 30px;
-            border-radius: 10px;
-            color: white;
+        
+        .erro-header h2 {
+            margin: 0;
             font-weight: 600;
+            font-size: 28px;
         }
-        .btn-voltar:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
-            color: white;
+        
+        .erro-body {
+            padding: 40px 30px;
+        }
+        
+        .erro-body .mensagem {
+            font-size: 18px;
+            color: #212529;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        
+        .erro-body .detalhes {
+            font-size: 14px;
+            color: #6c757d;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        
+        .erro-footer {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .erro-footer p {
+            margin: 0;
+            font-size: 13px;
+            color: #6c757d;
+        }
+        
+        .icon-lock {
+            color: rgba(255, 255, 255, 0.9);
         }
     </style>
 </head>
 <body>
-    <div class="error-card">
-        <div class="error-header">
-            <i class="fas fa-exclamation-triangle"></i>
-            <h3 class="mb-0">{{ titulo }}</h3>
+    <div class="erro-container">
+        <div class="erro-header">
+            <i class="fas fa-lock icon-lock"></i>
+            <h2>{{ titulo }}</h2>
         </div>
-        <div class="error-body">
-            <p class="lead mb-3">{{ mensagem }}</p>
-            <p class="text-muted small mb-4">{{ detalhes }}</p>
-            <a href="/" class="btn btn-voltar">
-                <i class="fas fa-home me-2"></i>Página Inicial
-            </a>
+        
+        <div class="erro-body">
+            <div class="mensagem">
+                {{ mensagem }}
+            </div>
+            
+            <div class="detalhes">
+                {{ detalhes }}
+            </div>
+        </div>
+        
+        <div class="erro-footer">
+            <p>
+                <i class="fas fa-shield-alt"></i>
+                Sistema de Cotação Externa - Acesso Restrito
+            </p>
         </div>
     </div>
 </body>
