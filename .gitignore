@@ -1,0 +1,128 @@
+# ==============================================================================
+# .gitignore - PROJETO COMPRAS
+# ==============================================================================
+
+# ================== PYTHON ==================
+# Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+.virtualenv/
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# ================== DATABASES ==================
+# SQLite databases (NÃO versionar banco local)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ================== UPLOADS & ARQUIVOS TEMPORÁRIOS ==================
+# Pasta de uploads (PDFs, JSON, HTML enviados por usuários)
+uploads/
+!uploads/.gitkeep
+
+# Arquivos temporários
+*.tmp
+*.temp
+*.log
+*.bak
+*.swp
+*.swo
+*~
+
+# ================== DADOS SENSÍVEIS ==================
+# Arquivos JSON com dados de produção
+users.json
+anotacoes_*.json
+
+# Configurações sensíveis
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+
+# ================== IDE / EDITORES ==================
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# ================== SISTEMA OPERACIONAL ==================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+.directory
+
+# ================== FLASK ==================
+instance/
+.webassets-cache
+.flask_session/
+
+# ================== ARQUIVOS DE TESTE ==================
+test_*.py
+teste_*.py
+*_test.py
+
+# ================== DOCUMENTAÇÃO TEMPORÁRIA ==================
+RODADA_NEGOCIACAO_HTML.txt
+ROTAS_NEGOCIACAO_ADICIONAR_APP.py
+ATRIBUICAO_MANUAL_README.md
+
+# ================== OUTROS ==================
+# Arquivos de lock de dependências (opcional - descomente se necessário)
+# poetry.lock
+# Pipfile.lock
+
+# Cache de requests
+.cache/
+*.cache
