@@ -8,6 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/css/bootstrap-select.min.css">
+    <!-- Estilos customizados para dropdowns mensais -->
     
     <style>
         /* ========================================
@@ -105,29 +106,47 @@
         .content.expanded { margin-left: 0; }
 
         /* ========================================
-           BOTÃO TOGGLE SIDEBAR
+           BOTÃO TOGGLE SIDEBAR (Ultra Discreto)
         ======================================== */
         .sidebar-toggle {
             position: fixed;
-            top: 18px;
-            left: 262px;
-            z-index: 1001;
-            background: var(--primary-blue);
-            color: white;
+            top: 72px;
+            left: 254px;
+            z-index: 998;
+            background: transparent;
+            color: rgba(108, 117, 125, 0.4);
             border: none;
-            border-radius: 50%;
-            width: 38px;
-            height: 38px;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
             cursor: pointer;
-            box-shadow: var(--shadow-md);
-            transition: var(--transition);
+            box-shadow: none;
+            transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 0.7rem;
+            opacity: 0.5;
         }
         
-        .sidebar-toggle:hover { background: #0b5ed7; transform: scale(1.08); }
-        .sidebar-toggle.collapsed { left: 12px; }
+        .sidebar-toggle:hover { 
+            background: rgba(108, 117, 125, 0.15);
+            color: var(--text-secondary);
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        .sidebar-toggle.collapsed { 
+            left: 8px; 
+            top: 12px;
+            opacity: 0.7;
+            background: rgba(108, 117, 125, 0.1);
+        }
+        
+        .sidebar-toggle.collapsed:hover {
+            opacity: 1;
+            background: rgba(108, 117, 125, 0.2);
+        }
 
         /* ========================================
            HEADER DA PÁGINA
@@ -254,7 +273,17 @@
             border-bottom: 1px solid var(--border-color);
         }
 
-        .chart-canvas-container { position: relative; height: 300px; width: 100%; }
+        .chart-canvas-container { 
+            position: relative; 
+            height: 300px; 
+            width: 100%;
+            padding: 0 5px;
+        }
+        
+        /* Container específico para o gráfico Top 10 com mais altura */
+        #chartTop10 {
+            max-width: 100% !important;
+        }
 
         /* ========================================
            TABELAS MODERNAS
@@ -265,26 +294,64 @@
         .table-container::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
         .table-container::-webkit-scrollbar-thumb:hover { background: #a1a1a1; }
 
-        .table-modern { margin-bottom: 0; font-size: 0.8rem; }
+        .table-modern { margin-bottom: 0; font-size: 0.8rem; table-layout: auto; }
 
         .table-modern thead th {
             background: #f8f9fa;
             font-weight: 600;
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
             color: var(--text-secondary);
-            padding: 12px 10px;
+            padding: 10px 6px;
             border-bottom: 2px solid var(--border-color);
             position: sticky;
             top: 0;
             z-index: 10;
             cursor: help;
+            white-space: nowrap;
+            text-align: center;  /* CENTRALIZA CABEÇALHOS */
         }
 
         .table-modern thead th[data-bs-toggle="tooltip"] { border-bottom: 2px dashed #6c757d; }
-        .table-modern tbody td { padding: 10px; vertical-align: middle; border-bottom: 1px solid #f0f0f0; }
+        .table-modern tbody td { 
+            padding: 8px 6px; 
+            vertical-align: middle; 
+            border-bottom: 1px solid #f0f0f0; 
+            text-align: center;  /* CENTRALIZA VALORES */
+        }
         .table-modern tbody tr:hover { background-color: rgba(13, 110, 253, 0.04); }
+        
+        /* Ordenação de Tabelas */
+        .sortable { cursor: pointer; user-select: none; position: relative; }
+        .sortable:hover { background-color: rgba(13, 110, 253, 0.1); }
+        .sortable i { margin-left: 5px; font-size: 0.8rem; opacity: 0.6; }
+        .sortable.asc i::before { content: "\f0de"; }
+        .sortable.desc i::before { content: "\f0dd"; }
+        
+        /* Exceções de alinhamento */
+        .table-modern tbody td.text-start { text-align: left !important; }
+        .table-modern tbody td.text-end { text-align: right !important; }
+        
+        /* ========================================
+           ALINHAMENTO PROFISSIONAL PARA VALORES MONETÁRIOS
+        ======================================== */
+        .valor-monetario {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.82rem;
+            font-weight: 600;
+            text-align: right !important;
+            white-space: nowrap;
+            letter-spacing: 0.3px;
+        }
+        .valor-monetario .simbolo-moeda {
+            color: #6c757d;
+            font-weight: 500;
+            margin-right: 2px;
+        }
+        .valor-monetario .valor-numero {
+            font-weight: 700;
+        }
 
         /* ========================================
            BADGES
@@ -308,7 +375,12 @@
             .sidebar { margin-left: -250px; }
             .sidebar.show { margin-left: 0; }
             .content { margin-left: 0; padding: 16px; }
-            .sidebar-toggle { left: 12px; }
+            .sidebar-toggle { 
+                left: 8px; 
+                top: 12px;
+                opacity: 0.7;
+                background: rgba(108, 117, 125, 0.1);
+            }
             .kpi-card { margin-bottom: 12px; }
         }
 
@@ -323,9 +395,410 @@
         ======================================== */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fadeIn 0.4s ease-out; }
+        
+        /* Spinner e Loading */
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.3),
+                transparent
+            );
+            animation: shimmer 1.5s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        .progress-text {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 8px;
+        }
+        
+        .progress-percent {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--primary-blue);
+            margin-bottom: 4px;
+        }
+        
+        /* Spinner Simples */
+        .spinner-global {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9998;
+            display: none;
+        }
+        
+        .spinner-global.active {
+            display: block;
+        }
+        
+        .spinner-global .spinner-box {
+            background: white;
+            padding: 24px 32px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .spinner-global .spinner-circle {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e9ecef;
+            border-top-color: var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .spinner-global .spinner-text {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        
+        /* Overlay de fundo leve para spinner */
+        .spinner-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.5);
+            z-index: 9997;
+            display: none;
+        }
+        
+        .spinner-backdrop.active {
+            display: block;
+        }
+
+        /* ========================================
+           ANÁLISE COMPARATIVA TEMPORAL
+        ======================================== */
+        .comparativa-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .comparativa-header .titulo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .comparativa-header .titulo h5 {
+            margin: 0;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .comparativa-header .titulo .badge-beta {
+            background: linear-gradient(135deg, #6f42c1, #0d6efd);
+            color: white;
+            font-size: 0.65rem;
+            padding: 3px 8px;
+            border-radius: 12px;
+        }
+        
+        /* Seções da Análise Comparativa */
+        .secao-comparativa-periodos,
+        .secao-comparativa-filtros {
+            background: #fafbfc;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 16px;
+        }
+        
+        .secao-comparativa-periodos {
+            border-left: 3px solid #6f42c1;
+        }
+        
+        .secao-comparativa-filtros {
+            border-left: 3px solid #6c757d;
+        }
+        
+        .secao-header {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .secao-header i {
+            color: #6f42c1;
+        }
+        
+        /* Tags de Filtros Ativos */
+        .filtros-ativos-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        .filtros-ativos-tags .tag-filtro {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: linear-gradient(135deg, #6f42c1, #0d6efd);
+            color: white;
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+        
+        .filtros-ativos-tags .tag-filtro i {
+            font-size: 0.65rem;
+            opacity: 0.8;
+        }
+        
+        /* KPIs Comparativos */
+        .kpi-comparativo {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            text-align: center;
+            position: relative;
+            transition: var(--transition);
+        }
+        
+        .kpi-comparativo:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+        
+        .kpi-comparativo .periodo-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        
+        .kpi-comparativo .valor-periodo {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .kpi-comparativo .valor-periodo.periodo1 {
+            color: #fd7e14;
+        }
+        
+        .kpi-comparativo .valor-periodo.periodo2 {
+            color: #20c997;
+        }
+        
+        .kpi-comparativo .variacao {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+        
+        .kpi-comparativo .variacao.positiva {
+            background: rgba(220, 53, 69, 0.1);
+            color: #dc3545;
+        }
+        
+        .kpi-comparativo .variacao.negativa {
+            background: rgba(25, 135, 84, 0.1);
+            color: #198754;
+        }
+        
+        .kpi-comparativo .variacao.neutra {
+            background: rgba(108, 117, 125, 0.1);
+            color: #6c757d;
+        }
+        
+        .kpi-comparativo .diferenca {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+        
+        /* Legenda de Períodos */
+        .legenda-periodos {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin: 16px 0;
+            font-size: 0.85rem;
+        }
+        
+        .legenda-periodos .legenda-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legenda-periodos .cor-periodo {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+        
+        .legenda-periodos .cor-periodo.periodo1 {
+            background: #fd7e14;
+        }
+        
+        .legenda-periodos .cor-periodo.periodo2 {
+            background: #20c997;
+        }
+        
+        /* Tabela de Variações */
+        .tabela-variacoes {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .tabela-variacoes .badge-variacao {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        
+        .tabela-variacoes .badge-variacao.aumento {
+            background: rgba(220, 53, 69, 0.15);
+            color: #dc3545;
+        }
+        
+        .tabela-variacoes .badge-variacao.reducao {
+            background: rgba(25, 135, 84, 0.15);
+            color: #198754;
+        }
+        
+        /* Seletores de Período Comparativo */
+        .periodo-box {
+            background: white;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            margin-bottom: 0;
+        }
+        
+        .periodo-box.periodo-atual {
+            border-color: #fd7e14;
+            background: rgba(253, 126, 20, 0.05);
+        }
+        
+        .periodo-box.periodo-comparacao {
+            border-color: #20c997;
+            background: rgba(32, 201, 151, 0.05);
+        }
+        
+        .periodo-box .periodo-titulo {
+            font-weight: 600;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .periodo-box .periodo-titulo i {
+            width: 18px;
+            text-align: center;
+        }
+        
+        /* Gráfico Comparativo */
+        .grafico-comparativo {
+            height: 350px;
+            position: relative;
+        }
+        
+        /* Cards de Top Variações */
+        .top-variacoes-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+        }
+        
+        .top-variacoes-card .card-titulo {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .top-variacoes-card .item-variacao {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px dashed #f0f0f0;
+        }
+        
+        .top-variacoes-card .item-variacao:last-child {
+            border-bottom: none;
+        }
+        
+        .top-variacoes-card .item-variacao .nome {
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            max-width: 60%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .top-variacoes-card .item-variacao .valor-var {
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        
+        .top-variacoes-card .item-variacao .valor-var.positivo {
+            color: #dc3545;
+        }
+        
+        .top-variacoes-card .item-variacao .valor-var.negativo {
+            color: #198754;
+        }
     </style>
 </head>
 <body>
+
+<!-- Spinner Global para Carregamentos Rápidos -->
+<div class="spinner-backdrop" id="spinnerBackdrop"></div>
+<div class="spinner-global" id="spinnerGlobal">
+    <div class="spinner-box">
+        <div class="spinner-circle"></div>
+        <span class="spinner-text" id="spinnerText">Carregando...</span>
+    </div>
+</div>
 
 <!-- Botão de Toggle da Sidebar -->
 <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
@@ -341,8 +814,12 @@
         <ul class="list-unstyled components">
             <li class="active"><a href="{{ url_for('dashboard') }}"><i class="fas fa-chart-line"></i> Dashboard Financeiro</a></li>
             <li><a href="{{ url_for('status_pedidos') }}"><i class="fas fa-tasks"></i> Status de Pedidos</a></li>
-            <li><a href="{{ url_for('performance') }}"><i class="fas fa-tachometer-alt"></i> Performance</a></li>
+            <li><a href="{{ url_for('performance') }}"><i class="fas fa-tachometer-alt"></i> OTD & Performance</a></li>
             <li><a href="{{ url_for('variacao_preco') }}"><i class="fas fa-balance-scale"></i> Variação de Preço</a></li>
+            <li><a href="{{ url_for('terceiros') }}"><i class="fas fa-industry"></i> Terceiros</a></li>
+            <li><a href="{{ url_for('solicitacoes') }}"><i class="fas fa-file-alt"></i> Solicitações em Aberto</a></li>
+            <li><a href="{{ url_for('cotacoes') }}"><i class="fas fa-file-invoice-dollar"></i> Cotações e Orçamentos</a></li>
+            <li><a href="{{ url_for('avaliacao_iso') }}"><i class="fas fa-certificate"></i> Avaliação ISO (PQ021)</a></li>
         </ul>
     </nav>
 
@@ -363,17 +840,21 @@
         <!-- FILTROS -->
         <div class="filter-card fade-in">
             <form id="filterForm" action="{{ url_for('dashboard') }}" method="POST">
-                <div class="row g-3 align-items-end">
+                <div class="row g-2 align-items-end">
                     <div class="col-md-1">
-                        <label class="form-label-sm">Início</label>
-                        <input type="date" class="form-control form-control-sm" name="data_inicio" value="{{ filtros.data_inicio }}">
+                        <label class="form-label-sm">PERÍODO - DE:</label>
+                        <select name="data_inicio" class="form-control form-control-sm" id="selectDataInicio">
+                            <!-- Opções geradas dinamicamente via JavaScript -->
+                        </select>
                     </div>
                     <div class="col-md-1">
-                        <label class="form-label-sm">Fim</label>
-                        <input type="date" class="form-control form-control-sm" name="data_fim" value="{{ filtros.data_fim }}">
+                        <label class="form-label-sm">ATÉ:</label>
+                        <select name="data_fim" class="form-control form-control-sm" id="selectDataFim">
+                            <!-- Opções geradas dinamicamente via JavaScript -->
+                        </select>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label-sm">Fornecedores</label>
+                        <label class="form-label-sm">FORNECEDORES</label>
                         <select class="selectpicker form-control" name="fornecedores" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 2" title="Selecione..." id="fornecedores_select">
                             {% for f in dados.opcoes_fornecedores %}
                             <option value="{{ f }}" {% if f in filtros.fornecedores %}selected{% endif %}>{{ f }}</option>
@@ -381,14 +862,14 @@
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label-sm">Busca</label>
+                        <label class="form-label-sm">BUSCA</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="fas fa-search"></i></span>
-                            <input type="text" class="form-control" name="busca_geral" id="busca_geral" placeholder="Buscar..." value="{{ filtros.busca_geral }}">
+                            <input type="text" class="form-control" name="busca_geral" id="busca_geral" placeholder="Produto, Pedido ou NF" value="{{ filtros.busca_geral }}">
                         </div>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label-sm">Comprador</label>
+                        <label class="form-label-sm">COMPRADOR</label>
                         <select class="form-select form-select-sm" name="comprador">
                             <option value="Todos">Todos</option>
                             {% for c in dados.opcoes_compradores %}
@@ -396,18 +877,20 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label-sm">Tipo</label>
-                        <select class="form-select form-select-sm selectpicker" name="tipos_produto" multiple data-actions-box="true" data-selected-text-format="count > 2" data-size="8" title="Todos">
+                    <div class="col-md-3">
+                        <label class="form-label-sm">TIPO</label>
+                        <select class="selectpicker form-control" name="tipos_produto" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 2" data-size="8" title="Selecione..." id="tipos_produto_select">
                             {% for tipo in dados.opcoes_tipos_produto %}
                             <option value="{{ tipo }}" {% if tipo in filtros.tipos_produto %}selected{% endif %}>{{ tipo }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-1">
+                        <label class="form-label-sm">&nbsp;</label>
                         <div class="d-flex gap-1">
-                            <button type="submit" class="btn btn-primary btn-sm flex-grow-1" title="Filtrar"><i class="fas fa-filter"></i></button>
+                            <button type="submit" class="btn btn-primary btn-sm" title="Filtrar"><i class="fas fa-filter"></i></button>
                             <a href="{{ url_for('limpar_filtros') }}" class="btn btn-outline-secondary btn-sm" title="Limpar"><i class="fas fa-eraser"></i></a>
+                            <button type="button" class="btn btn-success btn-sm" onclick="exportarExcelDashboard()" title="Exportar para Excel"><i class="fas fa-file-excel"></i></button>
                         </div>
                     </div>
                 </div>
@@ -447,13 +930,17 @@
         <div class="row g-4 mb-4 fade-in">
             <div class="col-lg-4">
                 <div class="chart-card">
-                    <div class="chart-header">
-                        <i class="fas fa-building me-2 text-primary"></i>Top 10 Fornecedores (Valor)
+                    <div class="chart-header" id="top10Header">
+                        {% if dados.top10_modo == 'produtos' %}
+                        <i class="fas fa-box me-2 text-success"></i>{{ dados.top10_titulo }}
+                        {% else %}
+                        <i class="fas fa-building me-2 text-primary"></i>{{ dados.top10_titulo }}
+                        {% endif %}
                         {% if filtros.fornecedores %}
-                        <button onclick="limparFiltroFornecedores()" class="btn btn-sm btn-danger ms-2" title="Limpar Fornecedores"><i class="fas fa-times"></i></button>
+                        <button onclick="limparFiltroFornecedores()" class="btn btn-sm btn-danger ms-2" title="Limpar Fornecedores e voltar ao Top 10 Fornecedores"><i class="fas fa-times"></i></button>
                         {% endif %}
                     </div>
-                    <div class="chart-canvas-container"><canvas id="chartFornecedores"></canvas></div>
+                    <div class="chart-canvas-container"><canvas id="chartTop10"></canvas></div>
                 </div>
             </div>
             <div class="col-lg-4">
@@ -489,26 +976,29 @@
                 <div class="card-modern">
                     <div class="card-title text-primary"><i class="fas fa-list-alt"></i>Detalhamento Financeiro (Últimos 200)</div>
                     <div class="table-container">
-                        <table class="table table-modern table-striped table-hover">
+                        <table class="table table-modern table-striped table-hover" id="tabelaDetalhamento">
                             <thead>
                                 <tr>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.num_pedido if sql_meta else 'N/A' }}"><span class="sql-origin">Pedido <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_emissao if sql_meta else 'N/A' }}"><span class="sql-origin">Emissão <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_entrega_prevista if sql_meta else 'N/A' }}"><span class="sql-origin">Entrega Prev. <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.status_detalhado if sql_meta else 'N/A' }}"><span class="sql-origin">Status <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.numero_nota if sql_meta else 'N/A' }}"><span class="sql-origin">Nota Fiscal <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.condicao_pagamento if sql_meta else 'N/A' }}"><span class="sql-origin">Pagto <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.desc_produto if sql_meta else 'N/A' }}"><span class="sql-origin">Produto <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Fornecedor <i class="fas fa-database"></i></span></th>
-                                    <th class="text-end" data-bs-toggle="tooltip" title="📊 {{ sql_meta.valor_total if sql_meta else 'N/A' }}"><span class="sql-origin">Valor Total <i class="fas fa-database"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaDetalhamento', 0, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.num_pedido if sql_meta else 'N/A' }}"><span class="sql-origin">Pedido <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaDetalhamento', 1, 'date')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_emissao if sql_meta else 'N/A' }}"><span class="sql-origin">Emissão <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaDetalhamento', 2, 'date')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_entrega_prevista if sql_meta else 'N/A' }}"><span class="sql-origin">Entrega Prev. <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaDetalhamento', 3, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.status_detalhado if sql_meta else 'N/A' }}"><span class="sql-origin">Status <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaDetalhamento', 4, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.numero_nota if sql_meta else 'N/A' }}"><span class="sql-origin">Nota Fiscal <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaDetalhamento', 5, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.condicao_pagamento if sql_meta else 'N/A' }}"><span class="sql-origin">Pagto <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaDetalhamento', 6, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_produto if sql_meta else 'N/A' }}"><span class="sql-origin">Cód. Produto <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-start sortable" onclick="sortTable('tabelaDetalhamento', 7, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.desc_produto if sql_meta else 'N/A' }}"><span class="sql-origin">Produto <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaDetalhamento', 8, 'number')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.qtd_pedida if sql_meta else 'SC7010.C7_QUANT' }}"><span class="sql-origin">Qtd <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaDetalhamento', 9, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Cód. Fornec. <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-start sortable" onclick="sortTable('tabelaDetalhamento', 10, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Fornecedor <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-end sortable" onclick="sortTable('tabelaDetalhamento', 11, 'number')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.valor_total if sql_meta else 'N/A' }}"><span class="sql-origin">Valor Total <i class="fas fa-sort"></i></span></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for linha in dados.tabela %}
                                 <tr>
                                     <td class="fw-bold text-primary">{{ linha.NumeroPedido }}</td>
-                                    <td>{{ linha.DataEmissao.strftime('%d/%m/%y') if linha.DataEmissao else '-' }}</td>
-                                    <td>{{ linha.DataEntregaPrevista.strftime('%d/%m/%y') if linha.DataEntregaPrevista else '-' }}</td>
+                                    <td>{% if linha.DataEmissao %}{{ linha.DataEmissao }}{% else %}-{% endif %}</td>
+                                    <td>{% if linha.DataEntregaPrevista %}{{ linha.DataEntregaPrevista }}{% else %}-{% endif %}</td>
                                     <td>
                                         {% if linha.StatusEntrega == 'Entregue' %}
                                             <span class="badge bg-success">Entregue</span>
@@ -526,15 +1016,376 @@
                                         {% endif %}
                                     </td>
                                     <td><small class="text-secondary">{{ linha.CondicaoPagamento }}</small></td>
-                                    <td class="text-truncate" style="max-width: 200px;" title="{{ linha.DescricaoProduto }}">{{ linha.DescricaoProduto }}</td>
-                                    <td class="text-truncate" style="max-width: 150px;" title="{{ linha.NomeFornecedor }}">{{ linha.NomeFornecedor }}</td>
-                                    <td class="text-end fw-bold">R$ {{ "{:,.2f}".format(linha.ValorTotal) }}</td>
+                                    <td><small class="text-muted fw-bold">{{ linha.CodProduto }}</small></td>
+                                    <td class="text-start text-truncate" style="max-width: 180px;" title="{{ linha.DescricaoProduto }}">{{ linha.DescricaoProduto }}</td>
+                                    <td><span class="badge bg-info">{{ "{:,.0f}".format(linha.QtdPedida|default(0)) }}</span></td>
+                                    <td><small class="text-muted fw-bold">{{ linha.CodFornecedor }}</small></td>
+                                    <td class="text-start text-truncate" style="max-width: 130px;" title="{{ linha.NomeFornecedor }}">{{ linha.NomeFornecedor }}</td>
+                                    <td class="valor-monetario"><span class="simbolo-moeda">R$</span><span class="valor-numero">{{ "{:>12,.2f}".format(linha.ValorTotal) }}</span></td>
                                 </tr>
                                 {% else %}
-                                <tr><td colspan="9" class="text-center py-4 text-muted"><i class="fas fa-inbox fa-2x mb-2 d-block"></i>Nenhum dado encontrado.</td></tr>
+                                <tr><td colspan="12" class="text-center py-4 text-muted"><i class="fas fa-inbox fa-2x mb-2 d-block"></i>Nenhum dado encontrado.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== ANÁLISE DE FREQUÊNCIA DE COMPRAS ========== -->
+        <div class="row fade-in mt-4">
+            <div class="col-12">
+                <div class="card-modern">
+                    <div class="card-title text-success">
+                        <i class="fas fa-chart-bar me-2"></i>Análise de Frequência de Compras por Item
+                        <button class="btn btn-sm btn-outline-success float-end" type="button" data-bs-toggle="collapse" data-bs-target="#secaoFrequencia" aria-expanded="false">
+                            <i class="fas fa-chevron-down"></i> Expandir
+                        </button>
+                    </div>
+                    
+                    <div class="collapse" id="secaoFrequencia">
+                        <!-- Formulário de Busca -->
+                        <div class="row mb-3">
+                            <div class="col-md-5">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-success text-white">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    <input type="text" id="buscaItemFrequencia" class="form-control" 
+                                           placeholder="Código ou descrição do item">
+                                    <button class="btn btn-success" type="button" onclick="analisarFrequenciaItem()">
+                                        <i class="fas fa-calculator me-1"></i> Analisar
+                                    </button>
+                                </div>
+                                <small class="text-muted">Separe múltiplos itens por vírgula</small>
+                            </div>
+                            <div class="col-md-7">
+                                <div class="row">
+                                    <div class="col-md-5">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-light"><i class="fas fa-calendar-alt text-success"></i></span>
+                                            <input type="date" id="dataInicioFrequencia" class="form-control date-picker-month">
+                                        </div>
+                                        <small class="text-muted">Data Inicial</small>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-light"><i class="fas fa-calendar-alt text-danger"></i></span>
+                                            <input type="date" id="dataFimFrequencia" class="form-control date-picker-month">
+                                        </div>
+                                        <small class="text-muted">Data Final</small>
+                                    </div>
+                                    <div class="col-md-2 d-flex align-items-start">
+                                        <button class="btn btn-sm btn-outline-secondary" type="button" onclick="resetarPeriodoFrequencia()" title="Resetar para ano atual">
+                                            <i class="fas fa-undo"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Resultado da Análise -->
+                        <div id="resultadoFrequencia" style="display: none;">
+                            <hr>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover" id="tabelaFrequencia">
+                                    <thead class="table-success">
+                                        <tr>
+                                            <th>Cód. Produto</th>
+                                            <th>Descrição</th>
+                                            <th class="text-center">Total Comprado</th>
+                                            <th class="text-center">Freq. Pedidos</th>
+                                            <th class="text-center">Média/Mês (Qtd)</th>
+                                            <th class="text-center">Média/Mês (R$)</th>
+                                            <th class="text-center">Primeiro Pedido</th>
+                                            <th class="text-center">Último Pedido</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="corpoTabelaFrequencia"></tbody>
+                                </table>
+                            </div>
+                            
+                            <!-- Resumo Estatístico -->
+                            <div class="row mt-3" id="resumoEstatistico">
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center py-2">
+                                            <h6 class="text-success mb-1">Total Geral Comprado</h6>
+                                            <h4 class="mb-0" id="statTotalQtd">-</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center py-2">
+                                            <h6 class="text-primary mb-1">Valor Total (R$)</h6>
+                                            <h4 class="mb-0" id="statTotalValor">-</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center py-2">
+                                            <h6 class="text-info mb-1">Total de Pedidos</h6>
+                                            <h4 class="mb-0" id="statTotalPedidos">-</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center py-2">
+                                            <h6 class="text-warning mb-1">Média Mensal (Qtd)</h6>
+                                            <h4 class="mb-0" id="statMediaMensal">-</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Mensagem Inicial -->
+                        <div id="msgInicialFrequencia" class="text-center py-4 text-muted">
+                            <i class="fas fa-search fa-3x mb-3 d-block opacity-50"></i>
+                            <p>Digite o código ou descrição de um item para analisar a frequência de compras.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== ANÁLISE COMPARATIVA TEMPORAL ========== -->
+        <div class="row fade-in mt-4">
+            <div class="col-12">
+                <div class="card-modern">
+                    <div class="card-title" style="color: #6f42c1;">
+                        <i class="fas fa-exchange-alt me-2"></i>Análise Comparativa Temporal
+                        <button class="btn btn-sm btn-outline-secondary float-end" type="button" data-bs-toggle="collapse" data-bs-target="#secaoComparativa" aria-expanded="false">
+                            <i class="fas fa-chevron-down"></i> Expandir
+                        </button>
+                    </div>
+                    
+                    <div class="collapse" id="secaoComparativa">
+                        <!-- Seleção de Períodos -->
+                        <div class="secao-comparativa-periodos mb-3">
+                            <div class="secao-header">
+                                <i class="fas fa-calendar-alt me-2"></i>Selecione os Períodos
+                            </div>
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-5">
+                                    <div class="periodo-box periodo-atual">
+                                        <div class="periodo-titulo" style="color: #fd7e14;">
+                                            <i class="fas fa-calendar-check"></i> Período Base
+                                        </div>
+                                        <div class="row g-2">
+                                            <div class="col-6">
+                                                <label class="form-label-sm">DE:</label>
+                                                <select class="form-select form-select-sm" id="compPeriodo1Inicio"></select>
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label-sm">ATÉ:</label>
+                                                <select class="form-select form-select-sm" id="compPeriodo1Fim"></select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-center justify-content-center">
+                                    <div class="text-center py-2">
+                                        <i class="fas fa-arrows-alt-h fa-lg text-muted"></i>
+                                        <div class="small text-muted fw-bold">vs</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-5">
+                                    <div class="periodo-box periodo-comparacao">
+                                        <div class="periodo-titulo" style="color: #20c997;">
+                                            <i class="fas fa-history"></i> Período de Comparação
+                                        </div>
+                                        <div class="row g-2">
+                                            <div class="col-6">
+                                                <label class="form-label-sm">DE:</label>
+                                                <select class="form-select form-select-sm" id="compPeriodo2Inicio"></select>
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label-sm">ATÉ:</label>
+                                                <select class="form-select form-select-sm" id="compPeriodo2Fim"></select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Filtros Padronizados (IDÊNTICOS ao topo do dashboard) -->
+                        <div class="secao-comparativa-filtros mb-3">
+                            <div class="secao-header">
+                                <i class="fas fa-filter me-2"></i>Filtros de Análise <span class="text-muted small">(opcional - mesmos filtros do dashboard)</span>
+                            </div>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label-sm">FORNECEDORES</label>
+                                    <select class="selectpicker form-control" id="compFiltroFornecedores" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 2" data-size="8" title="Selecione...">
+                                        {% for f in dados.opcoes_fornecedores %}
+                                        <option value="{{ f }}">{{ f }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label-sm">BUSCA (Produto/Pedido/NF)</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                        <input type="text" class="form-control" id="compFiltroProduto" placeholder="Código, descrição...">
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label-sm">COMPRADOR</label>
+                                    <select class="form-select form-select-sm" id="compFiltroComprador">
+                                        <option value="Todos">Todos</option>
+                                        {% for c in dados.opcoes_compradores %}
+                                        <option value="{{ c }}">{{ c }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label-sm">TIPO</label>
+                                    <select class="form-select form-select-sm" id="compFiltroTipo">
+                                        <option value="">Todos</option>
+                                        {% for tipo in dados.opcoes_tipos_produto %}
+                                        <option value="{{ tipo }}">{{ tipo }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-primary btn-sm flex-grow-1" onclick="executarAnaliseComparativa()">
+                                            <i class="fas fa-chart-line me-1"></i> Analisar
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-sm" onclick="limparFiltrosComparativos()" title="Limpar Filtros">
+                                            <i class="fas fa-eraser"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Tags de filtros ativos -->
+                            <div id="filtrosAtivosComparativos" class="filtros-ativos-tags mt-2" style="display: none;"></div>
+                        </div>
+                        
+                        <!-- Resultado da Análise -->
+                        <div id="resultadoComparativa" style="display: none;">
+                            <!-- Legenda de Períodos -->
+                            <div class="legenda-periodos">
+                                <div class="legenda-item">
+                                    <div class="cor-periodo periodo1"></div>
+                                    <span id="legendaPeriodo1">Período Atual</span>
+                                </div>
+                                <div class="legenda-item">
+                                    <div class="cor-periodo periodo2"></div>
+                                    <span id="legendaPeriodo2">Período Anterior</span>
+                                </div>
+                            </div>
+                            
+                            <!-- KPIs Comparativos -->
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <div class="kpi-comparativo">
+                                        <div class="periodo-label">Total Gasto</div>
+                                        <div class="valor-periodo periodo1" id="compTotalP1">R$ 0,00</div>
+                                        <div class="valor-periodo periodo2" id="compTotalP2">R$ 0,00</div>
+                                        <div class="variacao neutra" id="compVariacaoTotal">
+                                            <i class="fas fa-equals"></i> 0%
+                                        </div>
+                                        <div class="diferenca" id="compDiferenca">Diferença: R$ 0,00</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="kpi-comparativo">
+                                        <div class="periodo-label">Quantidade de Pedidos</div>
+                                        <div class="valor-periodo periodo1" id="compPedidosP1">0</div>
+                                        <div class="valor-periodo periodo2" id="compPedidosP2">0</div>
+                                        <div class="variacao neutra" id="compVariacaoPedidos">
+                                            <i class="fas fa-equals"></i> 0%
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="kpi-comparativo">
+                                        <div class="periodo-label">Itens Comprados</div>
+                                        <div class="valor-periodo periodo1" id="compItensP1">0</div>
+                                        <div class="valor-periodo periodo2" id="compItensP2">0</div>
+                                        <div class="variacao neutra" id="compVariacaoItens">
+                                            <i class="fas fa-equals"></i> 0%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Gráfico Comparativo -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <div class="chart-card" style="min-height: 400px;">
+                                        <div class="chart-header">
+                                            <i class="fas fa-chart-bar me-2" style="color: #6f42c1;"></i>
+                                            <span id="tituloGraficoComparativo">Comparação por Período</span>
+                                        </div>
+                                        <div class="grafico-comparativo">
+                                            <canvas id="chartComparativo"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Top Variações -->
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <div class="top-variacoes-card">
+                                        <div class="card-titulo text-danger">
+                                            <i class="fas fa-arrow-up me-2"></i>Maiores Aumentos
+                                        </div>
+                                        <div id="listaTopAumentos">
+                                            <div class="text-center text-muted py-3">Sem dados</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="top-variacoes-card">
+                                        <div class="card-titulo text-success">
+                                            <i class="fas fa-arrow-down me-2"></i>Maiores Reduções
+                                        </div>
+                                        <div id="listaTopReducoes">
+                                            <div class="text-center text-muted py-3">Sem dados</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Tabela Detalhada -->
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6 class="text-secondary mb-3">
+                                        <i class="fas fa-table me-2"></i>Detalhamento por Item
+                                    </h6>
+                                    <div class="tabela-variacoes">
+                                        <table class="table table-modern table-striped table-hover" id="tabelaComparativa">
+                                            <thead>
+                                                <tr>
+                                                    <th class="text-start">Item</th>
+                                                    <th class="text-end">Período Atual</th>
+                                                    <th class="text-end">Período Anterior</th>
+                                                    <th class="text-end">Diferença</th>
+                                                    <th class="text-center">Variação</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="corpoTabelaComparativa"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Mensagem Inicial -->
+                        <div id="msgInicialComparativa" class="text-center py-5 text-muted">
+                            <i class="fas fa-exchange-alt fa-3x mb-3 d-block opacity-50"></i>
+                            <p class="mb-2">Compare períodos equivalentes para análise de tendências</p>
+                            <small>Selecione os períodos e clique em "Analisar" para ver a comparação detalhada</small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -619,6 +1470,151 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/js/bootstrap-select.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+<script>
+    // ========================================
+    // INICIALIZAÇÃO DOS DROPDOWNS MENSAIS
+    // ========================================
+    document.addEventListener('DOMContentLoaded', function() {
+        const meses = [
+            'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+            'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+        ];
+        
+        const dataAtual = new Date();
+        const anoAtual = dataAtual.getFullYear();
+        const mesAtual = dataAtual.getMonth(); // 0-11
+        
+        // Função para obter último dia do mês
+        function ultimoDiaMes(ano, mes) {
+            return new Date(ano, mes + 1, 0).getDate();
+        }
+        
+        // Gerar opções de Jan/2024 até Dez/2027 (4 anos de range)
+        const opcoesInicio = [];
+        const opcoesFim = [];
+        for (let ano = anoAtual - 2; ano <= anoAtual + 1; ano++) {
+            for (let mes = 0; mes < 12; mes++) {
+                const valorInicio = `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
+                const ultimoDia = ultimoDiaMes(ano, mes);
+                const valorFim = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+                const texto = `${meses[mes]}/${ano}`;
+                opcoesInicio.push({ valor: valorInicio, texto, ano, mes });
+                opcoesFim.push({ valor: valorFim, texto, ano, mes });
+            }
+        }
+        
+        // Função para preencher select de início (primeiro dia)
+        function preencherSelectInicio(selectId, valorInicial) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            
+            select.innerHTML = '';
+            opcoesInicio.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.valor;
+                option.textContent = opt.texto;
+                select.appendChild(option);
+            });
+            
+            // Definir valor inicial
+            if (valorInicial && valorInicial !== '') {
+                const partes = valorInicial.split('-');
+                const valorMes = `${partes[0]}-${partes[1]}-01`;
+                select.value = valorMes;
+            } else {
+                // Padrão: Jan do ano atual
+                select.value = `${anoAtual}-01-01`;
+            }
+        }
+        
+        // Função para preencher select de fim (último dia do mês)
+        function preencherSelectFim(selectId, valorInicial) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            
+            select.innerHTML = '';
+            opcoesFim.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.valor;
+                option.textContent = opt.texto;
+                select.appendChild(option);
+            });
+            
+            // Definir valor inicial
+            if (valorInicial && valorInicial !== '') {
+                const partes = valorInicial.split('-');
+                const ano = parseInt(partes[0]);
+                const mes = parseInt(partes[1]) - 1;
+                const ultimoDia = ultimoDiaMes(ano, mes);
+                const valorMes = `${partes[0]}-${partes[1]}-${String(ultimoDia).padStart(2, '0')}`;
+                select.value = valorMes;
+            } else {
+                // Padrão: Dez do ano atual
+                select.value = `${anoAtual}-12-31`;
+            }
+        }
+        
+        // Valores do backend (do Jinja)
+        const dataInicioBackend = '{{ filtros.data_inicio }}';
+        const dataFimBackend = '{{ filtros.data_fim }}';
+        
+        // Preencher ambos os selects
+        preencherSelectInicio('selectDataInicio', dataInicioBackend);
+        preencherSelectFim('selectDataFim', dataFimBackend);
+    });
+    
+    // Função global de ordenação de tabelas
+    let sortDirections = {};
+    
+    function sortTable(tableId, columnIndex, dataType) {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => row.cells.length > columnIndex);
+        
+        const sortKey = `${tableId}_${columnIndex}`;
+        const isAscending = !sortDirections[sortKey];
+        sortDirections[sortKey] = isAscending;
+        
+        rows.sort((a, b) => {
+            let aValue = a.cells[columnIndex].textContent.trim();
+            let bValue = b.cells[columnIndex].textContent.trim();
+            
+            if (dataType === 'number') {
+                aValue = parseFloat(aValue.replace(/[^0-9.-]/g, '')) || 0;
+                bValue = parseFloat(bValue.replace(/[^0-9.-]/g, '')) || 0;
+            } else if (dataType === 'date') {
+                aValue = aValue === '-' ? new Date(0) : parseDate(aValue);
+                bValue = bValue === '-' ? new Date(0) : parseDate(bValue);
+            }
+            
+            if (aValue < bValue) return isAscending ? -1 : 1;
+            if (aValue > bValue) return isAscending ? 1 : -1;
+            return 0;
+        });
+        
+        rows.forEach(row => tbody.appendChild(row));
+        
+        // Atualizar ícones
+        table.querySelectorAll('th.sortable i').forEach(icon => {
+            icon.className = 'fas fa-sort';
+        });
+        const sortIcon = table.querySelectorAll('th.sortable')[columnIndex]?.querySelector('i');
+        if (sortIcon) {
+            sortIcon.className = isAscending ? 'fas fa-sort-up' : 'fas fa-sort-down';
+        }
+    }
+    
+    function parseDate(dateStr) {
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            const year = parts[2].length === 2 ? 2000 + parseInt(parts[2]) : parseInt(parts[2]);
+            return new Date(year, parseInt(parts[1]) - 1, parseInt(parts[0]));
+        }
+        return new Date(dateStr);
+    }
+</script>
 
 <script>
     // ========================================
@@ -720,37 +1716,157 @@
     }
 
     // ========================================
-    // GRÁFICO FORNECEDORES
+    // GRÁFICO TOP 10 CONTEXTUAL (Fornecedores ou Produtos)
     // ========================================
-    new Chart(document.getElementById('chartFornecedores'), {
+    const top10Modo = '{{ dados.top10_modo }}';
+    const top10Labels = {{ dados.graf_top10_labels | tojson }};
+    const top10Values = {{ dados.graf_top10_values | tojson }};
+    const top10Qtds = {{ dados.graf_top10_qtds | tojson }};  // Quantidades para tooltip
+    
+    // Tooltip customizado para Top 10 Produtos (com quadradinhos coloridos)
+    const top10Tooltip = {
+        enabled: false,  // Desativa tooltip padrão
+        external: function(context) {
+            // Tooltip customizado via HTML
+            let tooltipEl = document.getElementById('chartjs-tooltip-top10');
+            
+            // Cria elemento na primeira vez
+            if (!tooltipEl) {
+                tooltipEl = document.createElement('div');
+                tooltipEl.id = 'chartjs-tooltip-top10';
+                tooltipEl.style.cssText = 'background: rgba(30, 30, 60, 0.95); color: #fff; border-radius: 8px; padding: 12px; pointer-events: none; position: absolute; transition: all 0.1s ease; font-size: 12px; z-index: 9999; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);';
+                document.body.appendChild(tooltipEl);
+            }
+            
+            const tooltipModel = context.tooltip;
+            
+            // Esconde se não há dados
+            if (tooltipModel.opacity === 0) {
+                tooltipEl.style.opacity = 0;
+                return;
+            }
+            
+            // Conteúdo do tooltip
+            if (tooltipModel.body) {
+                const dataIndex = tooltipModel.dataPoints[0].dataIndex;
+                const label = top10Labels[dataIndex];
+                const valor = top10Values[dataIndex];
+                
+                let html = '<div style="font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 6px;">' + label + '</div>';
+                
+                // ■ Total (verde)
+                html += '<div style="display: flex; align-items: center; margin-bottom: 4px;">';
+                html += '<span style="display: inline-block; width: 12px; height: 12px; background: #28a745; border-radius: 2px; margin-right: 8px;"></span>';
+                html += '<span>Total: ' + formatBRL(valor) + '</span>';
+                html += '</div>';
+                
+                // ■ Quantidade (amarelo) - só em modo produtos
+                if (top10Modo === 'produtos' && top10Qtds && top10Qtds[dataIndex]) {
+                    html += '<div style="display: flex; align-items: center;">';
+                    html += '<span style="display: inline-block; width: 12px; height: 12px; background: #ffc107; border-radius: 2px; margin-right: 8px;"></span>';
+                    html += '<span>Quantidade: ' + top10Qtds[dataIndex].toLocaleString('pt-BR') + ' un</span>';
+                    html += '</div>';
+                }
+                
+                tooltipEl.innerHTML = html;
+            }
+            
+            // Posição
+            const position = context.chart.canvas.getBoundingClientRect();
+            tooltipEl.style.opacity = 1;
+            tooltipEl.style.left = position.left + window.pageXOffset + tooltipModel.caretX + 10 + 'px';
+            tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY - 10 + 'px';
+        }
+    };
+    
+    // Função de clique contextual
+    function handleTop10Click(label) {
+        if (top10Modo === 'fornecedores') {
+            // Modo Fornecedores: aplica filtro de fornecedor
+            toggleFiltroFornecedor(label);
+        } else {
+            // Modo Produtos: aplica busca pelo código do produto
+            const codProduto = label.split(' - ')[0].trim();
+            toggleFiltroTexto(codProduto);
+        }
+    }
+    
+    new Chart(document.getElementById('chartTop10'), {
         type: 'bar',
         data: {
-            labels: {{ dados.graf_forn_labels | tojson }},
-            datasets: [{ label: 'Total', data: {{ dados.graf_forn_values | tojson }}, backgroundColor: colors.blue, borderRadius: 6, clip: false }]
+            labels: top10Labels,
+            datasets: [{ 
+                label: 'Total', 
+                data: top10Values, 
+                backgroundColor: top10Modo === 'produtos' ? colors.palette[3] : colors.blue, 
+                borderRadius: 6, 
+                clip: false,
+                barThickness: 22
+            }]
         },
         options: {
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
-            layout: { padding: { right: 80, left: 10 } },
+            layout: { 
+                padding: { 
+                    right: 15, 
+                    left: 5,
+                    top: 5,
+                    bottom: 5
+                } 
+            },
             onClick: (e, elements, chart) => {
-                if (elements.length > 0) { toggleFiltroFornecedor(chart.data.labels[elements[0].index]); }
+                if (elements.length > 0) { 
+                    handleTop10Click(chart.data.labels[elements[0].index]); 
+                }
                 else {
                     const canvasPosition = Chart.helpers.getRelativePosition(e, chart);
                     const dataY = chart.scales.y.getValueForPixel(canvasPosition.y);
                     const index = Math.round(dataY);
-                    if (index >= 0 && index < chart.data.labels.length) { toggleFiltroFornecedor(chart.data.labels[index]); }
+                    if (index >= 0 && index < chart.data.labels.length) { 
+                        handleTop10Click(chart.data.labels[index]); 
+                    }
                 }
             },
             onHover: (event, chartElement) => { event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default'; },
             plugins: { 
                 legend: { display: false },
-                tooltip: moneyTooltip,
-                datalabels: { color: 'white', anchor: 'center', align: 'center', font: { weight: 'bold', size: 10 }, formatter: v => formatBRL(v) }
+                tooltip: top10Tooltip,  // Usa tooltip customizado
+                datalabels: { 
+                    color: '#fff', 
+                    anchor: 'center', 
+                    align: 'center', 
+                    font: { weight: 'bold', size: 9 }, 
+                    formatter: v => formatBRL(v),
+                    display: function(context) {
+                        // Só mostra o label se a barra tiver largura suficiente
+                        return context.dataset.data[context.dataIndex] > 0;
+                    }
+                }
             },
             scales: { 
-                x: { display: false }, 
-                y: { grid: { display: false }, ticks: { font: { size: 10 }, autoSkip: false, callback: function(value) { const label = this.getLabelForValue(value); return label.length > 25 ? label.substring(0, 25) + '...' : label; } } }
+                x: { 
+                    display: false,
+                    grid: { display: false }
+                }, 
+                y: { 
+                    grid: { display: false }, 
+                    ticks: { 
+                        font: { size: 9 }, 
+                        autoSkip: false,
+                        mirror: false,
+                        padding: 8,
+                        callback: function(value) { 
+                            const label = this.getLabelForValue(value); 
+                            // Trunca nomes longos de forma mais inteligente
+                            if (label.length > 20) {
+                                return label.substring(0, 18) + '...';
+                            }
+                            return label;
+                        }
+                    }
+                }
             }
         }
     });
@@ -1058,6 +2174,712 @@
 
     function fecharDetalhes() {
         document.getElementById('detalhesPedidosMes').style.display = 'none';
+    }
+
+    // ========================================
+    // SPINNER GLOBAL PARA CARREGAMENTOS
+    // ========================================
+    // ========================================
+    // ANÁLISE DE FREQUÊNCIA DE COMPRAS (V2 - USA API DO BACKEND)
+    // ========================================
+    
+    // CORREÇÃO V2: Usa API do backend em vez de dados locais limitados a 200 registros
+    // Isso garante que a análise de frequência funcione com TODOS os dados
+    
+    // Inicializa campos de data de frequência com ano atual
+    document.addEventListener('DOMContentLoaded', function() {
+        const anoAtual = new Date().getFullYear();
+        const dataInicioFreq = document.getElementById('dataInicioFrequencia');
+        const dataFimFreq = document.getElementById('dataFimFrequencia');
+        if (dataInicioFreq && !dataInicioFreq.value) {
+            dataInicioFreq.value = `${anoAtual}-01-01`;
+        }
+        if (dataFimFreq && !dataFimFreq.value) {
+            dataFimFreq.value = `${anoAtual}-12-31`;
+        }
+    });
+    
+    // Função para resetar período para ano atual
+    function resetarPeriodoFrequencia() {
+        const anoAtual = new Date().getFullYear();
+        document.getElementById('dataInicioFrequencia').value = `${anoAtual}-01-01`;
+        document.getElementById('dataFimFrequencia').value = `${anoAtual}-12-31`;
+    }
+    
+    // CORREÇÃO V2: Função reescrita para usar a API do backend
+    function analisarFrequenciaItem() {
+        const busca = document.getElementById('buscaItemFrequencia').value.trim();
+        const dataInicio = document.getElementById('dataInicioFrequencia').value;
+        const dataFim = document.getElementById('dataFimFrequencia').value;
+        
+        if (!busca) {
+            alert('Digite o código ou descrição de pelo menos um item.');
+            return;
+        }
+        
+        if (!dataInicio || !dataFim) {
+            alert('Selecione Data Inicial e Data Final.');
+            return;
+        }
+        
+        // Valida datas
+        const dtInicio = new Date(dataInicio + 'T00:00:00');
+        const dtFim = new Date(dataFim + 'T23:59:59');
+        
+        if (dtInicio > dtFim) {
+            alert('Data Inicial não pode ser maior que Data Final.');
+            return;
+        }
+        
+        // Mostra loading
+        document.getElementById('msgInicialFrequencia').innerHTML = `
+            <i class="fas fa-spinner fa-spin fa-3x mb-3 d-block text-primary"></i>
+            <p>Analisando frequência de compras...</p>
+            <small class="text-muted">Buscando em todos os registros do banco de dados</small>
+        `;
+        document.getElementById('resultadoFrequencia').style.display = 'none';
+        document.getElementById('msgInicialFrequencia').style.display = 'block';
+        
+        // Formata período para exibição
+        const periodoTexto = `${dtInicio.toLocaleDateString('pt-BR')} até ${dtFim.toLocaleDateString('pt-BR')}`;
+        
+        // Chama API do backend (busca TODOS os dados, não apenas os 200 da tabela)
+        const params = new URLSearchParams({
+            item: busca,
+            data_inicio: dataInicio,
+            data_fim: dataFim
+        });
+        
+        fetch(`/api/frequencia_compras?${params.toString()}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    // Exibe mensagem de erro do backend
+                    let msgExtra = data.sugestao ? `<br><small class="text-info">${data.sugestao}</small>` : '';
+                    document.getElementById('msgInicialFrequencia').innerHTML = `
+                        <i class="fas fa-exclamation-triangle fa-3x mb-3 d-block text-warning"></i>
+                        <p>${data.message}</p>
+                        <small class="text-muted">Período: ${periodoTexto}</small>
+                        ${msgExtra}
+                    `;
+                    document.getElementById('resultadoFrequencia').style.display = 'none';
+                    document.getElementById('msgInicialFrequencia').style.display = 'block';
+                    return;
+                }
+                
+                // Processa resultados da API
+                const itens = data.itens || [];
+                const resumo = data.resumo || {};
+                
+                // Monta a tabela de resultados
+                const tbody = document.getElementById('corpoTabelaFrequencia');
+                let html = '';
+                
+                itens.forEach(item => {
+                    html += `
+                        <tr>
+                            <td><strong class="text-primary">${item.CodProduto || '-'}</strong></td>
+                            <td class="text-truncate" style="max-width: 250px;" title="${item.DescricaoProduto || ''}">${item.DescricaoProduto || '-'}</td>
+                            <td class="text-center"><span class="badge bg-success">${(item.QtdTotalComprada || 0).toLocaleString('pt-BR')}</span></td>
+                            <td class="text-center"><span class="badge bg-info">${item.FrequenciaPedidos || 0}</span></td>
+                            <td class="text-center">${(item.MediaQtdPorMes || 0).toLocaleString('pt-BR', {maximumFractionDigits: 1})}</td>
+                            <td class="text-center">R$ ${(item.MediaValorPorMes || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            <td class="text-center"><small>${item.PrimeiroPedido || '-'}</small></td>
+                            <td class="text-center"><small>${item.UltimoPedido || '-'}</small></td>
+                        </tr>
+                    `;
+                });
+                
+                tbody.innerHTML = html;
+                
+                // Atualiza estatísticas
+                document.getElementById('statTotalQtd').textContent = (resumo.TotalGeralQtd || 0).toLocaleString('pt-BR');
+                document.getElementById('statTotalValor').textContent = 'R$ ' + (resumo.TotalGeralValor || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                document.getElementById('statTotalPedidos').textContent = (resumo.TotalGeralPedidos || 0).toLocaleString('pt-BR');
+                document.getElementById('statMediaMensal').textContent = (resumo.MediaMensalGlobal || 0).toLocaleString('pt-BR', {maximumFractionDigits: 1});
+                
+                // Exibe a seção de resultados
+                document.getElementById('resultadoFrequencia').style.display = 'block';
+                document.getElementById('msgInicialFrequencia').style.display = 'none';
+            })
+            .catch(error => {
+                console.error('Erro na análise de frequência:', error);
+                document.getElementById('msgInicialFrequencia').innerHTML = `
+                    <i class="fas fa-times-circle fa-3x mb-3 d-block text-danger"></i>
+                    <p>Erro ao analisar frequência de compras</p>
+                    <small class="text-muted">${error.message}</small>
+                    <br><small class="text-info">Tente novamente ou verifique a conexão</small>
+                `;
+                document.getElementById('resultadoFrequencia').style.display = 'none';
+                document.getElementById('msgInicialFrequencia').style.display = 'block';
+            });
+    }
+    
+    // Permite Enter para buscar
+    document.getElementById('buscaItemFrequencia')?.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            analisarFrequenciaItem();
+        }
+    });
+
+    // ========================================
+    // SPINNER GLOBAL
+    // ========================================
+    let spinnerTimeout = null;
+    let activeRequests = 0;
+    
+    function mostrarSpinner(texto = 'Carregando...') {
+        activeRequests++;
+        document.getElementById('spinnerText').textContent = texto;
+        
+        // Mostra spinner apenas se a requisição demorar mais de 500ms
+        if (spinnerTimeout === null) {
+            spinnerTimeout = setTimeout(() => {
+                document.getElementById('spinnerBackdrop').classList.add('active');
+                document.getElementById('spinnerGlobal').classList.add('active');
+            }, 500);
+        }
+    }
+    
+    function esconderSpinner() {
+        activeRequests = Math.max(0, activeRequests - 1);
+        
+        if (activeRequests === 0) {
+            if (spinnerTimeout) {
+                clearTimeout(spinnerTimeout);
+                spinnerTimeout = null;
+            }
+            document.getElementById('spinnerBackdrop').classList.remove('active');
+            document.getElementById('spinnerGlobal').classList.remove('active');
+        }
+    }
+    
+    // Intercepta fetch para mostrar spinner automaticamente
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+        const url = args[0];
+        
+        // Não mostra spinner para requisições de progresso ou muito rápidas
+        const skipSpinner = typeof url === 'string' && (
+            url.includes('progresso_extracao') ||
+            url.includes('extrair_compras')
+        );
+        
+        if (!skipSpinner) {
+            mostrarSpinner();
+        }
+        
+        return originalFetch.apply(this, args)
+            .then(response => {
+                if (!skipSpinner) esconderSpinner();
+                return response;
+            })
+            .catch(error => {
+                if (!skipSpinner) esconderSpinner();
+                throw error;
+            });
+    };
+    
+    // Intercepta submissão de formulários
+    document.addEventListener('submit', function(e) {
+        const form = e.target;
+        if (form.tagName === 'FORM') {
+            mostrarSpinner('Aplicando filtros...');
+        }
+    });
+
+    // ==========================================
+    // FUNÇÃO PARA EXPORTAR PARA EXCEL (AGRUPADO)
+    // ==========================================
+    function exportarExcelDashboard() {
+        // Coleta os filtros atuais
+        const filtros = {
+            data_inicio: document.getElementById('selectDataInicio')?.value || '',
+            data_fim: document.getElementById('selectDataFim')?.value || '',
+            fornecedores: $('#fornecedores_select').val() || [],
+            comprador: document.querySelector('select[name="comprador"]')?.value || 'Todos',
+            tipos_produto: $('#tipos_produto_select').val() || [],
+            busca_geral: document.getElementById('busca_geral')?.value || ''
+        };
+        
+        mostrarSpinner('Preparando exportação...');
+        
+        // Chama a API para buscar todos os dados agrupados
+        fetch('/api/exportar_dashboard', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(filtros)
+        })
+        .then(response => response.json())
+        .then(result => {
+            esconderSpinner();
+            
+            if (!result.success) {
+                alert('❌ ' + (result.message || 'Erro ao exportar dados'));
+                return;
+            }
+            
+            const dados = result.dados;
+            
+            if (dados.length === 0) {
+                alert('❌ Nenhum dado encontrado para exportar!');
+                return;
+            }
+            
+            // Cabeçalhos do CSV agrupado
+            const headers = ['Cód. Produto', 'Produto', 'Cód. Fornecedor', 'Fornecedor', 'Qtd Total', 'Valor Total', 'Condição Pgto', 'Primeira Compra', 'Última Compra', 'Pedidos'];
+            
+            // Criar conteúdo CSV
+            let csvContent = '\uFEFF'; // BOM para UTF-8
+            csvContent += headers.join(';') + '\n';
+            
+            dados.forEach(item => {
+                const linha = [
+                    item.CodProduto || '',
+                    (item.DescricaoProduto || '').replace(/"/g, '""'),
+                    item.CodFornecedor || '',
+                    (item.NomeFornecedor || '').replace(/"/g, '""'),
+                    item.QtdTotal?.toLocaleString('pt-BR') || '0',
+                    item.ValorTotal?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00',
+                    item.CondicaoPagamento || '',
+                    item.PrimeiraCompra || '',
+                    item.UltimaCompra || '',
+                    (item.Pedidos || '').replace(/"/g, '""')
+                ];
+                csvContent += linha.map(cell => `"${cell}"`).join(';') + '\n';
+            });
+            
+            // Adiciona linha de totais
+            csvContent += '\n';
+            csvContent += `"TOTAL";"${dados.length} itens únicos";"";"";` +
+                         `"${result.total_qtd?.toLocaleString('pt-BR') || '0'}";` +
+                         `"${result.total_valor?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00'}";` +
+                         `"";"";"";""` + '\n';
+            
+            // Criar arquivo e baixar
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            
+            // Nome do arquivo com data
+            const hoje = new Date();
+            const dataStr = `${hoje.getDate().toString().padStart(2, '0')}-${(hoje.getMonth() + 1).toString().padStart(2, '0')}-${hoje.getFullYear()}`;
+            
+            // Pegar comprador selecionado (se houver)
+            const compradorSelect = document.querySelector('select[name="comprador"]');
+            let nomeArquivo = `Dashboard_Agrupado_${dataStr}`;
+            if (compradorSelect && compradorSelect.value && compradorSelect.value !== 'Todos') {
+                const nomeComprador = compradorSelect.value.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
+                nomeArquivo = `Dashboard_${nomeComprador}_${dataStr}`;
+            }
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${nomeArquivo}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            alert(`✅ Exportados ${dados.length} itens únicos (agrupados) para Excel!\n\nTotal Qtd: ${result.total_qtd?.toLocaleString('pt-BR')}\nTotal Valor: R$ ${result.total_valor?.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
+        })
+        .catch(error => {
+            esconderSpinner();
+            console.error('Erro:', error);
+            alert('❌ Erro ao exportar: ' + error.message);
+        });
+    }
+
+    // ==========================================
+    // ANÁLISE COMPARATIVA TEMPORAL
+    // ==========================================
+    let chartComparativo = null;
+    
+    // Inicialização dos dropdowns de período comparativo
+    document.addEventListener('DOMContentLoaded', function() {
+        inicializarDropdownsComparativos();
+    });
+    
+    function inicializarDropdownsComparativos() {
+        const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const anoAtual = new Date().getFullYear();
+        const mesAtual = new Date().getMonth();
+        
+        function ultimoDiaMes(ano, mes) {
+            return new Date(ano, mes + 1, 0).getDate();
+        }
+        
+        // Gera opções de 5 anos
+        const opcoes = [];
+        for (let ano = anoAtual - 4; ano <= anoAtual + 1; ano++) {
+            for (let mes = 0; mes < 12; mes++) {
+                const valorInicio = `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
+                const ultimoDia = ultimoDiaMes(ano, mes);
+                const valorFim = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+                opcoes.push({ inicio: valorInicio, fim: valorFim, texto: `${meses[mes]}/${ano}`, ano, mes });
+            }
+        }
+        
+        // Preenche selects
+        const selectsInicio = ['compPeriodo1Inicio', 'compPeriodo2Inicio'];
+        const selectsFim = ['compPeriodo1Fim', 'compPeriodo2Fim'];
+        
+        selectsInicio.forEach(id => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            select.innerHTML = opcoes.map(o => `<option value="${o.inicio}">${o.texto}</option>`).join('');
+        });
+        
+        selectsFim.forEach(id => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            select.innerHTML = opcoes.map(o => `<option value="${o.fim}">${o.texto}</option>`).join('');
+        });
+        
+        // Define valores padrão: Ano atual vs Ano anterior
+        document.getElementById('compPeriodo1Inicio').value = `${anoAtual}-01-01`;
+        document.getElementById('compPeriodo1Fim').value = `${anoAtual}-12-31`;
+        document.getElementById('compPeriodo2Inicio').value = `${anoAtual - 1}-01-01`;
+        document.getElementById('compPeriodo2Fim').value = `${anoAtual - 1}-12-31`;
+        
+        // Inicializa o selectpicker de fornecedores da análise comparativa
+        $('#compFiltroFornecedores').selectpicker('refresh');
+    }
+    
+    function limparFiltrosComparativos() {
+        // Limpa selectpicker de fornecedores
+        $('#compFiltroFornecedores').selectpicker('val', []);
+        
+        document.getElementById('compFiltroProduto').value = '';
+        document.getElementById('compFiltroComprador').value = 'Todos';
+        document.getElementById('compFiltroTipo').value = '';
+        
+        // Esconde tags de filtros
+        const tagsDiv = document.getElementById('filtrosAtivosComparativos');
+        if (tagsDiv) {
+            tagsDiv.style.display = 'none';
+            tagsDiv.innerHTML = '';
+        }
+    }
+    
+    function atualizarTagsFiltros(filtros) {
+        const tagsDiv = document.getElementById('filtrosAtivosComparativos');
+        if (!tagsDiv) return;
+        
+        let html = '';
+        if (filtros.fornecedores && filtros.fornecedores.length > 0) {
+            const nomeFornecedores = filtros.fornecedores.length > 2 
+                ? `${filtros.fornecedores.slice(0, 2).join(', ')}... (+${filtros.fornecedores.length - 2})`
+                : filtros.fornecedores.join(', ');
+            html += `<span class="tag-filtro"><i class="fas fa-building"></i> ${nomeFornecedores}</span>`;
+        }
+        if (filtros.busca_produto) html += `<span class="tag-filtro"><i class="fas fa-search"></i> ${filtros.busca_produto}</span>`;
+        if (filtros.comprador && filtros.comprador !== 'Todos') html += `<span class="tag-filtro"><i class="fas fa-user"></i> ${filtros.comprador}</span>`;
+        if (filtros.tipo) html += `<span class="tag-filtro"><i class="fas fa-tag"></i> ${filtros.tipo}</span>`;
+        
+        if (html) {
+            tagsDiv.innerHTML = html;
+            tagsDiv.style.display = 'flex';
+        } else {
+            tagsDiv.style.display = 'none';
+        }
+    }
+    
+    function executarAnaliseComparativa() {
+        const p1Inicio = document.getElementById('compPeriodo1Inicio').value;
+        const p1Fim = document.getElementById('compPeriodo1Fim').value;
+        const p2Inicio = document.getElementById('compPeriodo2Inicio').value;
+        const p2Fim = document.getElementById('compPeriodo2Fim').value;
+        
+        // Filtros PADRONIZADOS (idênticos ao dashboard)
+        const fornecedores = $('#compFiltroFornecedores').val() || [];  // Multi-select
+        const busca_produto = document.getElementById('compFiltroProduto')?.value || '';
+        const comprador = document.getElementById('compFiltroComprador')?.value || 'Todos';
+        const tipo = document.getElementById('compFiltroTipo')?.value || '';
+        
+        if (!p1Inicio || !p1Fim || !p2Inicio || !p2Fim) {
+            alert('Selecione todos os períodos para comparação');
+            return;
+        }
+        
+        mostrarSpinner('Analisando períodos...');
+        
+        // Monta parâmetros da URL
+        const params = new URLSearchParams({
+            periodo1_inicio: p1Inicio,
+            periodo1_fim: p1Fim,
+            periodo2_inicio: p2Inicio,
+            periodo2_fim: p2Fim,
+            comprador: comprador,
+            busca_produto: busca_produto,
+            tipo: tipo
+        });
+        
+        // Adiciona fornecedores como array (multi-select)
+        fornecedores.forEach(f => params.append('fornecedores', f));
+        
+        // Atualiza tags de filtros ativos
+        atualizarTagsFiltros({ fornecedores, busca_produto, comprador, tipo });
+        
+        fetch(`/api/analise_comparativa?${params}`)
+            .then(r => r.json())
+            .then(data => {
+                esconderSpinner();
+                
+                if (!data.success) {
+                    alert('Erro: ' + data.message);
+                    return;
+                }
+                
+                renderizarResultadoComparativo(data);
+            })
+            .catch(err => {
+                esconderSpinner();
+                console.error(err);
+                alert('Erro ao executar análise comparativa');
+            });
+    }
+    
+    function renderizarResultadoComparativo(data) {
+        // Mostra resultado
+        document.getElementById('resultadoComparativa').style.display = 'block';
+        
+        // Atualiza legendas
+        document.getElementById('legendaPeriodo1').textContent = data.periodos.periodo1.label;
+        document.getElementById('legendaPeriodo2').textContent = data.periodos.periodo2.label;
+        
+        // Atualiza KPIs
+        const resumo = data.resumo;
+        document.getElementById('compTotalP1').textContent = formatBRL(resumo.total_periodo1);
+        document.getElementById('compTotalP2').textContent = formatBRL(resumo.total_periodo2);
+        document.getElementById('compPedidosP1').textContent = resumo.pedidos_periodo1.toLocaleString('pt-BR');
+        document.getElementById('compPedidosP2').textContent = resumo.pedidos_periodo2.toLocaleString('pt-BR');
+        document.getElementById('compItensP1').textContent = resumo.itens_periodo1.toLocaleString('pt-BR');
+        document.getElementById('compItensP2').textContent = resumo.itens_periodo2.toLocaleString('pt-BR');
+        document.getElementById('compDiferenca').textContent = `Diferença: ${formatBRL(resumo.diferenca)}`;
+        
+        // Variações com cores
+        atualizarBadgeVariacao('compVariacaoTotal', resumo.variacao_pct);
+        atualizarBadgeVariacao('compVariacaoPedidos', resumo.variacao_pedidos_pct);
+        
+        // Calcula variação de itens
+        const varItens = resumo.itens_periodo2 > 0 ? 
+            ((resumo.itens_periodo1 - resumo.itens_periodo2) / resumo.itens_periodo2 * 100) : 0;
+        atualizarBadgeVariacao('compVariacaoItens', varItens);
+        
+        // Renderiza gráfico
+        renderizarGraficoComparativo(data);
+        
+        // Renderiza top variações
+        renderizarTopVariacoes(data.top_aumentos, 'listaTopAumentos', true);
+        renderizarTopVariacoes(data.top_reducoes, 'listaTopReducoes', false);
+        
+        // Renderiza tabela
+        renderizarTabelaComparativa(data.dados);
+        
+        // Título do gráfico fixo (sempre por mês)
+        document.getElementById('tituloGraficoComparativo').textContent = 'Comparação Mensal';
+    }
+    
+    function atualizarBadgeVariacao(elementId, valor) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        
+        el.classList.remove('positiva', 'negativa', 'neutra');
+        
+        if (valor > 0) {
+            el.classList.add('positiva');
+            el.innerHTML = `<i class="fas fa-arrow-up"></i> +${valor.toFixed(1)}%`;
+        } else if (valor < 0) {
+            el.classList.add('negativa');
+            el.innerHTML = `<i class="fas fa-arrow-down"></i> ${valor.toFixed(1)}%`;
+        } else {
+            el.classList.add('neutra');
+            el.innerHTML = `<i class="fas fa-equals"></i> 0%`;
+        }
+    }
+    
+    function renderizarGraficoComparativo(data) {
+        const ctx = document.getElementById('chartComparativo').getContext('2d');
+        
+        // Destrói gráfico anterior se existir
+        if (chartComparativo) {
+            chartComparativo.destroy();
+        }
+        
+        const labels = data.dados.map(d => d.label);
+        const valoresP1 = data.dados.map(d => d.valor_periodo1);
+        const valoresP2 = data.dados.map(d => d.valor_periodo2);
+        
+        // Sempre gráfico de linhas (comparação mensal)
+        const corPeriodo1 = '#fd7e14';  // Laranja
+        const corPeriodo2 = '#20c997';  // Teal/Verde azulado
+        
+        chartComparativo = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: data.periodos.periodo1.label,
+                        data: valoresP1,
+                        backgroundColor: 'rgba(253, 126, 20, 0.15)',
+                        borderColor: corPeriodo1,
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.2,
+                        pointRadius: 5,
+                        pointHoverRadius: 8,
+                        pointBackgroundColor: corPeriodo1,
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        order: 1
+                    },
+                    {
+                        label: data.periodos.periodo2.label,
+                        data: valoresP2,
+                        backgroundColor: 'rgba(32, 201, 151, 0.1)',
+                        borderColor: corPeriodo2,
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.2,
+                        pointRadius: 4,
+                        pointHoverRadius: 7,
+                        pointBackgroundColor: corPeriodo2,
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        order: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { 
+                            font: { size: 11, weight: '500' },
+                            usePointStyle: true,
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(30, 30, 60, 0.95)',
+                        titleFont: { size: 13, weight: 'bold' },
+                        bodyFont: { size: 12 },
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + formatBRL(context.raw);
+                            },
+                            afterBody: function(tooltipItems) {
+                                if (tooltipItems.length < 2) return '';
+                                const v1 = tooltipItems[0].raw || 0;
+                                const v2 = tooltipItems[1].raw || 0;
+                                const diff = v1 - v2;
+                                const pct = v2 > 0 ? ((diff / v2) * 100).toFixed(1) : 0;
+                                const sinal = diff >= 0 ? '+' : '';
+                                const corTexto = diff > 0 ? '🔴' : (diff < 0 ? '🟢' : '⚪');
+                                return `\n${corTexto} Variação: ${sinal}${pct}%`;
+                            }
+                        }
+                    },
+                    datalabels: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            font: { size: 11 },
+                            callback: function(value) {
+                                if (value >= 1000000) {
+                                    return 'R$ ' + (value / 1000000).toFixed(1) + 'M';
+                                } else if (value >= 1000) {
+                                    return 'R$ ' + (value / 1000).toFixed(0) + 'k';
+                                }
+                                return 'R$ ' + value;
+                            }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 11 } }
+                    }
+                }
+            }
+        });
+    }
+    
+    function renderizarTopVariacoes(items, containerId, isAumento) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        if (!items || items.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-3">Sem dados suficientes</div>';
+            return;
+        }
+        
+        let html = '';
+        items.forEach(item => {
+            const classe = isAumento ? 'positivo' : 'negativo';
+            const sinal = item.variacao_pct >= 0 ? '+' : '';
+            html += `
+                <div class="item-variacao">
+                    <span class="nome" title="${item.label}">${item.label}</span>
+                    <span class="valor-var ${classe}">${sinal}${item.variacao_pct.toFixed(1)}%</span>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    function renderizarTabelaComparativa(dados) {
+        const tbody = document.getElementById('corpoTabelaComparativa');
+        if (!tbody) return;
+        
+        if (!dados || dados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Nenhum dado para exibir</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        dados.forEach(item => {
+            const classeVariacao = item.variacao_pct > 0 ? 'aumento' : (item.variacao_pct < 0 ? 'reducao' : '');
+            const icone = item.variacao_pct > 0 ? 'fa-arrow-up' : (item.variacao_pct < 0 ? 'fa-arrow-down' : 'fa-equals');
+            const sinal = item.variacao_pct >= 0 ? '+' : '';
+            
+            html += `
+                <tr>
+                    <td class="text-start">${item.label}</td>
+                    <td class="text-end valor-monetario">${formatBRL(item.valor_periodo1)}</td>
+                    <td class="text-end valor-monetario">${formatBRL(item.valor_periodo2)}</td>
+                    <td class="text-end valor-monetario">${formatBRL(item.diferenca)}</td>
+                    <td class="text-center">
+                        <span class="badge-variacao ${classeVariacao}">
+                            <i class="fas ${icone}"></i> ${sinal}${item.variacao_pct.toFixed(1)}%
+                        </span>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tbody.innerHTML = html;
     }
 </script>
 </body>

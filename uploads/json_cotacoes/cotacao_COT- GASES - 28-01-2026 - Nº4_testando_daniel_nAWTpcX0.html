@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotação - testando daniel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            background-color: #f0f0f0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+        }
+        .cotacao-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .cotacao-header {
+            background: linear-gradient(135deg, #1a5a3c 0%, #2d7a5e 100%);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .cotacao-header h5 {
+            margin: 0;
+            font-weight: 600;
+        }
+        .cotacao-header .btn-close {
+            filter: brightness(0) invert(1);
+            opacity: 0.8;
+        }
+        .cotacao-body {
+            padding: 20px;
+        }
+        .alert-instrucao {
+            background-color: #e8f4fd;
+            border: 1px solid #b8daff;
+            border-radius: 6px;
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            color: #004085;
+            font-size: 14px;
+        }
+        .alert-instrucao i {
+            color: #0066cc;
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title i {
+            color: #1a5a3c;
+        }
+        .table {
+            font-size: 13px;
+            margin-bottom: 0;
+        }
+        .table thead {
+            background-color: #f8f9fa;
+        }
+        .table thead th {
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+            padding: 10px 8px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        .table tbody td {
+            padding: 10px 8px;
+            vertical-align: middle;
+            border-bottom: 1px solid #eee;
+        }
+        .table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        .preco-input, .prazo-input {
+            width: 90px;
+            text-align: right;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 6px 10px;
+        }
+        .obs-input {
+            width: 200px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 6px 10px;
+        }
+        .preco-input:focus, .prazo-input:focus, .obs-input:focus {
+            border-color: #1a5a3c;
+            box-shadow: 0 0 0 2px rgba(26,90,60,0.15);
+            outline: none;
+        }
+        .info-gerais {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .info-gerais .form-label {
+            font-weight: 500;
+            font-size: 13px;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+        .info-gerais .form-control {
+            font-size: 14px;
+        }
+        .info-gerais small {
+            color: #6c757d;
+            font-size: 11px;
+        }
+        .cotacao-footer {
+            padding: 15px 20px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .btn-cancelar {
+            background-color: #6c757d;
+            border: none;
+            color: white;
+            padding: 10px 25px;
+            border-radius: 5px;
+            font-weight: 500;
+        }
+        .btn-salvar {
+            background-color: #1a5a3c;
+            border: none;
+            color: white;
+            padding: 10px 25px;
+            border-radius: 5px;
+            font-weight: 500;
+        }
+        .btn-salvar:hover {
+            background-color: #2d7a5e;
+        }
+        .btn-salvar i {
+            margin-right: 5px;
+        }
+        @media print {
+            body { background: white; padding: 0; }
+            .cotacao-container { box-shadow: none; }
+            .cotacao-footer { display: none; }
+            .preco-input, .prazo-input { border: 1px solid #ccc; }
+            .instrucoes-box { display: none; }
+        }
+        .instrucoes-box {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border: 1px solid #81c784;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .instrucoes-box h6 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+        }
+        .instrucoes-box ol {
+            margin-bottom: 0;
+            padding-left: 20px;
+        }
+        .instrucoes-box li {
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="cotacao-container">
+        <!-- Header -->
+        <div class="cotacao-header">
+            <h5><i class="fas fa-file-invoice me-2"></i>Cotação - testando daniel</h5>
+        </div>
+        
+        <!-- Body -->
+        <div class="cotacao-body">
+            <!-- Instruções detalhadas -->
+            <div class="instrucoes-box">
+                <h6><i class="fas fa-clipboard-list me-2"></i>Instruções para Preenchimento</h6>
+                <ol>
+                    <li><strong>Preencha</strong> o preço unitário (R$) e prazo de entrega (dias) para cada item</li>
+                    <li>Use o campo <strong>Observação</strong> para informações específicas de cada item</li>
+                    <li>Preencha as <strong>Informações Gerais</strong> (frete, condição de pagamento)</li>
+                    <li>Clique em <strong>"Salvar Respostas"</strong> - um arquivo JSON será baixado</li>
+                    <li><strong>Envie o arquivo JSON</strong> de volta por e-mail ao comprador</li>
+                </ol>
+            </div>
+            
+            <!-- Instrução resumida -->
+            <div class="alert-instrucao">
+                <i class="fas fa-info-circle me-2"></i>
+                Preencha os valores abaixo e clique em <strong>"Salvar Respostas"</strong> para gerar o arquivo de retorno.
+            </div>
+            
+            <!-- Tabela de Itens -->
+            <div class="section-title">
+                <i class="fas fa-list"></i>
+                Itens da Cotação
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">CÓDIGO</th>
+                            <th>DESCRIÇÃO</th>
+                            <th class="text-center" style="width: 80px;">QTD</th>
+                            <th class="text-center" style="width: 120px;">PREÇO UNIT. (R$)</th>
+                            <th class="text-center" style="width: 100px;">PRAZO (DIAS)</th>
+                            <th style="width: 220px;">OBSERVAÇÃO</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                <tr data-item-id="39" data-index="0">
+                    <td class="ps-3"><small class="text-muted">SOL000064</small></td>
+                    <td><strong>OXIGENIO ESPECIAL 5.1 LASER LINE</strong></td>
+                    <td class="text-center">1.0 PC</td>
+                    <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="0"></td>
+                    <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="0" data-index="0"></td>
+                    <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação do item..." data-index="0"></td>
+                </tr>
+                <tr data-item-id="40" data-index="1">
+                    <td class="ps-3"><small class="text-muted">012834</small></td>
+                    <td><strong>MISTURA C - 25</strong></td>
+                    <td class="text-center">1.0 M3</td>
+                    <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="1"></td>
+                    <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="0" data-index="1"></td>
+                    <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação do item..." data-index="1"></td>
+                </tr>
+                <tr data-item-id="41" data-index="2">
+                    <td class="ps-3"><small class="text-muted">012833</small></td>
+                    <td><strong>GAS ACETILENO - CILINDRO</strong></td>
+                    <td class="text-center">1.0 M3</td>
+                    <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="2"></td>
+                    <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="0" data-index="2"></td>
+                    <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação do item..." data-index="2"></td>
+                </tr>
+                <tr data-item-id="42" data-index="3">
+                    <td class="ps-3"><small class="text-muted">SOL000076</small></td>
+                    <td><strong>GAS NITROGENIO SOLDA LASER</strong></td>
+                    <td class="text-center">1.0 PC</td>
+                    <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="3"></td>
+                    <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="0" data-index="3"></td>
+                    <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação do item..." data-index="3"></td>
+                </tr>
+                <tr data-item-id="43" data-index="4">
+                    <td class="ps-3"><small class="text-muted">012835</small></td>
+                    <td><strong>OXIGENIO GAR.</strong></td>
+                    <td class="text-center">1.0 M3</td>
+                    <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="4"></td>
+                    <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="0" data-index="4"></td>
+                    <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação do item..." data-index="4"></td>
+                </tr>
+                <tr data-item-id="44" data-index="5">
+                    <td class="ps-3"><small class="text-muted">074753</small></td>
+                    <td><strong>GAS ARGONIO</strong></td>
+                    <td class="text-center">1.0 M3</td>
+                    <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="5"></td>
+                    <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="0" data-index="5"></td>
+                    <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação do item..." data-index="5"></td>
+                </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Informações Gerais do Fornecedor -->
+            <div class="info-gerais">
+                <div class="section-title">
+                    <i class="fas fa-truck"></i>
+                    Informações Gerais do Fornecedor
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label">Frete (R$)</label>
+                        <input type="number" class="form-control" id="freteTotal" step="0.01" min="0" placeholder="0,00">
+                        <small>Valor único para todos os itens</small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Condição de Pagamento</label>
+                        <input type="text" class="form-control" id="condicaoPagamento" placeholder="Ex: 30 DDL, À vista, etc.">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Observação</label>
+                        <input type="text" class="form-control" id="observacaoGeral" placeholder="Observações gerais...">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="cotacao-footer">
+            <button class="btn-cancelar" onclick="window.print()">
+                Imprimir
+            </button>
+            <button class="btn-salvar" onclick="salvarRespostas()">
+                <i class="fas fa-save"></i> Salvar Respostas
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        // Dados originais da cotação
+        const dadosCotacao = {"versao": "1.0", "tipo": "SOLICITACAO_COTACAO", "token": "nAWTpcX0uT6UKpv9A4L1JYXXbFHC61dgK6rX2xJ8xLQ", "data_geracao": "2026-01-29T11:21:42.602112", "cotacao": {"codigo": "COT- GASES - 28/01/2026 - Nº4", "observacoes": "", "informacao_fornecedor": ""}, "fornecedor": {"id_interno": 24, "nome": "testando daniel", "email": "", "telefone": ""}, "itens": [{"id": 39, "numero_sc": "MANUAL", "item_sc": "001", "codigo_produto": "SOL000064", "descricao": "OXIGENIO ESPECIAL 5.1 LASER LINE", "quantidade": 1.0, "unidade": "PC", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}, {"id": 40, "numero_sc": "MANUAL", "item_sc": "002", "codigo_produto": "012834", "descricao": "MISTURA C - 25", "quantidade": 1.0, "unidade": "M3", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}, {"id": 41, "numero_sc": "MANUAL", "item_sc": "003", "codigo_produto": "012833", "descricao": "GAS ACETILENO - CILINDRO", "quantidade": 1.0, "unidade": "M3", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}, {"id": 42, "numero_sc": "MANUAL", "item_sc": "004", "codigo_produto": "SOL000076", "descricao": "GAS NITROGENIO SOLDA LASER", "quantidade": 1.0, "unidade": "PC", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}, {"id": 43, "numero_sc": "MANUAL", "item_sc": "005", "codigo_produto": "012835", "descricao": "OXIGENIO GAR.", "quantidade": 1.0, "unidade": "M3", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}, {"id": 44, "numero_sc": "MANUAL", "item_sc": "006", "codigo_produto": "074753", "descricao": "GAS ARGONIO", "quantidade": 1.0, "unidade": "M3", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}], "resposta_geral": {"frete_total": null, "condicao_pagamento": null, "observacao_geral": null, "data_resposta": null}, "instrucoes": {"preenchimento": ["Preencha o campo \"preco_unitario\" com o valor em reais (use ponto como separador decimal)", "Preencha \"prazo_entrega_dias\" com o número de dias para entrega", "Informe \"frete_total\" se houver custo de frete (valor total)", "Preencha \"condicao_pagamento\" com as condições (ex: \"30 DDL\")", "Use os campos de \"observacao\" para informações adicionais"], "retorno": "Após preencher, salve o arquivo e envie de volta ao comprador"}, "hash_validacao": "6586aa0c5517ed2551d44a3daddde438c1d84fdd88b7ec215e4f25b4628995d0"};
+        
+        function coletarDados() {
+            // Coleta respostas dos itens
+            document.querySelectorAll('table tbody tr').forEach((row, index) => {
+                const precoInput = row.querySelector('.preco-input');
+                const prazoInput = row.querySelector('.prazo-input');
+                const obsInput = row.querySelector('.obs-input');
+                
+                dadosCotacao.itens[index].resposta.preco_unitario = precoInput.value ? parseFloat(precoInput.value) : null;
+                dadosCotacao.itens[index].resposta.prazo_entrega_dias = prazoInput.value ? parseInt(prazoInput.value) : null;
+                dadosCotacao.itens[index].resposta.observacao = obsInput.value || null;
+            });
+            
+            // Coleta informações gerais
+            dadosCotacao.resposta_geral.frete_total = document.getElementById('freteTotal').value ? parseFloat(document.getElementById('freteTotal').value) : null;
+            dadosCotacao.resposta_geral.condicao_pagamento = document.getElementById('condicaoPagamento').value || null;
+            dadosCotacao.resposta_geral.observacao_geral = document.getElementById('observacaoGeral').value || null;
+            dadosCotacao.resposta_geral.data_resposta = new Date().toISOString();
+            
+            // Muda o tipo para resposta
+            dadosCotacao.tipo = 'RESPOSTA_COTACAO';
+            
+            return dadosCotacao;
+        }
+        
+        function salvarRespostas() {
+            const dados = coletarDados();
+            
+            // Verifica se pelo menos um preço foi preenchido
+            const temPreco = dados.itens.some(item => item.resposta.preco_unitario !== null && item.resposta.preco_unitario > 0);
+            if (!temPreco) {
+                if (!confirm('Nenhum preço foi preenchido. Deseja salvar mesmo assim?')) {
+                    return;
+                }
+            }
+            
+            // Cria o arquivo para download
+            const jsonString = JSON.stringify(dados, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            // Nome do arquivo de resposta
+            const nomeArquivo = 'RESPOSTA_' + dadosCotacao.token.substring(0, 8) + '.json';
+            
+            // Cria link de download
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = nomeArquivo;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert('✅ Respostas salvas com sucesso!\n\nArquivo: ' + nomeArquivo + '\n\nEnvie este arquivo de volta ao comprador.');
+        }
+        
+        // Formata inputs de preço ao sair do campo
+        document.querySelectorAll('.preco-input').forEach(input => {
+            input.addEventListener('blur', function() {
+                if (this.value) {
+                    this.value = parseFloat(this.value).toFixed(2);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

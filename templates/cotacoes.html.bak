@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotações e Orçamentos</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --sidebar-bg: #212529;
+            --primary-blue: #0d6efd;
+            --secondary-gray: #6c757d;
+            --text-primary: #1a1a2e;
+            --text-secondary: #6c757d;
+            --border-color: #e9ecef;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --transition: all 0.25s ease;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            overflow-x: hidden;
+            line-height: 1.5;
+        }
+
+        .wrapper { display: flex; width: 100%; align-items: stretch; }
+        
+        .sidebar {
+            min-width: 250px;
+            max-width: 250px;
+            background: linear-gradient(180deg, #1a1d21 0%, #212529 100%);
+            color: #fff;
+            min-height: 100vh;
+            transition: var(--transition);
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .sidebar .sidebar-header {
+            padding: 24px 20px;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .sidebar .sidebar-header h4 { font-weight: 700; letter-spacing: -0.5px; }
+        .sidebar ul.components { padding: 16px 0; }
+        .sidebar ul li { padding: 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        
+        .sidebar ul li a {
+            color: rgba(255,255,255,0.7);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            transition: var(--transition);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .sidebar ul li a i { width: 20px; margin-right: 12px; text-align: center; }
+        .sidebar ul li a:hover { color: #fff; background: rgba(255,255,255,0.08); padding-left: 24px; }
+        .sidebar ul li.active > a { color: #fff; background: var(--primary-blue); border-left: 4px solid #fff; }
+
+        .content {
+            width: 100%;
+            padding: 24px 28px;
+            margin-left: 250px;
+            min-height: 100vh;
+            transition: var(--transition);
+        }
+
+        .page-header {
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .page-header h4 { font-weight: 700; color: var(--text-primary); margin: 0; }
+        .page-header small { color: var(--text-secondary); }
+
+        /* CARDS */
+        .filter-card, .chart-card, .table-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+        }
+
+        /* KPI Cards */
+        .kpi-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            border-left: 4px solid var(--primary-blue);
+            transition: var(--transition);
+        }
+        
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+        .kpi-card .kpi-value { font-size: 2rem; font-weight: 700; }
+        .kpi-card .kpi-label { font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px; }
+        .kpi-card.border-blue { border-left-color: #0d6efd; }
+        .kpi-card.border-green { border-left-color: #198754; }
+        .kpi-card.border-orange { border-left-color: #fd7e14; }
+        .kpi-card.border-red { border-left-color: #dc3545; }
+
+        /* Status Badges */
+        .badge-aberta { background-color: #0d6efd; }
+        .badge-respondida { background-color: #198754; }
+        .badge-encerrada { background-color: #6c757d; }
+        .badge-cancelada { background-color: #dc3545; }
+
+        /* Tabela */
+        .table-responsive { border-radius: var(--radius-md); overflow: hidden; }
+        
+        .table {
+            margin-bottom: 0;
+            font-size: 0.85rem;
+        }
+        
+        .table thead th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            padding: 12px 16px;
+            border-bottom: 2px solid var(--border-color);
+            white-space: nowrap;
+        }
+        
+        .table tbody td {
+            padding: 12px 16px;
+            vertical-align: middle;
+            border-bottom: 1px solid #f1f3f4;
+        }
+        
+        .table tbody tr:hover { background-color: #f8f9fa; }
+
+        /* Botões */
+        .btn-action {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border-radius: var(--radius-sm);
+        }
+
+        /* Animations */
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Card de cotação na lista */
+        .cotacao-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            transition: var(--transition);
+        }
+        
+        .cotacao-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+        
+        .cotacao-card .cotacao-codigo {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+        }
+        
+        .cotacao-card .cotacao-meta {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        .cotacao-card .cotacao-stats {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+        }
+        
+        .cotacao-card .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .cotacao-card .stat-item i {
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <!-- SIDEBAR -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h4><i class="fas fa-chart-line me-2"></i>COMPRAS</h4>
+                <small class="text-muted">Sistema de Gestão</small>
+            </div>
+            <ul class="list-unstyled components">
+                <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard Financeiro</a></li>
+                <li><a href="{{ url_for('status_pedidos') }}"><i class="fas fa-clipboard-list"></i> Status de Pedidos</a></li>
+                <li><a href="{{ url_for('performance') }}"><i class="fas fa-truck"></i> OTD & Performance</a></li>
+                <li><a href="{{ url_for('variacao_preco') }}"><i class="fas fa-chart-bar"></i> Variação de Preço</a></li>
+                <li><a href="{{ url_for('terceiros') }}"><i class="fas fa-warehouse"></i> Terceiros</a></li>
+                <li><a href="{{ url_for('solicitacoes') }}"><i class="fas fa-file-alt"></i> Solicitações em Aberto</a></li>
+                <li class="active"><a href="{{ url_for('cotacoes') }}"><i class="fas fa-file-invoice-dollar"></i> Cotações e Orçamentos</a></li>
+            </ul>
+        </nav>
+
+        <!-- CONTEÚDO PRINCIPAL -->
+        <div class="content">
+            <!-- HEADER -->
+            <div class="page-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h4><i class="fas fa-file-invoice-dollar me-2 text-primary"></i>Cotações e Orçamentos</h4>
+                    <small>Gestão de cotações, fornecedores e rastreabilidade</small>
+                </div>
+                <div>
+                    <span class="badge bg-light text-dark border px-3 py-2">
+                        <i class="fas fa-user-circle me-1"></i> {{ user }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- KPIs -->
+            <div class="row g-3 mb-4 fade-in">
+                <div class="col-md-3">
+                    <div class="kpi-card border-blue">
+                        <div class="kpi-value text-primary">{{ stats.total }}</div>
+                        <div class="kpi-label">Total de Cotações</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card border-orange">
+                        <div class="kpi-value text-warning">{{ stats.abertas }}</div>
+                        <div class="kpi-label">Abertas</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card border-green">
+                        <div class="kpi-value text-success">{{ stats.respondidas }}</div>
+                        <div class="kpi-label">Respondidas</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card border-red">
+                        <div class="kpi-value text-secondary">{{ stats.encerradas }}</div>
+                        <div class="kpi-label">Encerradas</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FILTROS -->
+            <div class="filter-card fade-in">
+                <form method="GET" action="{{ url_for('cotacoes') }}">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">STATUS</label>
+                            <select class="form-select form-select-sm" name="status">
+                                <option value="">Todos</option>
+                                <option value="Aberta" {% if filtros.status == 'Aberta' %}selected{% endif %}>Aberta</option>
+                                <option value="Respondida" {% if filtros.status == 'Respondida' %}selected{% endif %}>Respondida</option>
+                                <option value="Encerrada" {% if filtros.status == 'Encerrada' %}selected{% endif %}>Encerrada</option>
+                                <option value="Cancelada" {% if filtros.status == 'Cancelada' %}selected{% endif %}>Cancelada</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">COMPRADOR</label>
+                            <select class="form-select form-select-sm" name="comprador">
+                                <option value="">Todos</option>
+                                <option value="Daniel Amaral" {% if filtros.comprador == 'Daniel Amaral' %}selected{% endif %}>Daniel Amaral</option>
+                                <option value="Aline Chen" {% if filtros.comprador == 'Aline Chen' %}selected{% endif %}>Aline Chen</option>
+                                <option value="Diego Moya" {% if filtros.comprador == 'Diego Moya' %}selected{% endif %}>Diego Moya</option>
+                                <option value="Hélio Doce" {% if filtros.comprador == 'Hélio Doce' %}selected{% endif %}>Hélio Doce</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary btn-sm w-100">
+                                <i class="fas fa-filter me-1"></i> Filtrar
+                            </button>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="{{ url_for('cotacoes') }}" class="btn btn-outline-secondary btn-sm w-100">
+                                <i class="fas fa-eraser me-1"></i> Limpar
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- LISTA DE COTAÇÕES -->
+            <div class="fade-in">
+                {% if cotacoes %}
+                    {% for cot in cotacoes %}
+                    <div class="cotacao-card" id="cotacao-{{ cot.id }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="cotacao-codigo">
+                                    <i class="fas fa-file-invoice me-2"></i>
+                                    <span id="codigo-{{ cot.id }}">{{ cot.codigo }}</span>
+                                    {% if cot.status == 'Aberta' %}
+                                    <button class="btn btn-link btn-sm p-0 ms-2" onclick="abrirModalEditarCotacao({{ cot.id }}, '{{ cot.codigo }}', '{{ cot.comprador_responsavel }}')" title="Editar cotação">
+                                        <i class="fas fa-edit text-primary"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                <div class="cotacao-meta mt-1">
+                                    <span><i class="fas fa-user me-1"></i> {{ cot.comprador_responsavel or 'Não definido' }}</span>
+                                    <span class="ms-3"><i class="fas fa-calendar me-1"></i> {{ cot.data_criacao[:10] if cot.data_criacao else 'N/A' }}</span>
+                                </div>
+                                {% if cot.observacoes %}
+                                <div class="mt-2 text-muted small">{{ cot.observacoes[:100] }}{% if cot.observacoes|length > 100 %}...{% endif %}</div>
+                                {% endif %}
+                            </div>
+                            <div class="text-end">
+                                <span class="badge badge-{{ cot.status|lower }} px-3 py-2">{{ cot.status }}</span>
+                            </div>
+                        </div>
+                        <div class="cotacao-stats">
+                            <div class="stat-item">
+                                <i class="fas fa-box"></i>
+                                <span>{{ cot.total_itens }} item(ns)</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-building"></i>
+                                <span>{{ cot.total_fornecedores }} fornecedor(es)</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-check-circle text-success"></i>
+                                <span>{{ cot.fornecedores_responderam }} resposta(s)</span>
+                            </div>
+                        </div>
+                        <div class="mt-3 d-flex gap-2">
+                            <a href="{{ url_for('cotacao_detalhe', cotacao_id=cot.id) }}" class="btn btn-primary btn-action">
+                                <i class="fas fa-eye me-1"></i> Ver Detalhes
+                            </a>
+                            {% if cot.status == 'Aberta' %}
+                            <button class="btn btn-outline-danger btn-action" onclick="confirmarExclusao({{ cot.id }}, '{{ cot.codigo }}')">
+                                <i class="fas fa-trash me-1"></i> Excluir
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Nenhuma cotação encontrada</h5>
+                        <p class="text-muted">Crie uma nova cotação a partir da aba "Solicitações em Aberto"</p>
+                        <a href="{{ url_for('solicitacoes') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i> Ir para Solicitações
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- MODAL EDITAR COTAÇÃO -->
+            <div class="modal fade" id="modalEditarCotacao" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow">
+                        <div class="modal-header bg-primary text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-edit me-2"></i>Editar Cotação
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" id="editCotacaoId">
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Nome da Cotação</label>
+                                <input type="text" class="form-control" id="editCotacaoNome" placeholder="Ex: Cotação de Gás">
+                                <small class="text-muted">Edite o nome/identificação da cotação</small>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Comprador Responsável</label>
+                                <select class="form-select" id="editCotacaoComprador">
+                                    <option value="Daniel Amaral">Daniel Amaral</option>
+                                    <option value="Aline Chen">Aline Chen</option>
+                                    <option value="Hélio Doce">Hélio Doce</option>
+                                    <option value="Diego Moya">Diego Moya</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary" onclick="salvarEdicaoCotacao()">
+                                <i class="fas fa-save me-1"></i> Salvar Alterações
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODAL CONFIRMAR EXCLUSÃO -->
+            <div class="modal fade" id="modalConfirmarExclusao" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Confirmar Exclusão
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <i class="fas fa-trash-alt fa-3x text-danger mb-3"></i>
+                            <h5>Tem certeza que deseja excluir esta cotação?</h5>
+                            <p class="text-muted mb-0" id="exclusaoCotacaoNome">Cotação</p>
+                            <div class="alert alert-warning mt-3 mb-0">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <small>Esta ação não poderá ser desfeita.</small>
+                            </div>
+                            <input type="hidden" id="exclusaoCotacaoId">
+                        </div>
+                        <div class="modal-footer justify-content-center">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-1"></i> Cancelar
+                            </button>
+                            <button type="button" class="btn btn-danger" onclick="executarExclusao()">
+                                <i class="fas fa-trash me-1"></i> Sim, Excluir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOAST -->
+            <div class="toast-container position-fixed bottom-0 end-0 p-3">
+                <div id="toastNotificacao" class="toast align-items-center border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body" id="toastMensagem"></div>
+                        <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ========================================
+        // EDIÇÃO DE COTAÇÃO
+        // ========================================
+        
+        function abrirModalEditarCotacao(id, codigo, comprador) {
+            document.getElementById('editCotacaoId').value = id;
+            document.getElementById('editCotacaoNome').value = codigo;
+            document.getElementById('editCotacaoComprador').value = comprador || 'Daniel Amaral';
+            
+            new bootstrap.Modal(document.getElementById('modalEditarCotacao')).show();
+        }
+        
+        function salvarEdicaoCotacao() {
+            const id = document.getElementById('editCotacaoId').value;
+            const nome = document.getElementById('editCotacaoNome').value.trim();
+            const comprador = document.getElementById('editCotacaoComprador').value;
+            
+            if (!nome) {
+                alert('O nome da cotação não pode estar vazio');
+                return;
+            }
+            
+            fetch('/api/cotacao/' + id + '/editar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    codigo: nome,
+                    comprador: comprador
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    // Atualizar na tela
+                    document.getElementById('codigo-' + id).textContent = nome;
+                    
+                    // Fechar modal
+                    bootstrap.Modal.getInstance(document.getElementById('modalEditarCotacao')).hide();
+                    
+                    // Toast de sucesso
+                    mostrarToast('Cotação atualizada com sucesso!', 'success');
+                } else {
+                    alert('Erro: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Erro ao atualizar cotação');
+            });
+        }
+        
+        // ========================================
+        // EXCLUSÃO DE COTAÇÃO
+        // ========================================
+        
+        function confirmarExclusao(id, codigo) {
+            document.getElementById('exclusaoCotacaoId').value = id;
+            document.getElementById('exclusaoCotacaoNome').textContent = codigo;
+            
+            new bootstrap.Modal(document.getElementById('modalConfirmarExclusao')).show();
+        }
+        
+        function executarExclusao() {
+            const id = document.getElementById('exclusaoCotacaoId').value;
+            
+            fetch('/api/cotacao/' + id + '/excluir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                // Fechar modal
+                bootstrap.Modal.getInstance(document.getElementById('modalConfirmarExclusao')).hide();
+                
+                if (data.success) {
+                    // Remover card da tela
+                    const card = document.getElementById('cotacao-' + id);
+                    if (card) {
+                        card.remove();
+                    }
+                    
+                    // Toast de sucesso
+                    mostrarToast('Cotação excluída com sucesso!', 'success');
+                } else {
+                    alert('Erro: ' + data.error);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                bootstrap.Modal.getInstance(document.getElementById('modalConfirmarExclusao')).hide();
+                alert('Erro ao excluir cotação');
+            });
+        }
+        
+        // ========================================
+        // TOAST
+        // ========================================
+        
+        function mostrarToast(mensagem, tipo = 'success') {
+            const toast = document.getElementById('toastNotificacao');
+            const toastBody = document.getElementById('toastMensagem');
+            
+            toast.classList.remove('text-bg-success', 'text-bg-danger', 'text-bg-warning');
+            toast.classList.add('text-bg-' + tipo);
+            
+            toastBody.innerHTML = '<i class="fas fa-' + (tipo === 'success' ? 'check-circle' : 'exclamation-circle') + ' me-2"></i>' + mensagem;
+            
+            new bootstrap.Toast(toast).show();
+        }
+        
+        // Verificar se veio de criação nova (parâmetro na URL)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('novo')) {
+            mostrarToast('Cotação criada com sucesso!', 'success');
+            // Limpar parâmetro da URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    </script>
+</body>
+</html>

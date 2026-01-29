@@ -1,0 +1,126 @@
+{
+  "versao": "1.0",
+  "tipo": "SOLICITACAO_COTACAO",
+  "token": "l7K71nFl3nsEZNsyUK6DK7umr03WOfseK3BwbCVgt4A",
+  "data_geracao": "2026-01-29T11:04:39.129491",
+  "cotacao": {
+    "codigo": "COT- GASES - 28/01/2026 - Nº4",
+    "observacoes": "",
+    "informacao_fornecedor": ""
+  },
+  "fornecedor": {
+    "id_interno": 22,
+    "nome": "WHITE MARTINS G INDAIS LTDA",
+    "email": "danielle.clemente@linde.com",
+    "telefone": "3103-4555"
+  },
+  "itens": [
+    {
+      "id": 39,
+      "numero_sc": "MANUAL",
+      "item_sc": "001",
+      "codigo_produto": "SOL000064",
+      "descricao": "OXIGENIO ESPECIAL 5.1 LASER LINE",
+      "quantidade": 1.0,
+      "unidade": "PC",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 40,
+      "numero_sc": "MANUAL",
+      "item_sc": "002",
+      "codigo_produto": "012834",
+      "descricao": "MISTURA C - 25",
+      "quantidade": 1.0,
+      "unidade": "M3",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 41,
+      "numero_sc": "MANUAL",
+      "item_sc": "003",
+      "codigo_produto": "012833",
+      "descricao": "GAS ACETILENO - CILINDRO",
+      "quantidade": 1.0,
+      "unidade": "M3",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 42,
+      "numero_sc": "MANUAL",
+      "item_sc": "004",
+      "codigo_produto": "SOL000076",
+      "descricao": "GAS NITROGENIO SOLDA LASER",
+      "quantidade": 1.0,
+      "unidade": "PC",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 43,
+      "numero_sc": "MANUAL",
+      "item_sc": "005",
+      "codigo_produto": "012835",
+      "descricao": "OXIGENIO GAR.",
+      "quantidade": 1.0,
+      "unidade": "M3",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 44,
+      "numero_sc": "MANUAL",
+      "item_sc": "006",
+      "codigo_produto": "074753",
+      "descricao": "GAS ARGONIO",
+      "quantidade": 1.0,
+      "unidade": "M3",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    }
+  ],
+  "resposta_geral": {
+    "frete_total": null,
+    "condicao_pagamento": null,
+    "observacao_geral": null,
+    "data_resposta": null
+  },
+  "instrucoes": {
+    "preenchimento": [
+      "Preencha o campo \"preco_unitario\" com o valor em reais (use ponto como separador decimal)",
+      "Preencha \"prazo_entrega_dias\" com o número de dias para entrega",
+      "Informe \"frete_total\" se houver custo de frete (valor total)",
+      "Preencha \"condicao_pagamento\" com as condições (ex: \"30 DDL\")",
+      "Use os campos de \"observacao\" para informações adicionais"
+    ],
+    "retorno": "Após preencher, salve o arquivo e envie de volta ao comprador"
+  },
+  "hash_validacao": "01eea6a5275f8018c8059c4fe65449e72f6b11dd0866d14d5f9dcbb4a8754832"
+}

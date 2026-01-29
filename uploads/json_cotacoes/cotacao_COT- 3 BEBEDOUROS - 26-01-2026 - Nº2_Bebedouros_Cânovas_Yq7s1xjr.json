@@ -1,0 +1,66 @@
+{
+  "versao": "1.0",
+  "tipo": "SOLICITACAO_COTACAO",
+  "token": "Yq7s1xjr4WvNDOEIVFZjz6hVeW0AdtdPkXT3qqpwBds",
+  "data_geracao": "2026-01-28T08:04:20.785186",
+  "cotacao": {
+    "codigo": "COT- 3 BEBEDOUROS - 26/01/2026 - Nº2",
+    "observacoes": "",
+    "informacao_fornecedor": ""
+  },
+  "fornecedor": {
+    "id_interno": 13,
+    "nome": "Bebedouros Cânovas",
+    "email": "vendas@canovas.com.br",
+    "telefone": "+55 17 99615-0480"
+  },
+  "itens": [
+    {
+      "id": 26,
+      "numero_sc": "955716",
+      "item_sc": "0001",
+      "codigo_produto": "SEG0000393     ",
+      "descricao": "BEBEDOURO INDUSTRIAL DE 50 LITROS - 220 VOLTS",
+      "quantidade": 2.0,
+      "unidade": "UN",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 27,
+      "numero_sc": "955716",
+      "item_sc": "0002",
+      "codigo_produto": "SEG0000394     ",
+      "descricao": "BEBEDOURO INDUSTRIAL DE 100 LITROS - 220 VOLTS",
+      "quantidade": 1.0,
+      "unidade": "UN",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    }
+  ],
+  "resposta_geral": {
+    "frete_total": null,
+    "condicao_pagamento": null,
+    "observacao_geral": null,
+    "data_resposta": null
+  },
+  "instrucoes": {
+    "preenchimento": [
+      "Preencha o campo \"preco_unitario\" com o valor em reais (use ponto como separador decimal)",
+      "Preencha \"prazo_entrega_dias\" com o número de dias para entrega",
+      "Informe \"frete_total\" se houver custo de frete (valor total)",
+      "Preencha \"condicao_pagamento\" com as condições (ex: \"30 DDL\")",
+      "Use os campos de \"observacao\" para informações adicionais"
+    ],
+    "retorno": "Após preencher, salve o arquivo e envie de volta ao comprador"
+  },
+  "hash_validacao": "13ee0deae95c6e29f73ad8f167e7117fc0fbfbe238080175101d7a9bbe075789"
+}

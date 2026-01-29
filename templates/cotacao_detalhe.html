@@ -1,0 +1,2510 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhes da Cotação</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --primary-blue: #0d6efd;
+            --text-primary: #1a1a2e;
+            --text-secondary: #6c757d;
+            --border-color: #e9ecef;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --radius-md: 10px;
+            --transition: all 0.25s ease;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+            font-size: 0.875rem;
+        }
+
+        .wrapper { display: flex; }
+        
+        .sidebar {
+            min-width: 250px;
+            max-width: 250px;
+            background: linear-gradient(180deg, #1a1d21 0%, #212529 100%);
+            color: #fff;
+            min-height: 100vh;
+            position: fixed;
+        }
+        
+        .sidebar .sidebar-header {
+            padding: 24px 20px;
+            background: rgba(0,0,0,0.2);
+        }
+        
+        .sidebar ul li a {
+            color: rgba(255,255,255,0.7);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            transition: var(--transition);
+        }
+        
+        .sidebar ul li a i { width: 20px; margin-right: 12px; }
+        .sidebar ul li a:hover { color: #fff; background: rgba(255,255,255,0.08); }
+        .sidebar ul li.active > a { color: #fff; background: var(--primary-blue); }
+
+        .content {
+            width: 100%;
+            padding: 24px 28px;
+            margin-left: 250px;
+        }
+
+        .page-header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); }
+
+        .card-section {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+        }
+        
+        .card-section h5 {
+            font-weight: 600;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Grid melhorado para Informações Gerais */
+        .info-grid { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 20px; 
+        }
+        
+        @media (max-width: 992px) {
+            .info-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        @media (max-width: 576px) {
+            .info-grid { grid-template-columns: 1fr; }
+        }
+        
+        .info-item { 
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 3px solid var(--primary-blue);
+        }
+        .info-item label { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; display: block; margin-bottom: 4px; }
+        .info-item span { font-weight: 600; font-size: 0.95rem; }
+
+        .badge-aberta { background-color: #0d6efd; }
+        .badge-respondida { background-color: #198754; }
+        .badge-encerrada { background-color: #6c757d; }
+        .badge-pendente { background-color: #ffc107; color: #000; }
+        .badge-cancelada { background-color: #dc3545; }
+
+        .table { font-size: 0.85rem; }
+        .table thead th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+        }
+
+        .link-copy {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+        
+        .link-copy input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-size: 0.8rem;
+            color: #495057;
+            cursor: text;
+            user-select: all;
+        }
+        
+        .link-copy input:focus {
+            outline: none;
+        }
+        
+        .link-copy .btn {
+            white-space: nowrap;
+        }
+        
+        .link-copy .btn:hover {
+            background: #198754;
+            border-color: #198754;
+            color: white;
+        }
+
+        .timeline { position: relative; padding-left: 30px; }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 10px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--border-color);
+        }
+        
+        .timeline-item {
+            position: relative;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px dashed var(--border-color);
+        }
+        
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -24px;
+            top: 4px;
+            width: 10px;
+            height: 10px;
+            background: var(--primary-blue);
+            border-radius: 50%;
+        }
+        
+        .timeline-item .time { font-size: 0.75rem; color: var(--text-secondary); }
+        .timeline-item .action { font-weight: 600; }
+        
+        /* Destaques de melhor proposta */
+        .melhor-preco { background-color: rgba(25, 135, 84, 0.2) !important; font-weight: 600; }
+        .melhor-prazo { background-color: rgba(255, 193, 7, 0.2) !important; font-weight: 600; }
+        .melhor-condicao { background-color: rgba(13, 110, 253, 0.15) !important; }
+        
+        .badge-melhor-preco { background-color: #198754; }
+        .badge-melhor-prazo { background-color: #ffc107; color: #000; }
+        .badge-melhor-condicao { background-color: #0d6efd; }
+        
+        /* Tabela Matriz de Respostas */
+        .matriz-respostas {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+        
+        .matriz-respostas th,
+        .matriz-respostas td {
+            padding: 8px 10px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+        
+        .matriz-respostas thead th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            white-space: nowrap;
+        }
+        
+        .matriz-respostas .col-item {
+            text-align: left;
+            background: #fafbfc;
+            min-width: 180px;
+        }
+        
+        .matriz-respostas .col-codigo {
+            font-weight: 600;
+            color: var(--primary-blue);
+            white-space: nowrap;
+        }
+        
+        .matriz-respostas .col-qtd {
+            white-space: nowrap;
+            font-weight: 500;
+        }
+        
+        .matriz-respostas .header-fornecedor {
+            background: #000000;
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.75rem;
+            transition: background 0.2s ease;
+        }
+        
+        .matriz-respostas .header-fornecedor:nth-child(even) {
+            background: #000000;
+        }
+        
+        .matriz-respostas .header-fornecedor:hover {
+            background: #1a1a1a;
+        }
+        
+        .matriz-respostas .sub-header {
+            background: #f0f2f5;
+            font-size: 0.65rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        
+        .matriz-respostas .celula-preco {
+            font-weight: 600;
+        }
+        
+        .matriz-respostas .celula-prazo {
+            font-size: 0.75rem;
+        }
+        
+        .matriz-respostas .celula-frete {
+            font-size: 0.75rem;
+            color: #666;
+        }
+        
+        .matriz-respostas .celula-total {
+            font-weight: 700;
+            background: rgba(25, 135, 84, 0.05);
+        }
+        
+        .matriz-respostas .celula-condicao {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+        
+        .matriz-respostas .celula-acoes {
+            text-align: center;
+            white-space: nowrap;
+        }
+        
+        .matriz-respostas .celula-acoes .btn {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        
+        .matriz-respostas .celula-acoes .btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+        
+        .matriz-respostas .celula-acoes .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .matriz-respostas .sem-resposta {
+            color: #ccc;
+            font-style: italic;
+        }
+        
+        .matriz-wrapper {
+            overflow-x: auto;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+        
+        /* Status button group */
+        .status-btn {
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .status-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .status-btn.active {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+        }
+        
+        /* Legenda */
+        .legenda {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-radius: var(--radius-md);
+            margin-bottom: 16px;
+        }
+        
+        .legenda-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+        }
+        
+        .legenda-cor {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <!-- SIDEBAR -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h4 class="mb-0"><i class="fas fa-cubes me-2"></i>Polimaquinas</h4>
+                <small class="text-muted" style="font-size: 0.75rem;">Portal de Compras</small>
+            </div>
+            <ul class="list-unstyled components">
+                <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-chart-line"></i> Dashboard Financeiro</a></li>
+                <li><a href="{{ url_for('status_pedidos') }}"><i class="fas fa-tasks"></i> Status de Pedidos</a></li>
+                <li><a href="{{ url_for('performance') }}"><i class="fas fa-tachometer-alt"></i> OTD & Performance</a></li>
+                <li><a href="{{ url_for('variacao_preco') }}"><i class="fas fa-balance-scale"></i> Variação de Preço</a></li>
+                <li><a href="{{ url_for('terceiros') }}"><i class="fas fa-industry"></i> Terceiros</a></li>
+                <li><a href="{{ url_for('solicitacoes') }}"><i class="fas fa-file-alt"></i> Solicitações em Aberto</a></li>
+                <li class="active"><a href="{{ url_for('cotacoes') }}"><i class="fas fa-file-invoice-dollar"></i> Cotações e Orçamentos</a></li>
+                <li><a href="{{ url_for('avaliacao_iso') }}"><i class="fas fa-certificate"></i> Avaliação ISO (PQ021)</a></li>
+            </ul>
+        </nav>
+
+        <!-- CONTEÚDO -->
+        <div class="content">
+            <!-- HEADER -->
+            <div class="page-header d-flex justify-content-between align-items-center">
+                <div>
+                    <a href="{{ url_for('cotacoes') }}" class="btn btn-outline-secondary btn-sm mb-2">
+                        <i class="fas fa-arrow-left me-1"></i> Voltar
+                    </a>
+                    <h4><i class="fas fa-file-invoice-dollar me-2 text-primary"></i>{{ cotacao.codigo }}</h4>
+                </div>
+                <div>
+                    <span class="badge badge-{{ cotacao.status|lower }} px-3 py-2 fs-6">{{ cotacao.status }}</span>
+                </div>
+            </div>
+
+            <!-- INFORMAÇÕES GERAIS -->
+            <div class="card-section">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0" style="border: none; padding: 0;"><i class="fas fa-info-circle me-2"></i>Informações Gerais</h5>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalEditarNome">
+                            <i class="fas fa-edit me-1"></i> Editar
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalAlterarStatus">
+                            <i class="fas fa-exchange-alt me-1"></i> Alterar Status
+                        </button>
+                    </div>
+                </div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Código</label>
+                        <span id="displayCodigo">{{ cotacao.codigo }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Comprador</label>
+                        <span>{{ cotacao.comprador_responsavel or 'Não definido' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Data de Criação</label>
+                        <span>{{ cotacao.data_criacao[:16] if cotacao.data_criacao else 'N/A' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Status Atual</label>
+                        <span class="badge badge-{{ cotacao.status|lower }}">{{ cotacao.status }}</span>
+                    </div>
+                </div>
+                {% if cotacao.observacoes %}
+                <div class="mt-3 p-3 bg-light rounded">
+                    <label class="small text-muted d-block mb-1"><i class="fas fa-sticky-note me-1"></i>Observações:</label>
+                    <p class="mb-0">{{ cotacao.observacoes }}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- ITENS DA COTAÇÃO -->
+            <div class="card-section">
+                <h5><i class="fas fa-box me-2"></i>Itens da Cotação ({{ cotacao.itens|length }})</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>SC</th>
+                                <th>Produto</th>
+                                <th>Descrição</th>
+                                <th>Qtd</th>
+                                <th>UN</th>
+                                <th>Data Necessidade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in cotacao.itens %}
+                            <tr>
+                                <td class="fw-bold text-primary">{{ item.numero_sc }}</td>
+                                <td>{{ item.cod_produto }}</td>
+                                <td>{{ item.descricao_produto }}</td>
+                                <td>{{ item.quantidade }}</td>
+                                <td>{{ item.unidade }}</td>
+                                <td>{{ item.data_necessidade[:10] if item.data_necessidade else 'N/A' }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="6" class="text-center text-muted">Nenhum item</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- FORNECEDORES -->
+            <div class="card-section">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0"><i class="fas fa-building me-2"></i>Fornecedores Cotados ({{ cotacao.fornecedores|length }})</h5>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#modalInformacaoFornecedor">
+                            <i class="fas fa-exclamation-triangle me-1"></i> Informação ao Fornecedor
+                        </button>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalFornecedor">
+                            <i class="fas fa-plus me-1"></i> Adicionar Fornecedor
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Informação importante cadastrada (se houver) -->
+                {% if cotacao.informacao_fornecedor %}
+                <div class="alert alert-warning py-2 px-3 mb-3" style="font-size: 0.85rem; border-left: 4px solid #dc3545;">
+                    <i class="fas fa-exclamation-triangle me-2 text-danger"></i>
+                    <strong>Informação para fornecedores:</strong> {{ cotacao.informacao_fornecedor }}
+                </div>
+                {% endif %}
+                
+                <!-- Instrução sobre links individuais -->
+                <div class="alert alert-info alert-sm py-2 px-3 mb-3" style="font-size: 0.85rem;">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Links Individuais:</strong> Cada fornecedor possui um link exclusivo para responder à cotação. 
+                    Clique no link para visualizar respostas e anexos.
+                </div>
+                
+                {% if cotacao.fornecedores %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fornecedor</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Cotação</th>
+                                <th>Anexo</th>
+                                <th style="width: 80px;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for forn in cotacao.fornecedores %}
+                            <tr>
+                                <td class="fw-bold">
+                                    <i class="fas fa-building text-muted me-2"></i>{{ forn.nome_fornecedor }}
+                                </td>
+                                <td>
+                                    {% if forn.email_fornecedor %}
+                                    <a href="mailto:{{ forn.email_fornecedor }}" class="text-decoration-none">
+                                        <i class="fas fa-envelope me-1"></i>{{ forn.email_fornecedor }}
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if forn.status == 'Respondido' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i>Respondido
+                                    </span>
+                                    {% elif forn.status == 'Encerrado' %}
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-lock me-1"></i>Encerrado
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-clock me-1"></i>Pendente
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <!-- Dropdown com opções de cotação -->
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-file-invoice me-1"></i>Opções
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><h6 class="dropdown-header"><i class="fas fa-desktop me-1"></i>Cotação Interna</h6></li>
+                                            <li>
+                                                <a class="dropdown-item" href="/cotacao/responder/{{ forn.token_acesso }}" target="_blank">
+                                                    <i class="fas fa-external-link-alt me-2 text-primary"></i>Abrir página interna
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#" onclick="abrirModalCotacaoManual({{ forn.id }}, '{{ forn.nome_fornecedor|e }}'); return false;">
+                                                    <i class="fas fa-edit me-2 text-success"></i>Preencher manualmente
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><h6 class="dropdown-header"><i class="fas fa-globe me-1"></i>Cotação Externa (JSON)</h6></li>
+                                            <li>
+                                                <a class="dropdown-item" href="#" onclick="gerarLinkExterno({{ forn.id }}, '{{ forn.nome_fornecedor|e }}'); return false;">
+                                                    <i class="fas fa-link me-2 text-info"></i>Gerar link externo
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#" onclick="abrirModalImportarJSON({{ forn.id }}, '{{ forn.nome_fornecedor|e }}'); return false;">
+                                                    <i class="fas fa-upload me-2 text-warning"></i>Importar JSON
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if forn.tem_anexo and forn.tem_anexo > 0 %}
+                                    <a href="/cotacao/anexo/{{ forn.id }}" 
+                                       target="_blank" 
+                                       class="btn btn-sm btn-outline-secondary"
+                                       title="Ver orçamento anexado">
+                                        <i class="fas fa-paperclip me-1"></i>Ver anexo
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted small">
+                                        <i class="fas fa-minus"></i>
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-danger" 
+                                            onclick="excluirFornecedor({{ forn.id }}, '{{ forn.nome_fornecedor }}')"
+                                            title="Excluir fornecedor da cotação">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-users fa-2x mb-2 opacity-50"></i>
+                    <p class="mb-0">Nenhum fornecedor adicionado a esta cotação</p>
+                    <small>Clique em "Adicionar Fornecedor" para começar</small>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- RESPOSTAS DOS FORNECEDORES - FORMATO MATRIZ -->
+            {% if cotacao.respostas %}
+            <div class="card-section">
+                <h5><i class="fas fa-th me-2"></i>Comparativo de Respostas</h5>
+                
+                <!-- Legenda -->
+                <div class="legenda">
+                    <div class="legenda-item">
+                        <div class="legenda-cor" style="background: rgba(25, 135, 84, 0.3);"></div>
+                        <span>🟢 Melhor Preço Total</span>
+                    </div>
+                    <div class="legenda-item">
+                        <div class="legenda-cor" style="background: rgba(255, 193, 7, 0.3);"></div>
+                        <span>🟡 Menor Prazo</span>
+                    </div>
+                </div>
+                
+                <div class="matriz-wrapper">
+                    <table class="matriz-respostas" id="tabelaMatriz">
+                        <thead>
+                            <!-- Linha de cabeçalho com nomes dos fornecedores -->
+                            <tr>
+                                <th rowspan="2" class="col-codigo">Código</th>
+                                <th rowspan="2" class="col-item">Descrição do Item</th>
+                                <th rowspan="2" class="col-qtd">Qtd</th>
+                                {% set fornecedores_unicos = [] %}
+                                {% for resp in cotacao.respostas %}
+                                    {% if resp.nome_fornecedor not in fornecedores_unicos %}
+                                        {% set _ = fornecedores_unicos.append(resp.nome_fornecedor) %}
+                                    {% endif %}
+                                {% endfor %}
+                                {% for forn in fornecedores_unicos %}
+                                <th colspan="7" class="header-fornecedor">{{ forn }}</th>
+                                {% endfor %}
+                            </tr>
+                            <!-- Sub-cabeçalho com colunas de cada fornecedor -->
+                            <tr>
+                                {% for forn in fornecedores_unicos %}
+                                <th class="sub-header">Preço Unit.</th>
+                                <th class="sub-header">Frete</th>
+                                <th class="sub-header">Total</th>
+                                <th class="sub-header">Prazo</th>
+                                <th class="sub-header">Cond.</th>
+                                <th class="sub-header">Ações</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in cotacao.itens %}
+                            <tr data-item-id="{{ item.id }}">
+                                <td class="col-codigo">{{ item.cod_produto }}</td>
+                                <td class="col-item">{{ item.descricao_produto }}</td>
+                                <td class="col-qtd">{{ item.quantidade }} {{ item.unidade or 'UN' }}</td>
+                                {% for forn in fornecedores_unicos %}
+                                    {% set resposta_encontrada = namespace(found=false, id=0, preco=0, prazo=0, cond='', obs='', frete=0, total=0, fornecedor_nome='', tem_cotacao=false) %}
+                                    {% for resp in cotacao.respostas %}
+                                        {% if resp.nome_fornecedor == forn and resp.item_id == item.id %}
+                                            {% set resposta_encontrada.found = true %}
+                                            {% set resposta_encontrada.id = resp.id %}
+                                            {% set resposta_encontrada.preco = resp.preco_unitario or 0 %}
+                                            {% set resposta_encontrada.prazo = resp.prazo_entrega or 0 %}
+                                            {% set resposta_encontrada.cond = resp.condicao_pagamento or '' %}
+                                            {% set resposta_encontrada.obs = resp.observacao or '' %}
+                                            {% set resposta_encontrada.frete = resp.frete_total or 0 %}
+                                            {% set resposta_encontrada.total = (resposta_encontrada.preco * item.quantidade) + resposta_encontrada.frete %}
+                                            {% set resposta_encontrada.fornecedor_nome = forn %}
+                                            {# CORREÇÃO: Marca se tem cotação válida (preço > 0) #}
+                                            {% set resposta_encontrada.tem_cotacao = resposta_encontrada.preco > 0 %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if resposta_encontrada.found %}
+                                        {# CORREÇÃO: Exibição diferenciada para respostas sem preço/prazo (limpas) #}
+                                        {% if resposta_encontrada.tem_cotacao %}
+                                <td class="celula-preco" data-preco="{{ resposta_encontrada.preco }}" data-item="{{ item.id }}">R$ {{ "%.2f"|format(resposta_encontrada.preco) }}</td>
+                                <td class="celula-frete">{% if resposta_encontrada.frete > 0 %}R$ {{ "%.2f"|format(resposta_encontrada.frete) }}{% else %}-{% endif %}</td>
+                                <td class="celula-total fw-bold text-success" data-total="{{ resposta_encontrada.total }}" data-item="{{ item.id }}">R$ {{ "%.2f"|format(resposta_encontrada.total) }}</td>
+                                <td class="celula-prazo" data-prazo="{{ resposta_encontrada.prazo }}" data-item="{{ item.id }}">{% if resposta_encontrada.prazo > 0 %}{{ resposta_encontrada.prazo }} dias{% else %}-{% endif %}</td>
+                                <td class="celula-condicao" title="{{ resposta_encontrada.obs }}">{{ resposta_encontrada.cond or '-' }}</td>
+                                <td class="celula-acoes">
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            onclick="abrirModalEditarResposta({{ resposta_encontrada.id }}, '{{ item.descricao_produto|e }}', '{{ resposta_encontrada.fornecedor_nome|e }}', {{ resposta_encontrada.preco }}, {{ resposta_encontrada.prazo }}, '{{ resposta_encontrada.cond|e }}', {{ resposta_encontrada.frete }}, '{{ resposta_encontrada.obs|e }}')"
+                                            title="Editar resposta do fornecedor">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </td>
+                                        {% else %}
+                                {# Resposta existe mas sem cotação válida (limpa) - mostrar como pendente mas editável #}
+                                <td class="sem-resposta text-warning" data-preco="0" data-item="{{ item.id }}" title="Sem cotação válida">-</td>
+                                <td class="sem-resposta">-</td>
+                                <td class="sem-resposta" data-total="0" data-item="{{ item.id }}">-</td>
+                                <td class="sem-resposta" data-prazo="0" data-item="{{ item.id }}">-</td>
+                                <td class="sem-resposta">-</td>
+                                <td class="celula-acoes">
+                                    <button class="btn btn-sm btn-outline-secondary" 
+                                            onclick="abrirModalEditarResposta({{ resposta_encontrada.id }}, '{{ item.descricao_produto|e }}', '{{ resposta_encontrada.fornecedor_nome|e }}', {{ resposta_encontrada.preco }}, {{ resposta_encontrada.prazo }}, '{{ resposta_encontrada.cond|e }}', {{ resposta_encontrada.frete }}, '{{ resposta_encontrada.obs|e }}')"
+                                            title="Adicionar/editar cotação">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </td>
+                                        {% endif %}
+                                    {% else %}
+                                <td class="sem-resposta">-</td>
+                                <td class="sem-resposta">-</td>
+                                <td class="sem-resposta">-</td>
+                                <td class="sem-resposta">-</td>
+                                <td class="sem-resposta">-</td>
+                                <td class="sem-resposta">-</td>
+                                    {% endif %}
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- RODADAS DE NEGOCIAÇÃO -->
+            {% if cotacao.rodadas_negociacao and cotacao.rodadas_negociacao|length > 0 %}
+            <div class="card-section mt-4" id="secaoRodadaNegociacao">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0"><i class="fas fa-handshake me-2"></i>Rodada de Negociação (Rodada 2)</h5>
+                    <button class="btn btn-sm btn-outline-danger" onclick="excluirTodasRodadas({{ cotacao.id }})">
+                        <i class="fas fa-trash me-1"></i> Limpar Rodada 2
+                    </button>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Valores negociados</strong> com fornecedor selecionado após primeira rodada de cotação.
+                </div>
+                
+                <!-- Identificar fornecedor da negociação -->
+                {% set fornecedor_negociacao = '' %}
+                {% if cotacao.rodadas_negociacao|length > 0 %}
+                    {% set fornecedor_negociacao = cotacao.rodadas_negociacao[0].nome_fornecedor %}
+                {% endif %}
+                
+                <!-- Cabeçalho com nome do fornecedor -->
+                <div class="p-3 mb-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white;">
+                    <h6 class="mb-0"><i class="fas fa-building me-2"></i>Fornecedor: {{ fornecedor_negociacao }}</h6>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th rowspan="2">Código</th>
+                                <th rowspan="2">Item</th>
+                                <th rowspan="2">Qtd</th>
+                                <th colspan="3" class="text-center" style="background: #e3f2fd; border-bottom: 2px solid #1976d2;">Rodada 1 (Original)</th>
+                                <th colspan="3" class="text-center" style="background: #f3e5f5; border-bottom: 2px solid #7b1fa2;">Rodada 2 (Negociado)</th>
+                                <th rowspan="2">Economia</th>
+                                <th rowspan="2">Ações</th>
+                            </tr>
+                            <tr>
+                                <!-- Rodada 1 -->
+                                <th style="background: #e3f2fd;">Preço Unit.</th>
+                                <th style="background: #e3f2fd;">Prazo</th>
+                                <th style="background: #e3f2fd;">Total</th>
+                                <!-- Rodada 2 -->
+                                <th style="background: #f3e5f5;">Preço Unit.</th>
+                                <th style="background: #f3e5f5;">Prazo</th>
+                                <th style="background: #f3e5f5;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rodada in cotacao.rodadas_negociacao %}
+                            <tr>
+                                <td class="fw-bold">{{ rodada.cod_produto }}</td>
+                                <td>{{ rodada.descricao_produto }}</td>
+                                <td>{{ rodada.quantidade }} {{ rodada.unidade or 'UN' }}</td>
+                                
+                                <!-- Rodada 1 (Original) -->
+                                <td style="background: #e3f2fd20;">R$ {{ "%.2f"|format(rodada.preco_unitario_original or 0) }}</td>
+                                <td style="background: #e3f2fd20;">{{ rodada.prazo_entrega_original or '-' }} dias</td>
+                                <td style="background: #e3f2fd20;" class="fw-bold">R$ {{ "%.2f"|format((rodada.preco_unitario_original or 0) * rodada.quantidade) }}</td>
+                                
+                                <!-- Rodada 2 (Negociado) -->
+                                <td style="background: #f3e5f520;">R$ {{ "%.2f"|format(rodada.preco_unitario_negociado or 0) }}</td>
+                                <td style="background: #f3e5f520;">{{ rodada.prazo_entrega_negociado or '-' }} dias</td>
+                                <td style="background: #f3e5f520;" class="fw-bold text-success">R$ {{ "%.2f"|format((rodada.preco_unitario_negociado or 0) * rodada.quantidade) }}</td>
+                                
+                                <!-- Economia -->
+                                {% set economia = ((rodada.preco_unitario_original or 0) - (rodada.preco_unitario_negociado or 0)) * rodada.quantidade %}
+                                <td class="fw-bold {{ 'text-success' if economia > 0 else 'text-danger' }}">
+                                    {% if economia > 0 %}
+                                        -R$ {{ "%.2f"|format(economia) }}
+                                    {% elif economia < 0 %}
+                                        +R$ {{ "%.2f"|format(economia|abs) }}
+                                    {% else %}
+                                        R$ 0,00
+                                    {% endif %}
+                                </td>
+                                
+                                <!-- Ações -->
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            onclick="editarRodadaNegociacao({{ rodada.id }}, {{ rodada.preco_unitario_negociado }}, {{ rodada.prazo_entrega_negociado or 0 }}, '{{ rodada.observacao or '' }}')"
+                                            title="Editar valores negociados">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" 
+                                            onclick="excluirRodadaNegociacao({{ rodada.id }}, {{ cotacao.id }})"
+                                            title="Excluir item da negociação">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            
+                            <!-- Totais -->
+                            <tr class="table-secondary fw-bold">
+                                <td colspan="5" class="text-end">TOTAL GERAL:</td>
+                                {% set total_original = namespace(val=0) %}
+                                {% set total_negociado = namespace(val=0) %}
+                                {% for rodada in cotacao.rodadas_negociacao %}
+                                    {% set total_original.val = total_original.val + ((rodada.preco_unitario_original or 0) * rodada.quantidade) %}
+                                    {% set total_negociado.val = total_negociado.val + ((rodada.preco_unitario_negociado or 0) * rodada.quantidade) %}
+                                {% endfor %}
+                                <td class="text-primary">R$ {{ "%.2f"|format(total_original.val) }}</td>
+                                <td colspan="2"></td>
+                                <td class="text-success">R$ {{ "%.2f"|format(total_negociado.val) }}</td>
+                                <td class="text-success">-R$ {{ "%.2f"|format(total_original.val - total_negociado.val) }}</td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if cotacao.rodadas_negociacao[0].observacao %}
+                <div class="alert alert-warning mt-3">
+                    <strong><i class="fas fa-comment me-2"></i>Observação:</strong> {{ cotacao.rodadas_negociacao[0].observacao }}
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <!-- Botão para iniciar negociação quando não houver rodadas -->
+            {% if cotacao.respostas %}
+            <div class="card-section mt-4">
+                <div class="text-center py-4">
+                    <i class="fas fa-handshake fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted mb-3">Nenhuma rodada de negociação iniciada</h5>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalIniciarNegociacao">
+                        <i class="fas fa-plus me-2"></i>Iniciar Rodada de Negociação
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+
+            <!-- HISTÓRICO -->
+            <div class="card-section">
+                <h5><i class="fas fa-history me-2"></i>Histórico</h5>
+                <div class="timeline">
+                    {% for h in historico %}
+                    <div class="timeline-item">
+                        <div class="time">{{ h.data_hora }}</div>
+                        <div class="action">{{ h.acao }}</div>
+                        <div class="small text-muted">{{ h.descricao }} - por {{ h.usuario }}</div>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Nenhum histórico</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ADICIONAR FORNECEDOR -->
+    <div class="modal fade" id="modalFornecedor" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-user-plus me-2"></i>Adicionar Fornecedor</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Toggle entre cadastrado e manual -->
+                    <div class="d-flex mb-4 gap-2">
+                        <button type="button" class="btn flex-fill btn-toggle-modo active" id="btnModoCadastrado" onclick="toggleModoFornecedor('cadastrado')">
+                            <i class="fas fa-database me-2"></i>Selecionar Cadastrado
+                        </button>
+                        <button type="button" class="btn flex-fill btn-toggle-modo" id="btnModoManual" onclick="toggleModoFornecedor('manual')">
+                            <i class="fas fa-edit me-2"></i>Fornecedor Não Cadastrado
+                        </button>
+                    </div>
+                    
+                    <!-- MODO CADASTRADO -->
+                    <div id="modoCadastrado">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Buscar Fornecedor</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" class="form-control" id="buscaFornecedor" 
+                                       placeholder="Digite o nome ou código do fornecedor..."
+                                       oninput="buscarFornecedores(this.value)">
+                                <button class="btn btn-outline-secondary" type="button" onclick="limparBusca()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-1">
+                                <small class="text-muted">Mínimo 2 caracteres para buscar</small>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="testarConexaoTOTVS()" title="Verificar conexão com banco de dados TOTVS">
+                                    <i class="fas fa-plug me-1"></i>Testar conexão
+                                </button>
+                            </div>
+                            <!-- Status da conexão -->
+                            <div id="statusConexaoTOTVS" class="mt-2" style="display: none;"></div>
+                        </div>
+                        
+                        <!-- Lista de resultados -->
+                        <div id="listaFornecedores" class="border rounded" style="max-height: 250px; overflow-y: auto; display: none;">
+                            <!-- Resultados serão preenchidos via JS -->
+                        </div>
+                        
+                        <!-- Fornecedor selecionado -->
+                        <div id="fornecedorSelecionado" class="alert alert-success d-flex align-items-center mt-3" style="display: none !important;">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <div class="flex-grow-1">
+                                <strong id="selNome"></strong><br>
+                                <small class="text-muted">
+                                    <span id="selCodigo"></span> | 
+                                    <span id="selEmail"></span> | 
+                                    <span id="selTelefone"></span>
+                                </small>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="limparSelecao()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <input type="hidden" id="fornCodigo">
+                    </div>
+                    
+                    <!-- MODO MANUAL -->
+                    <div id="modoManual" style="display: none;">
+                        <div class="alert alert-warning mb-3">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <small>Use esta opção apenas para fornecedores que <strong>não estão cadastrados</strong> no sistema TOTVS.</small>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <label class="form-label fw-bold">Nome do Fornecedor *</label>
+                                <input type="text" class="form-control" id="fornNome" placeholder="Digite o nome completo">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" id="fornEmail" placeholder="email@empresa.com">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Telefone</label>
+                                <input type="text" class="form-control" id="fornTelefone" placeholder="(00) 00000-0000">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="adicionarFornecedor()" id="btnAdicionarForn">
+                        <i class="fas fa-plus me-1"></i>Adicionar Fornecedor
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+    .btn-toggle-modo {
+        background-color: #f8f9fa;
+        border: 2px solid #dee2e6;
+        color: #495057;
+        transition: all 0.2s ease;
+    }
+    .btn-toggle-modo:hover {
+        background-color: #e9ecef;
+        border-color: #adb5bd;
+    }
+    .btn-toggle-modo.active {
+        background-color: #198754;
+        border-color: #198754;
+        color: white;
+    }
+    .lista-fornecedor-item {
+        padding: 10px 15px;
+        border-bottom: 1px solid #eee;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+    .lista-fornecedor-item:hover {
+        background-color: #e8f5e9;
+    }
+    .lista-fornecedor-item:last-child {
+        border-bottom: none;
+    }
+    </style>
+
+    <!-- MODAL EDITAR NOME DA COTAÇÃO -->
+    <div class="modal fade" id="modalEditarNome" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit me-2"></i>Editar Nome da Cotação
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nome / Código da Cotação</label>
+                        <input type="text" class="form-control form-control-lg" id="inputNomeCotacao" 
+                               value="{{ cotacao.codigo }}" placeholder="Ex: Cotação Prateleiras 2026/01">
+                        <small class="text-muted">Este é o identificador principal da cotação</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="salvarNomeCotacao()">
+                        <i class="fas fa-save me-1"></i> Salvar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL INFORMAÇÃO AO FORNECEDOR -->
+    <div class="modal fade" id="modalInformacaoFornecedor" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Informação Importante ao Fornecedor
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <small>Esta mensagem será exibida em <strong>destaque vermelho</strong> para <strong>todos os fornecedores</strong> quando acessarem o link da cotação.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Mensagem para os fornecedores</label>
+                        <textarea class="form-control" id="inputInformacaoFornecedor" rows="4" 
+                                  placeholder="Ex: Não cotar produtos da marca X. Conferir descrição do item antes de cotar.">{{ cotacao.informacao_fornecedor or '' }}</textarea>
+                        <small class="text-muted">Deixe em branco para remover a mensagem</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="salvarInformacaoFornecedor()">
+                        <i class="fas fa-save me-1"></i> Salvar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ALTERAR STATUS -->
+    <div class="modal fade" id="modalAlterarStatus" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-exchange-alt me-2"></i>Alterar Status da Cotação
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <p class="text-center text-muted mb-4">Selecione o novo status para esta cotação:</p>
+                    
+                    <div class="d-flex flex-wrap justify-content-center gap-3">
+                        <button type="button" class="status-btn btn btn-outline-primary {{ 'active' if cotacao.status == 'Aberta' else '' }}" 
+                                onclick="selecionarStatus('Aberta', this)">
+                            <i class="fas fa-folder-open me-2"></i>Aberta
+                        </button>
+                        <button type="button" class="status-btn btn btn-outline-success {{ 'active' if cotacao.status == 'Respondida' else '' }}" 
+                                onclick="selecionarStatus('Respondida', this)">
+                            <i class="fas fa-check-circle me-2"></i>Respondida
+                        </button>
+                        <button type="button" class="status-btn btn btn-outline-secondary {{ 'active' if cotacao.status == 'Encerrada' else '' }}" 
+                                onclick="selecionarStatus('Encerrada', this)">
+                            <i class="fas fa-lock me-2"></i>Encerrada
+                        </button>
+                        <button type="button" class="status-btn btn btn-outline-danger {{ 'active' if cotacao.status == 'Cancelada' else '' }}" 
+                                onclick="selecionarStatus('Cancelada', this)">
+                            <i class="fas fa-times-circle me-2"></i>Cancelada
+                        </button>
+                    </div>
+                    
+                    <input type="hidden" id="novoStatusSelecionado" value="{{ cotacao.status }}">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="confirmarAlteracaoStatus()">
+                        <i class="fas fa-save me-1"></i> Confirmar Alteração
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL EDITAR RESPOSTA DO FORNECEDOR -->
+    <div class="modal fade" id="modalEditarResposta" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit me-2"></i>Editar Resposta do Fornecedor
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <input type="hidden" id="editRespostaId">
+                    
+                    <!-- Info do item -->
+                    <div class="alert alert-light border mb-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Item</small>
+                                <strong id="editItemDescricao">-</strong>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Fornecedor</small>
+                                <strong id="editFornecedorNome" class="text-primary">-</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Campos editáveis -->
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Preço Unitário (R$)</label>
+                            <input type="text" class="form-control form-control-lg" 
+                                   id="editPrecoUnitario" placeholder="Ex: 1.250,50 (deixe vazio para limpar)"
+                                   oninput="formatarMoedaModal(this)">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Prazo de Entrega (dias)</label>
+                            <input type="number" class="form-control form-control-lg" 
+                                   id="editPrazoEntrega" placeholder="Ex: 15 (deixe vazio para limpar)">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Frete (R$)</label>
+                            <input type="text" class="form-control form-control-lg" 
+                                   id="editFrete" placeholder="Ex: 150,00"
+                                   oninput="formatarMoedaModal(this)">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Condição de Pagamento</label>
+                            <input type="text" class="form-control" 
+                                   id="editCondicaoPagamento" placeholder="Ex: 30 DDL, 30/60/90, etc.">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Observação</label>
+                            <input type="text" class="form-control" 
+                                   id="editObservacao" placeholder="Informações adicionais">
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mt-4 mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <small><strong>Dica:</strong> Para remover este fornecedor do comparativo de preços/prazos, 
+                        apague os campos Preço Unitário e Prazo de Entrega e clique em Salvar. 
+                        Alternativamente, use o botão "Excluir Resposta" para remover completamente.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-danger me-auto" onclick="excluirRespostaFornecedor()">
+                        <i class="fas fa-trash me-1"></i> Excluir Resposta
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-info text-white" onclick="salvarEdicaoResposta()">
+                        <i class="fas fa-save me-1"></i> Salvar Alterações
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Link Externo da Cotação -->
+    <div class="modal fade" id="modalLinkExterno" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-link me-2"></i>Link de Cotação Externa</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <div class="alert alert-light border mb-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Fornecedor</small>
+                                <strong id="linkExternoFornecedor">-</strong>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted d-block">Status</small>
+                                <span class="badge bg-success" id="linkExternoStatus">Link Gerado</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold"><i class="fas fa-globe me-1"></i> Link para Preenchimento Online</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="linkExternoUrl" readonly>
+                            <button class="btn btn-outline-primary" onclick="copiarLinkExterno()">
+                                <i class="fas fa-copy me-1"></i> Copiar
+                            </button>
+                        </div>
+                        <small class="text-muted">O fornecedor acessa este link e preenche diretamente no navegador.</small>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold"><i class="fas fa-download me-1"></i> Link para Download do JSON</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="linkDownloadJson" readonly>
+                            <button class="btn btn-outline-secondary" onclick="copiarLinkDownload()">
+                                <i class="fas fa-copy me-1"></i> Copiar
+                            </button>
+                        </div>
+                        <small class="text-muted">Alternativa: fornecedor baixa JSON, preenche e devolve por email.</small>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Como usar:</strong>
+                        <ol class="mb-0 mt-2 small">
+                            <li>Copie o link acima e envie por email ao fornecedor</li>
+                            <li>O fornecedor acessa o link e preenche os preços/prazos</li>
+                            <li>Ao clicar em "Enviar", a cotação é importada automaticamente</li>
+                            <li>Se não tiver acesso à rede, ele baixa o JSON e envia por email</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="d-grid gap-2 mt-4">
+                        <a href="#" class="btn btn-primary" id="btnAbrirLinkExterno" target="_blank">
+                            <i class="fas fa-external-link-alt me-2"></i>Testar Link (Abrir em Nova Aba)
+                        </a>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Fechar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Importar JSON -->
+    <div class="modal fade" id="modalImportarJSON" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title"><i class="fas fa-upload me-2"></i>Importar JSON de Resposta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <input type="hidden" id="importarJsonFornecedorId">
+                    
+                    <div class="alert alert-light border mb-4">
+                        <small class="text-muted d-block">Fornecedor</small>
+                        <strong id="importarJsonFornecedorNome">-</strong>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Selecione o arquivo JSON</label>
+                        <input type="file" class="form-control" id="arquivoJsonImportar" accept=".json">
+                        <small class="text-muted">O arquivo deve ser o JSON preenchido pelo fornecedor.</small>
+                    </div>
+                    
+                    <div class="alert alert-info small">
+                        <i class="fas fa-info-circle me-2"></i>
+                        O sistema validará automaticamente:
+                        <ul class="mb-0 mt-1">
+                            <li>Token de segurança</li>
+                            <li>Correspondência com o fornecedor</li>
+                            <li>Integridade dos dados</li>
+                        </ul>
+                    </div>
+                    
+                    <div id="resultadoImportacao" class="mt-3" style="display: none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="importarArquivoJSON()">
+                        <i class="fas fa-upload me-1"></i> Importar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Iniciar Rodada de Negociação -->
+    <div class="modal fade" id="modalIniciarNegociacao" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h5 class="modal-title"><i class="fas fa-handshake me-2"></i>Iniciar Rodada de Negociação (Rodada 2)</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Selecione o fornecedor para negociar e informe os novos preços/prazos negociados.
+                    </div>
+                    
+                    <!-- Seleção de Fornecedor -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Fornecedor para Negociação *</label>
+                        <select class="form-select" id="fornecedorNegociacao" onchange="carregarItensNegociacao()">
+                            <option value="">Selecione o fornecedor...</option>
+                            {% set fornecedores_unicos = [] %}
+                            {% for resp in cotacao.respostas %}
+                                {% if resp.fornecedor_id not in fornecedores_unicos %}
+                                    <option value="{{ resp.fornecedor_id }}">{{ resp.nome_fornecedor }}</option>
+                                    {% set _ = fornecedores_unicos.append(resp.fornecedor_id) %}
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Tabela de Itens para Negociação -->
+                    <div id="containerItensNegociacao" style="display: none;">
+                        <h6 class="mb-3">Informe os valores negociados:</h6>
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th><input type="checkbox" id="selecionarTodos" onchange="selecionarTodosItens(this)"></th>
+                                        <th>Item</th>
+                                        <th>Qtd</th>
+                                        <th style="background: #e3f2fd;">Preço Original</th>
+                                        <th style="background: #e3f2fd;">Prazo Original</th>
+                                        <th style="background: #f3e5f5;">Preço Negociado</th>
+                                        <th style="background: #f3e5f5;">Prazo Negociado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelaItensNegociacao">
+                                    <!-- Preenchido via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Observação Geral (opcional)</label>
+                            <textarea class="form-control" id="observacaoNegociacao" rows="2" 
+                                      placeholder="Ex: Valores negociados via telefone em DD/MM/AAAA"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="salvarRodadaNegociacao()" id="btnSalvarNegociacao" disabled>
+                        <i class="fas fa-save me-1"></i>Salvar Rodada de Negociação
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Editar Rodada Individual -->
+    <div class="modal fade" id="modalEditarRodadaNegociacao" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Editar Valor Negociado</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editRodadaId">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Preço Unitário Negociado</label>
+                        <input type="text" class="form-control" id="editPrecoNegociado" 
+                               placeholder="0,00" oninput="formatarMoedaModal(this)">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Prazo de Entrega Negociado (dias)</label>
+                        <input type="number" class="form-control" id="editPrazoNegociado" min="0">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Observação</label>
+                        <textarea class="form-control" id="editObservacaoNegociacao" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="salvarEdicaoRodada()">
+                        <i class="fas fa-save me-1"></i>Salvar Alterações
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- TOAST -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toastNotificacao" class="toast align-items-center border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body" id="toastMensagem"></div>
+                <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ================== FUNÇÕES AUXILIARES ==================
+        let statusSelecionado = '{{ cotacao.status }}';
+        
+        /**
+         * Formata campo de moeda permitindo vírgula como separador decimal (padrão BR)
+         * Aceita: 1250,50 ou 1.250,50
+         */
+        function formatarMoedaModal(input) {
+            let valor = input.value;
+            
+            // Remove tudo exceto números, vírgula e ponto
+            valor = valor.replace(/[^\d.,]/g, '');
+            
+            // Limita a 2 casas decimais após vírgula
+            const partes = valor.split(',');
+            if (partes.length > 2) {
+                valor = partes[0] + ',' + partes.slice(1).join('').substring(0, 2);
+            } else if (partes.length === 2) {
+                valor = partes[0] + ',' + partes[1].substring(0, 2);
+            }
+            
+            input.value = valor;
+        }
+        
+        /**
+         * Converte valor brasileiro (1.250,50) para decimal (1250.50)
+         */
+        function converterParaDecimalModal(valorBR) {
+            if (!valorBR || valorBR.trim() === '') return 0;
+            
+            // Remove pontos de milhar e substitui vírgula por ponto
+            let valorDecimal = valorBR.replace(/\./g, '').replace(',', '.');
+            
+            return parseFloat(valorDecimal) || 0;
+        }
+        
+        /**
+         * Formata número decimal para padrão brasileiro (1250.50 -> 1.250,50)
+         */
+        function formatarParaBrasileiro(valorDecimal) {
+            if (!valorDecimal) return '';
+            
+            const valor = parseFloat(valorDecimal);
+            if (isNaN(valor)) return '';
+            
+            return valor.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        }
+        
+        function selecionarStatus(status, btn) {
+            statusSelecionado = status;
+            document.getElementById('novoStatusSelecionado').value = status;
+            
+            // Remove active de todos
+            document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+            // Adiciona no selecionado
+            btn.classList.add('active');
+        }
+        
+        function confirmarAlteracaoStatus() {
+            const novoStatus = document.getElementById('novoStatusSelecionado').value;
+            
+            if (novoStatus === '{{ cotacao.status }}') {
+                bootstrap.Modal.getInstance(document.getElementById('modalAlterarStatus')).hide();
+                return;
+            }
+            
+            fetch(`/api/cotacao/{{ cotacao.id }}/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: novoStatus })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarToast('Status alterado com sucesso!', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    mostrarToast('Erro: ' + data.error, 'danger');
+                }
+            })
+            .catch(err => {
+                mostrarToast('Erro ao alterar status', 'danger');
+            });
+        }
+        
+        // ================== FUNÇÃO EDITAR NOME DA COTAÇÃO ==================
+        function salvarNomeCotacao() {
+            const novoNome = document.getElementById('inputNomeCotacao').value.trim();
+            
+            if (!novoNome) {
+                mostrarToast('O nome da cotação não pode estar vazio', 'warning');
+                return;
+            }
+            
+            fetch(`/api/cotacao/{{ cotacao.id }}/editar-nome`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codigo: novoNome })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarToast('Nome da cotação atualizado!', 'success');
+                    // Atualiza o display na página
+                    document.getElementById('displayCodigo').textContent = novoNome;
+                    document.querySelector('h4').innerHTML = '<i class="fas fa-file-invoice me-2"></i>' + novoNome;
+                    // Fecha o modal
+                    bootstrap.Modal.getInstance(document.getElementById('modalEditarNome')).hide();
+                } else {
+                    mostrarToast('Erro: ' + data.error, 'danger');
+                }
+            })
+            .catch(err => {
+                mostrarToast('Erro ao salvar', 'danger');
+            });
+        }
+        
+        // ================== FUNÇÃO INFORMAÇÃO AO FORNECEDOR ==================
+        function salvarInformacaoFornecedor() {
+            const informacao = document.getElementById('inputInformacaoFornecedor').value.trim();
+            
+            fetch(`/api/cotacao/{{ cotacao.id }}/informacao-fornecedor`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ informacao: informacao })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarToast('Informação salva com sucesso!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('modalInformacaoFornecedor')).hide();
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    mostrarToast('Erro: ' + data.error, 'danger');
+                }
+            })
+            .catch(err => {
+                mostrarToast('Erro ao salvar informação', 'danger');
+            });
+        }
+        
+        // ================== FUNÇÃO EXCLUIR FORNECEDOR ==================
+        function excluirFornecedor(fornecedorId, nomeFornecedor) {
+            console.log('[EXCLUIR FORNECEDOR] Solicitado para ID:', fornecedorId, 'Nome:', nomeFornecedor);
+            
+            if (!confirm(`Deseja realmente excluir o fornecedor "${nomeFornecedor}" desta cotação?\n\n⚠️ ATENÇÃO: Isso irá remover:\n- Vínculo do fornecedor com esta cotação\n- Todas as respostas enviadas por ele\n- O link individual será invalidado\n\nEsta ação NÃO pode ser desfeita.`)) {
+                console.log('[EXCLUIR FORNECEDOR] Cancelado pelo usuário');
+                return;
+            }
+            
+            // Feedback visual - desabilita botões de lixeira
+            const btnExcluir = document.querySelector(`button[onclick*="excluirFornecedor(${fornecedorId}"]`);
+            if (btnExcluir) {
+                btnExcluir.disabled = true;
+                btnExcluir.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+            
+            console.log('[EXCLUIR FORNECEDOR] Enviando requisição...');
+            
+            fetch(`/api/cotacao/fornecedor/${fornecedorId}/excluir`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => {
+                console.log('[EXCLUIR FORNECEDOR] Status HTTP:', r.status);
+                return r.json();
+            })
+            .then(data => {
+                console.log('[EXCLUIR FORNECEDOR] Resposta:', data);
+                if (data.success) {
+                    mostrarToast(`Fornecedor "${nomeFornecedor}" excluído com sucesso!`, 'success');
+                    setTimeout(() => location.reload(), 800);
+                } else {
+                    mostrarToast('Erro: ' + (data.error || 'Falha ao excluir'), 'danger');
+                    // Restaura botão
+                    if (btnExcluir) {
+                        btnExcluir.disabled = false;
+                        btnExcluir.innerHTML = '<i class="fas fa-trash"></i>';
+                    }
+                }
+            })
+            .catch(err => {
+                console.error('[EXCLUIR FORNECEDOR] Erro:', err);
+                mostrarToast('Erro de conexão ao excluir fornecedor', 'danger');
+                // Restaura botão
+                if (btnExcluir) {
+                    btnExcluir.disabled = false;
+                    btnExcluir.innerHTML = '<i class="fas fa-trash"></i>';
+                }
+            });
+        }
+        
+        // ================== FUNÇÕES EDITAR RESPOSTA DO FORNECEDOR ==================
+        
+        /**
+         * Abre o modal de edição de resposta do fornecedor
+         * @param {number} respostaId - ID da resposta no banco
+         * @param {string} itemDescricao - Descrição do item
+         * @param {string} fornecedorNome - Nome do fornecedor
+         * @param {number} preco - Preço unitário atual
+         * @param {number} prazo - Prazo atual
+         * @param {string} condicao - Condição de pagamento atual
+         * @param {number} frete - Frete atual
+         * @param {string} observacao - Observação atual
+         */
+        function abrirModalEditarResposta(respostaId, itemDescricao, fornecedorNome, preco, prazo, condicao, frete, observacao) {
+            console.log('[EDITAR RESPOSTA] Abrindo modal para resposta ID:', respostaId);
+            
+            // Popula campos do modal (formata valores para padrão BR)
+            document.getElementById('editRespostaId').value = respostaId;
+            document.getElementById('editItemDescricao').textContent = itemDescricao;
+            document.getElementById('editFornecedorNome').textContent = fornecedorNome;
+            document.getElementById('editPrecoUnitario').value = formatarParaBrasileiro(preco);
+            document.getElementById('editPrazoEntrega').value = prazo || '';
+            document.getElementById('editCondicaoPagamento').value = condicao || '';
+            document.getElementById('editFrete').value = formatarParaBrasileiro(frete);
+            document.getElementById('editObservacao').value = observacao || '';
+            
+            // Abre o modal
+            new bootstrap.Modal(document.getElementById('modalEditarResposta')).show();
+        }
+        
+        /**
+         * Salva as alterações na resposta do fornecedor
+         */
+        function salvarEdicaoResposta() {
+            const respostaId = document.getElementById('editRespostaId').value;
+            const precoStr = document.getElementById('editPrecoUnitario').value;
+            const prazoStr = document.getElementById('editPrazoEntrega').value;
+            const condicao = document.getElementById('editCondicaoPagamento').value;
+            const freteStr = document.getElementById('editFrete').value;
+            const observacao = document.getElementById('editObservacao').value;
+            
+            // Converte valores brasileiros para decimal
+            // CORREÇÃO: Permitir valores null/vazios para remoção de cotação
+            const preco = precoStr ? converterParaDecimalModal(precoStr) : null;
+            const prazo = prazoStr ? parseInt(prazoStr) : null;
+            const frete = freteStr ? converterParaDecimalModal(freteStr) : 0;
+            
+            // NOTA: Remoção de validação que impedia limpar valores.
+            // Agora é permitido salvar preço e prazo como null/vazio
+            // para desconsiderar fornecedor no comparativo.
+            
+            console.log('[EDITAR RESPOSTA] Salvando:', { respostaId, preco, prazo, condicao, frete, observacao });
+            
+            // CORREÇÃO: Enviar valores explicitamente, incluindo null para limpeza
+            const payload = {
+                preco_unitario: preco,
+                prazo_entrega: prazo,
+                condicao_pagamento: condicao || '',
+                frete_total: frete || 0,
+                observacao: observacao || '',
+                allow_null: true  // Flag para indicar que null é intencional
+            };
+            
+            console.log('[EDITAR RESPOSTA] Payload:', payload);
+            
+            fetch(`/api/cotacao/resposta/${respostaId}/editar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarToast('Resposta atualizada com sucesso!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('modalEditarResposta')).hide();
+                    // Recarrega a página para mostrar valores atualizados
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    mostrarToast('Erro: ' + data.error, 'danger');
+                }
+            })
+            .catch(err => {
+                console.error('Erro ao salvar resposta:', err);
+                mostrarToast('Erro ao salvar alterações', 'danger');
+            });
+        }
+        
+        /**
+         * Exclui a resposta do fornecedor completamente (remove do comparativo)
+         */
+        function excluirRespostaFornecedor() {
+            const respostaId = document.getElementById('editRespostaId').value;
+            const fornecedorNome = document.getElementById('editFornecedorNome').textContent;
+            const itemDescricao = document.getElementById('editItemDescricao').textContent;
+            
+            if (!confirm(`Tem certeza que deseja EXCLUIR a resposta de "${fornecedorNome}" para o item "${itemDescricao}"?\n\nIsso removerá completamente este fornecedor do comparativo para este item.`)) {
+                return;
+            }
+            
+            console.log('[EXCLUIR RESPOSTA] ID:', respostaId);
+            
+            fetch(`/api/cotacao/resposta/${respostaId}/excluir`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarToast('Resposta excluída com sucesso! O comparativo será atualizado.', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('modalEditarResposta')).hide();
+                    // Recarrega a página para atualizar o comparativo
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    mostrarToast('Erro: ' + data.error, 'danger');
+                }
+            })
+            .catch(err => {
+                console.error('Erro ao excluir resposta:', err);
+                mostrarToast('Erro ao excluir resposta', 'danger');
+            });
+        }
+
+        // ================== FUNÇÕES COTAÇÃO EXTERNA (JSON) ==================
+        
+        /**
+         * Gera link externo para cotação e exibe no modal
+         */
+        function gerarLinkExterno(fornecedorId, fornecedorNome) {
+            console.log('[COTAÇÃO EXTERNA] Gerando link para fornecedor:', fornecedorId, fornecedorNome);
+            
+            mostrarToast('Gerando link externo...', 'info');
+            
+            fetch(`/api/cotacao/fornecedor/${fornecedorId}/gerar-link-externo`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    // Preenche modal com os dados
+                    document.getElementById('linkExternoFornecedor').textContent = fornecedorNome;
+                    document.getElementById('linkExternoUrl').value = data.link_externo;
+                    document.getElementById('linkDownloadJson').value = data.link_download_json;
+                    document.getElementById('btnAbrirLinkExterno').href = data.link_externo;
+                    
+                    // Abre modal
+                    new bootstrap.Modal(document.getElementById('modalLinkExterno')).show();
+                    
+                    mostrarToast('Link gerado com sucesso!', 'success');
+                } else {
+                    mostrarToast('Erro: ' + data.error, 'danger');
+                }
+            })
+            .catch(err => {
+                console.error('[COTAÇÃO EXTERNA] Erro:', err);
+                mostrarToast('Erro ao gerar link externo', 'danger');
+            });
+        }
+        
+        /**
+         * Copia link externo para área de transferência
+         */
+        function copiarLinkExterno() {
+            const input = document.getElementById('linkExternoUrl');
+            input.select();
+            document.execCommand('copy');
+            mostrarToast('Link copiado!', 'success');
+        }
+        
+        /**
+         * Copia link de download JSON
+         */
+        function copiarLinkDownload() {
+            const input = document.getElementById('linkDownloadJson');
+            input.select();
+            document.execCommand('copy');
+            mostrarToast('Link de download copiado!', 'success');
+        }
+        
+        /**
+         * Abre modal para importar JSON de resposta
+         */
+        function abrirModalImportarJSON(fornecedorId, fornecedorNome) {
+            document.getElementById('importarJsonFornecedorId').value = fornecedorId;
+            document.getElementById('importarJsonFornecedorNome').textContent = fornecedorNome;
+            document.getElementById('arquivoJsonImportar').value = '';
+            document.getElementById('resultadoImportacao').style.display = 'none';
+            
+            new bootstrap.Modal(document.getElementById('modalImportarJSON')).show();
+        }
+        
+        /**
+         * Importa arquivo JSON de resposta do fornecedor
+         */
+        function importarArquivoJSON() {
+            const fornecedorId = document.getElementById('importarJsonFornecedorId').value;
+            const arquivoInput = document.getElementById('arquivoJsonImportar');
+            const resultadoDiv = document.getElementById('resultadoImportacao');
+            
+            if (!arquivoInput.files || arquivoInput.files.length === 0) {
+                mostrarToast('Selecione um arquivo JSON', 'warning');
+                return;
+            }
+            
+            const arquivo = arquivoInput.files[0];
+            
+            if (!arquivo.name.endsWith('.json')) {
+                mostrarToast('O arquivo deve ser um JSON', 'danger');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('arquivo', arquivo);
+            
+            // Mostra loading
+            resultadoDiv.style.display = 'block';
+            resultadoDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin me-2"></i>Importando...</div>';
+            
+            fetch(`/api/cotacao/fornecedor/${fornecedorId}/importar-json`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    resultadoDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>Sucesso!</strong> ${data.message}
+                        </div>
+                    `;
+                    mostrarToast(data.message, 'success');
+                    
+                    // Recarrega após 2 segundos
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    resultadoDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-times-circle me-2"></i>
+                            <strong>Erro:</strong> ${data.error}
+                        </div>
+                    `;
+                    mostrarToast('Erro ao importar JSON', 'danger');
+                }
+            })
+            .catch(err => {
+                console.error('[IMPORTAR JSON] Erro:', err);
+                resultadoDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-times-circle me-2"></i>
+                        <strong>Erro de conexão</strong>
+                    </div>
+                `;
+                mostrarToast('Erro ao importar JSON', 'danger');
+            });
+        }
+        
+        /**
+         * Abre modal de cotação manual (redireciona para página existente)
+         */
+        function abrirModalCotacaoManual(fornecedorId, fornecedorNome) {
+            // Busca itens do fornecedor e abre modal existente
+            // Usa a mesma função que já existe no sistema
+            window.open(`/cotacao/responder-interno/${fornecedorId}`, '_blank');
+        }
+
+        // ================== FUNÇÕES DO MODAL FORNECEDOR ==================
+        let modoAtual = 'cadastrado';
+        let fornecedorSelecionadoData = null;
+        let timeoutBusca = null;
+        
+        function toggleModoFornecedor(modo) {
+            modoAtual = modo;
+            
+            // Atualiza visual dos botões
+            document.getElementById('btnModoCadastrado').classList.toggle('active', modo === 'cadastrado');
+            document.getElementById('btnModoManual').classList.toggle('active', modo === 'manual');
+            
+            // Mostra/oculta seções
+            document.getElementById('modoCadastrado').style.display = modo === 'cadastrado' ? 'block' : 'none';
+            document.getElementById('modoManual').style.display = modo === 'manual' ? 'block' : 'none';
+            
+            // Limpa dados ao trocar de modo
+            limparSelecao();
+            limparCamposManuais();
+        }
+        
+        function buscarFornecedores(termo) {
+            // Cancela busca anterior
+            if (timeoutBusca) clearTimeout(timeoutBusca);
+            
+            const listaDiv = document.getElementById('listaFornecedores');
+            
+            console.log('[BUSCA FORNECEDOR] Termo digitado:', termo);
+            
+            if (termo.length < 2) {
+                listaDiv.style.display = 'none';
+                console.log('[BUSCA FORNECEDOR] Termo muito curto (< 2 caracteres)');
+                return;
+            }
+            
+            // Debounce de 300ms
+            timeoutBusca = setTimeout(() => {
+                console.log('[BUSCA FORNECEDOR] Iniciando busca para:', termo);
+                listaDiv.innerHTML = '<div class="text-center py-3"><i class="fas fa-spinner fa-spin me-2"></i>Buscando fornecedores...</div>';
+                listaDiv.style.display = 'block';
+                
+                const urlBusca = `/api/fornecedores/buscar?termo=${encodeURIComponent(termo)}`;
+                console.log('[BUSCA FORNECEDOR] URL:', urlBusca);
+                
+                fetch(urlBusca, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    // Timeout de 30 segundos para conexão com TOTVS
+                    signal: AbortSignal.timeout(30000)
+                })
+                    .then(r => {
+                        console.log('[BUSCA FORNECEDOR] Status HTTP:', r.status);
+                        if (!r.ok) {
+                            throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+                        }
+                        return r.json();
+                    })
+                    .then(data => {
+                        console.log('[BUSCA FORNECEDOR] Resposta:', data);
+                        
+                        if (data.success && data.fornecedores && data.fornecedores.length > 0) {
+                            console.log('[BUSCA FORNECEDOR] Encontrados:', data.fornecedores.length, 'fornecedores');
+                            let html = '';
+                            data.fornecedores.forEach(f => {
+                                // Escape de caracteres especiais para JSON no onclick
+                                const fornecedorJSON = JSON.stringify(f).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                                html += `
+                                    <div class="lista-fornecedor-item" onclick='selecionarFornecedorJSON("${btoa(JSON.stringify(f))}")'>
+                                        <div class="fw-bold">${escapeHtml(f.nome)}</div>
+                                        <small class="text-muted">
+                                            <i class="fas fa-barcode me-1"></i>${escapeHtml(f.codigo)}
+                                            ${f.email ? `<span class="ms-2"><i class="fas fa-envelope me-1"></i>${escapeHtml(f.email)}</span>` : ''}
+                                            ${f.telefone ? `<span class="ms-2"><i class="fas fa-phone me-1"></i>${escapeHtml(f.telefone)}</span>` : ''}
+                                        </small>
+                                    </div>
+                                `;
+                            });
+                            listaDiv.innerHTML = html;
+                        } else if (data.success && (!data.fornecedores || data.fornecedores.length === 0)) {
+                            console.log('[BUSCA FORNECEDOR] Nenhum resultado');
+                            listaDiv.innerHTML = `
+                                <div class="text-center py-3 text-muted">
+                                    <i class="fas fa-search me-2"></i>Nenhum fornecedor encontrado para "${escapeHtml(termo)}"<br>
+                                    <small>Tente outro termo ou use o modo "Fornecedor Não Cadastrado"</small>
+                                </div>
+                            `;
+                        } else {
+                            console.error('[BUSCA FORNECEDOR] Erro na resposta:', data.error || 'Desconhecido');
+                            listaDiv.innerHTML = `
+                                <div class="text-center py-3 text-danger">
+                                    <i class="fas fa-exclamation-circle me-2"></i>Erro ao buscar fornecedores<br>
+                                    <small>${escapeHtml(data.error || data.message || 'Erro desconhecido')}</small>
+                                </div>
+                            `;
+                        }
+                    })
+                    .catch(err => {
+                        console.error('[BUSCA FORNECEDOR] Erro de conexão:', err);
+                        let mensagemErro = 'Erro de conexão com o servidor';
+                        if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+                            mensagemErro = 'Tempo limite excedido. O servidor TOTVS pode estar lento.';
+                        } else if (err.message) {
+                            mensagemErro = err.message;
+                        }
+                        listaDiv.innerHTML = `
+                            <div class="text-center py-3 text-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>${escapeHtml(mensagemErro)}<br>
+                                <small>Verifique a conexão ou use o modo "Fornecedor Não Cadastrado"</small>
+                            </div>
+                        `;
+                    });
+            }, 300);
+        }
+        
+        // Função auxiliar para escape de HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Função para selecionar fornecedor via JSON codificado em base64
+        function selecionarFornecedorJSON(base64) {
+            try {
+                const fornecedor = JSON.parse(atob(base64));
+                selecionarFornecedor(fornecedor);
+            } catch (e) {
+                console.error('[SELECIONAR FORNECEDOR] Erro ao decodificar:', e);
+                mostrarToast('Erro ao selecionar fornecedor', 'danger');
+            }
+        }
+        
+        function selecionarFornecedor(fornecedor) {
+            fornecedorSelecionadoData = fornecedor;
+            
+            // Preenche área de selecionado
+            document.getElementById('selNome').textContent = fornecedor.nome;
+            document.getElementById('selCodigo').textContent = 'Cód: ' + fornecedor.codigo;
+            document.getElementById('selEmail').textContent = fornecedor.email || 'Sem email';
+            document.getElementById('selTelefone').textContent = fornecedor.telefone || 'Sem telefone';
+            document.getElementById('fornCodigo').value = fornecedor.codigo;
+            
+            // Mostra selecionado e esconde lista
+            document.getElementById('fornecedorSelecionado').style.display = 'flex';
+            document.getElementById('fornecedorSelecionado').style.cssText = 'display: flex !important;';
+            document.getElementById('listaFornecedores').style.display = 'none';
+            document.getElementById('buscaFornecedor').value = '';
+        }
+        
+        function limparSelecao() {
+            fornecedorSelecionadoData = null;
+            document.getElementById('fornCodigo').value = '';
+            document.getElementById('fornecedorSelecionado').style.display = 'none';
+            document.getElementById('fornecedorSelecionado').style.cssText = 'display: none !important;';
+            document.getElementById('buscaFornecedor').value = '';
+            document.getElementById('listaFornecedores').style.display = 'none';
+        }
+        
+        function limparBusca() {
+            document.getElementById('buscaFornecedor').value = '';
+            document.getElementById('listaFornecedores').style.display = 'none';
+        }
+        
+        // Função para testar conexão com banco TOTVS
+        function testarConexaoTOTVS() {
+            const statusDiv = document.getElementById('statusConexaoTOTVS');
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div class="alert alert-info py-2 mb-0"><i class="fas fa-spinner fa-spin me-2"></i>Testando conexão com banco TOTVS...</div>';
+            
+            console.log('[TESTE CONEXÃO] Iniciando teste de conexão...');
+            
+            fetch('/api/fornecedores/testar-conexao')
+                .then(r => r.json())
+                .then(data => {
+                    console.log('[TESTE CONEXÃO] Resultado:', data);
+                    if (data.success) {
+                        statusDiv.innerHTML = `
+                            <div class="alert alert-success py-2 mb-0">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <strong>Conexão OK!</strong> 
+                                ${data.total_fornecedores_ativos} fornecedores disponíveis.
+                                <small class="d-block mt-1">Tempo: ${data.tempo_conexao_segundos}s</small>
+                            </div>
+                        `;
+                        // Esconde após 5 segundos
+                        setTimeout(() => { statusDiv.style.display = 'none'; }, 5000);
+                    } else {
+                        statusDiv.innerHTML = `
+                            <div class="alert alert-danger py-2 mb-0">
+                                <i class="fas fa-times-circle me-2"></i>
+                                <strong>Falha na conexão!</strong><br>
+                                <small>${escapeHtml(data.detalhe || data.error)}</small>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(err => {
+                    console.error('[TESTE CONEXÃO] Erro:', err);
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-danger py-2 mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Erro de rede!</strong><br>
+                            <small>Não foi possível conectar ao servidor</small>
+                        </div>
+                    `;
+                });
+        }
+        
+        function limparCamposManuais() {
+            document.getElementById('fornNome').value = '';
+            document.getElementById('fornEmail').value = '';
+            document.getElementById('fornTelefone').value = '';
+        }
+        
+        function adicionarFornecedor() {
+            let dadosEnvio = {};
+            
+            if (modoAtual === 'cadastrado') {
+                // Modo cadastrado - deve ter selecionado um fornecedor
+                if (!fornecedorSelecionadoData) {
+                    mostrarToast('Selecione um fornecedor da lista ou use o modo manual', 'warning');
+                    return;
+                }
+                
+                dadosEnvio = {
+                    nome: fornecedorSelecionadoData.nome,
+                    email: fornecedorSelecionadoData.email || '',
+                    telefone: fornecedorSelecionadoData.telefone || '',
+                    cod_fornecedor: fornecedorSelecionadoData.codigo
+                };
+            } else {
+                // Modo manual
+                const nome = document.getElementById('fornNome').value.trim();
+                const email = document.getElementById('fornEmail').value.trim();
+                const telefone = document.getElementById('fornTelefone').value.trim();
+                
+                if (!nome) {
+                    mostrarToast('Nome do fornecedor é obrigatório', 'warning');
+                    return;
+                }
+                
+                dadosEnvio = {
+                    nome: nome,
+                    email: email,
+                    telefone: telefone,
+                    cod_fornecedor: ''
+                };
+            }
+            
+            // Desabilita botão durante envio
+            const btn = document.getElementById('btnAdicionarForn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Adicionando...';
+            
+            fetch(`/api/cotacao/{{ cotacao.id }}/fornecedor`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dadosEnvio)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarToast('Fornecedor adicionado com sucesso!', 'success');
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    mostrarToast('Erro: ' + data.error, 'danger');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-plus me-1"></i>Adicionar Fornecedor';
+                }
+            })
+            .catch(err => {
+                mostrarToast('Erro de conexão', 'danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-plus me-1"></i>Adicionar Fornecedor';
+            });
+        }
+        
+        // Limpa modal ao abrir
+        document.getElementById('modalFornecedor').addEventListener('show.bs.modal', function() {
+            modoAtual = 'cadastrado';
+            fornecedorSelecionadoData = null;
+            toggleModoFornecedor('cadastrado');
+        });
+        
+        // ================== FIM FUNÇÕES DO MODAL FORNECEDOR ==================
+        
+        // Toast
+        function mostrarToast(mensagem, tipo = 'success') {
+            const toast = document.getElementById('toastNotificacao');
+            const toastBody = document.getElementById('toastMensagem');
+            
+            toast.classList.remove('text-bg-success', 'text-bg-danger', 'text-bg-warning');
+            toast.classList.add('text-bg-' + tipo);
+            
+            toastBody.innerHTML = '<i class="fas fa-' + (tipo === 'success' ? 'check-circle' : 'exclamation-circle') + ' me-2"></i>' + mensagem;
+            
+            new bootstrap.Toast(toast).show();
+        }
+        
+        // Destaque de melhores propostas na matriz
+        document.addEventListener('DOMContentLoaded', function() {
+            destacarMelhoresMatriz();
+        });
+        
+        function destacarMelhoresMatriz() {
+            const tabela = document.getElementById('tabelaMatriz');
+            if (!tabela) return;
+            
+            const linhas = tabela.querySelectorAll('tbody tr');
+            if (linhas.length === 0) return;
+            
+            // Para cada linha (item), encontrar melhor preço total e prazo
+            linhas.forEach(linha => {
+                const itemId = linha.dataset.itemId;
+                
+                // Coletar todas as células de valor total e prazo desta linha
+                const celulasTotal = linha.querySelectorAll('.celula-total');
+                const celulasPrazo = linha.querySelectorAll('.celula-prazo');
+                
+                // Encontrar menor valor total
+                let menorTotal = Infinity;
+                let celulaMenorTotal = null;
+                
+                celulasTotal.forEach(celula => {
+                    const total = parseFloat(celula.dataset.total) || Infinity;
+                    if (total > 0 && total < menorTotal) {
+                        menorTotal = total;
+                        celulaMenorTotal = celula;
+                    }
+                });
+                
+                // Encontrar menor prazo
+                let menorPrazo = Infinity;
+                let celulaMenorPrazo = null;
+                
+                celulasPrazo.forEach(celula => {
+                    const prazo = parseInt(celula.dataset.prazo) || Infinity;
+                    if (prazo > 0 && prazo < menorPrazo) {
+                        menorPrazo = prazo;
+                        celulaMenorPrazo = celula;
+                    }
+                });
+                
+                // Aplicar destaque se houver mais de uma resposta para comparar
+                if (celulasTotal.length > 1) {
+                    if (celulaMenorTotal) {
+                        celulaMenorTotal.classList.add('melhor-preco');                    }
+                }
+                
+                if (celulasPrazo.length > 1) {
+                    if (celulaMenorPrazo) {
+                        celulaMenorPrazo.classList.add('melhor-prazo');
+                    }
+                }
+            });
+        }
+
+
+        // =================== RODADAS DE NEGOCIAÇÃO ===================
+        
+        let dadosItensNegociacao = [];
+        const cotacaoId = {{ cotacao.id }};
+        
+        /**
+         * Carrega itens do fornecedor selecionado para negociação
+         */
+        function carregarItensNegociacao() {
+            const fornecedorId = document.getElementById('fornecedorNegociacao').value;
+            if (!fornecedorId) {
+                document.getElementById('containerItensNegociacao').style.display = 'none';
+                return;
+            }
+            
+            // Filtrar respostas do fornecedor selecionado
+            const respostas = {{ cotacao.respostas|tojson }};
+            const itens = {{ cotacao.itens|tojson }};
+            
+            dadosItensNegociacao = [];
+            
+            itens.forEach(item => {
+                const resposta = respostas.find(r => r.fornecedor_id == fornecedorId && r.item_id == item.id);
+                if (resposta) {
+                    dadosItensNegociacao.push({
+                        item_id: item.id,
+                        cod_produto: item.cod_produto,
+                        descricao: item.descricao_produto,
+                        quantidade: item.quantidade,
+                        unidade: item.unidade || 'UN',
+                        preco_original: resposta.preco_unitario || 0,
+                        prazo_original: resposta.prazo_entrega || 0
+                    });
+                }
+            });
+            
+            renderizarTabelaNegociacao();
+            document.getElementById('containerItensNegociacao').style.display = 'block';
+            document.getElementById('btnSalvarNegociacao').disabled = false;
+        }
+        
+        /**
+         * Renderiza tabela com itens para negociação
+         */
+        function renderizarTabelaNegociacao() {
+            const tbody = document.getElementById('tabelaItensNegociacao');
+            tbody.innerHTML = '';
+            
+            dadosItensNegociacao.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="text-center">
+                        <input type="checkbox" class="checkbox-item" data-index="${index}" checked>
+                    </td>
+                    <td>
+                        <strong>${item.cod_produto}</strong><br>
+                        <small class="text-muted">${item.descricao}</small>
+                    </td>
+                    <td>${item.quantidade} ${item.unidade}</td>
+                    <td style="background: #e3f2fd20;">R$ ${item.preco_original.toFixed(2)}</td>
+                    <td style="background: #e3f2fd20;">${item.prazo_original} dias</td>
+                    <td style="background: #f3e5f520;">
+                        <input type="text" class="form-control form-control-sm preco-negociado" 
+                               data-index="${index}" value="${item.preco_original.toFixed(2)}" 
+                               oninput="formatarMoedaModal(this)">
+                    </td>
+                    <td style="background: #f3e5f520;">
+                        <input type="number" class="form-control form-control-sm prazo-negociado" 
+                               data-index="${index}" value="${item.prazo_original}" min="0">
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        /**
+         * Selecionar/desselecionar todos os itens
+         */
+        function selecionarTodosItens(checkbox) {
+            document.querySelectorAll('.checkbox-item').forEach(cb => {
+                cb.checked = checkbox.checked;
+            });
+        }
+        
+        /**
+         * Salva rodada de negociação
+         */
+        function salvarRodadaNegociacao() {
+            const fornecedorId = document.getElementById('fornecedorNegociacao').value;
+            const observacao = document.getElementById('observacaoNegociacao').value;
+            
+            if (!fornecedorId) {
+                mostrarToast('Selecione um fornecedor', 'warning');
+                return;
+            }
+            
+            const itensNegociados = [];
+            
+            document.querySelectorAll('.checkbox-item:checked').forEach(checkbox => {
+                const index = checkbox.dataset.index;
+                const item = dadosItensNegociacao[index];
+                
+                const precoNegociadoStr = document.querySelector(`.preco-negociado[data-index="${index}"]`).value;
+                const prazoNegociado = parseInt(document.querySelector(`.prazo-negociado[data-index="${index}"]`).value);
+                
+                // Converter preço BR para decimal
+                const precoNegociado = parseFloat(precoNegociadoStr.replace('.', '').replace(',', '.'));
+                
+                if (isNaN(precoNegociado) || precoNegociado <= 0) {
+                    mostrarToast(`Preço inválido para ${item.cod_produto}`, 'danger');
+                    return;
+                }
+                
+                itensNegociados.push({
+                    item_id: item.item_id,
+                    preco_original: item.preco_original,
+                    preco_negociado: precoNegociado,
+                    prazo_original: item.prazo_original,
+                    prazo_negociado: prazoNegociado
+                });
+            });
+            
+            if (itensNegociados.length === 0) {
+                mostrarToast('Selecione pelo menos um item para negociar', 'warning');
+                return;
+            }
+            
+            // Enviar para API
+            fetch(`/api/cotacao/${cotacaoId}/rodada-negociacao`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fornecedor_id: fornecedorId,
+                    itens: itensNegociados,
+                    observacao: observacao
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarToast(data.message, 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    mostrarToast(data.error || 'Erro ao salvar negociação', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                mostrarToast('Erro ao salvar negociação', 'danger');
+            });
+        }
+        
+        /**
+         * Abre modal para editar rodada individual
+         */
+        function editarRodadaNegociacao(rodadaId, preco, prazo, observacao) {
+            document.getElementById('editRodadaId').value = rodadaId;
+            document.getElementById('editPrecoNegociado').value = preco.toFixed(2).replace('.', ',');
+            document.getElementById('editPrazoNegociado').value = prazo;
+            document.getElementById('editObservacaoNegociacao').value = observacao || '';
+            
+            new bootstrap.Modal(document.getElementById('modalEditarRodadaNegociacao')).show();
+        }
+        
+        /**
+         * Salva edição de rodada individual
+         */
+        function salvarEdicaoRodada() {
+            const rodadaId = document.getElementById('editRodadaId').value;
+            const precoStr = document.getElementById('editPrecoNegociado').value;
+            const prazo = parseInt(document.getElementById('editPrazoNegociado').value);
+            const observacao = document.getElementById('editObservacaoNegociacao').value;
+            
+            const preco = parseFloat(precoStr.replace('.', '').replace(',', '.'));
+            
+            if (isNaN(preco) || preco <= 0) {
+                mostrarToast('Preço inválido', 'danger');
+                return;
+            }
+            
+            fetch(`/api/cotacao/rodada/${rodadaId}/editar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    preco_negociado: preco,
+                    prazo_negociado: prazo,
+                    observacao: observacao
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarToast(data.message, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    mostrarToast(data.error || 'Erro ao editar', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                mostrarToast('Erro ao editar rodada', 'danger');
+            });
+        }
+        
+        /**
+         * Excluir uma rodada individual
+         */
+        function excluirRodadaNegociacao(rodadaId, cotacaoId) {
+            if (!confirm('Tem certeza que deseja excluir este item da negociação?')) return;
+            
+            fetch(`/api/cotacao/rodada/${rodadaId}/excluir`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarToast(data.message, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    mostrarToast(data.error || 'Erro ao excluir', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                mostrarToast('Erro ao excluir rodada', 'danger');
+            });
+        }
+        
+        /**
+         * Excluir todas as rodadas da cotação
+         */
+        function excluirTodasRodadas(cotacaoId) {
+            if (!confirm('Tem certeza que deseja LIMPAR TODA a Rodada 2?\nEsta ação não pode ser desfeita.')) return;
+            
+            // Como não temos API específica para deletar tudo, precisamos pegar os IDs
+            const rodadas = {{ cotacao.rodadas_negociacao|tojson|safe }};
+            
+            let promises = rodadas.map(r => {
+                return fetch(`/api/cotacao/rodada/${r.id}/excluir`, { method: 'POST' })
+                    .then(response => response.json());
+            });
+            
+            Promise.all(promises)
+                .then(results => {
+                    const todosOk = results.every(r => r.success);
+                    if (todosOk) {
+                        mostrarToast('Rodada 2 limpa com sucesso', 'success');
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        mostrarToast('Erro ao limpar algumas rodadas', 'warning');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    mostrarToast('Erro ao limpar rodadas', 'danger');
+                });
+        }
+
+    </script>
+</body>
+</html>

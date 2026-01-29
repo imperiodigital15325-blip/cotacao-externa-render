@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solicitações em Aberto</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/css/bootstrap-select.min.css">
+    
+    <style>
+        /* ========================================
+           VARIÁVEIS CSS - DESIGN SYSTEM
+        ======================================== */
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --sidebar-bg: #212529;
+            --primary-blue: #0d6efd;
+            --secondary-gray: #6c757d;
+            --text-primary: #1a1a2e;
+            --text-secondary: #6c757d;
+            --border-color: #e9ecef;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --transition: all 0.25s ease;
+        }
+
+        /* ========================================
+           RESET & BASE
+        ======================================== */
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            overflow-x: hidden;
+            line-height: 1.5;
+        }
+
+        /* ========================================
+           LAYOUT COM SIDEBAR
+        ======================================== */
+        .wrapper { display: flex; width: 100%; align-items: stretch; }
+        
+        .sidebar {
+            min-width: 250px;
+            max-width: 250px;
+            background: linear-gradient(180deg, #1a1d21 0%, #212529 100%);
+            color: #fff;
+            min-height: 100vh;
+            transition: var(--transition);
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .sidebar.collapsed { margin-left: -250px; }
+        
+        .sidebar .sidebar-header {
+            padding: 24px 20px;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .sidebar .sidebar-header h4 { font-weight: 700; letter-spacing: -0.5px; }
+        .sidebar ul.components { padding: 16px 0; }
+        .sidebar ul li { padding: 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        
+        .sidebar ul li a {
+            color: rgba(255,255,255,0.7);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+            transition: var(--transition);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        .sidebar ul li a i { width: 20px; margin-right: 12px; text-align: center; }
+        .sidebar ul li a:hover { color: #fff; background: rgba(255,255,255,0.08); padding-left: 24px; }
+        .sidebar ul li.active > a { color: #fff; background: var(--primary-blue); border-left: 4px solid #fff; }
+
+        /* ========================================
+           CONTEÚDO PRINCIPAL
+        ======================================== */
+        .content {
+            width: 100%;
+            padding: 24px 28px;
+            margin-left: 250px;
+            transition: margin-left 0.3s;
+            min-height: 100vh;
+        }
+        
+        .content.expanded { margin-left: 0; }
+
+        /* ========================================
+           BOTÃO TOGGLE SIDEBAR (Ultra Discreto)
+        ======================================== */
+        .sidebar-toggle {
+            position: fixed;
+            top: 72px;
+            left: 254px;
+            z-index: 998;
+            background: transparent;
+            color: rgba(108, 117, 125, 0.4);
+            border: none;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            box-shadow: none;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            opacity: 0.5;
+        }
+        
+        .sidebar-toggle:hover { 
+            background: rgba(108, 117, 125, 0.15);
+            color: var(--text-secondary);
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        .sidebar-toggle.collapsed { 
+            left: 8px; 
+            top: 12px;
+            opacity: 0.7;
+            background: rgba(108, 117, 125, 0.1);
+        }
+        
+        .sidebar-toggle.collapsed:hover {
+            opacity: 1;
+            background: rgba(108, 117, 125, 0.2);
+        }
+
+        /* ========================================
+           HEADER DA PÁGINA
+        ======================================== */
+        .page-header { margin-bottom: 24px; }
+        .page-header h4 { font-weight: 700; font-size: 1.5rem; color: var(--text-primary); margin-bottom: 4px; }
+        .page-header small { color: var(--text-secondary); font-size: 0.85rem; }
+
+        /* ========================================
+           CARD PADRÃO (Design System)
+        ======================================== */
+        .card-modern {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: var(--transition);
+        }
+
+        .card-modern:hover { box-shadow: var(--shadow-md); }
+
+        .card-modern .card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-modern .card-title i { font-size: 1rem; }
+
+        /* ========================================
+           FILTROS
+        ======================================== */
+        .filter-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            margin-bottom: 24px;
+        }
+
+        .form-label-sm {
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .bootstrap-select > .dropdown-toggle {
+            border: 1px solid var(--border-color) !important;
+            background-color: #fff !important;
+            height: calc(1.5em + 0.5rem + 2px) !important;
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.875rem !important;
+            border-radius: var(--radius-sm) !important;
+        }
+        
+        .bootstrap-select > .dropdown-toggle:focus {
+            border-color: var(--primary-blue) !important;
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15) !important;
+        }
+
+        .form-control, .form-select { border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.875rem; }
+        .form-control:focus, .form-select:focus { border-color: var(--primary-blue); box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15); }
+
+        /* ========================================
+           KPIs
+        ======================================== */
+        .kpi-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 24px 20px;
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            height: 100%;
+            border-left: 4px solid transparent;
+            transition: var(--transition);
+            position: relative;
+            cursor: help;
+        }
+
+        .kpi-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+        .kpi-card.border-blue { border-left-color: var(--primary-blue); }
+        .kpi-card.border-orange { border-left-color: #fd7e14; }
+        .kpi-card.border-red { border-left-color: #dc3545; }
+        .kpi-card.border-green { border-left-color: #198754; }
+
+        .kpi-value { font-size: 2rem; font-weight: 800; color: var(--text-primary); margin-bottom: 6px; letter-spacing: -1px; }
+        .kpi-label { font-size: 0.7rem; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.8px; font-weight: 600; }
+        .kpi-subtitle { font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px; }
+
+        /* ========================================
+           GRÁFICOS
+        ======================================== */
+        .chart-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            height: 100%;
+            min-height: 380px;
+            position: relative;
+        }
+        
+        .chart-header {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .chart-canvas-container { position: relative; height: 300px; width: 100%; }
+
+        /* ========================================
+           TABELAS MODERNAS
+        ======================================== */
+        .table-container { max-height: 600px; overflow-y: auto; border-radius: var(--radius-sm); }
+        .table-container::-webkit-scrollbar { width: 6px; }
+        .table-container::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
+        .table-container::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+        .table-container::-webkit-scrollbar-thumb:hover { background: #a1a1a1; }
+
+        .table-modern { margin-bottom: 0; font-size: 0.8rem; }
+
+        .table-modern thead th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            padding: 12px 8px;
+            border-bottom: 2px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            cursor: help;
+            white-space: nowrap;
+        }
+
+        .table-modern thead th[data-bs-toggle="tooltip"] { border-bottom: 2px dashed #6c757d; }
+        .table-modern tbody td { padding: 10px 8px; vertical-align: middle; border-bottom: 1px solid #f0f0f0; }
+        .table-modern tbody tr:hover { background-color: rgba(13, 110, 253, 0.04); }
+        
+        /* Ordenação de Tabelas */
+        .sortable { cursor: pointer; user-select: none; position: relative; }
+        .sortable:hover { background-color: rgba(13, 110, 253, 0.1); }
+        .sortable i { margin-left: 5px; font-size: 0.7rem; opacity: 0.6; }
+        .sortable.asc i::before { content: "\f0de"; }
+        .sortable.desc i::before { content: "\f0dd"; }
+
+        /* ========================================
+           BADGES
+        ======================================== */
+        .badge { font-weight: 600; padding: 5px 10px; border-radius: 20px; font-size: 0.7rem; }
+        .badge-normal { background: #28a745; color: white; }       /* Verde - Status Normal */
+        .badge-critico { background: #dc3545; color: white; }      /* Vermelho - Status Crítico */
+        .badge-urgente { background: #fd7e14; color: white; }      /* Laranja - Prazo Incompatível */
+        .badge-prazo { background: #198754; color: white; }
+
+        /* ========================================
+           TOOLTIPS PERSONALIZADOS
+        ======================================== */
+        .tooltip-inner { background: #1a1a2e; font-size: 0.75rem; padding: 8px 12px; border-radius: var(--radius-sm); max-width: 280px; }
+        .tooltip.bs-tooltip-top .tooltip-arrow::before { border-top-color: #1a1a2e; }
+        .tooltip.bs-tooltip-bottom .tooltip-arrow::before { border-bottom-color: #1a1a2e; }
+
+        .sql-origin { display: inline-flex; align-items: center; gap: 4px; }
+        .sql-origin i { font-size: 0.65rem; opacity: 0.6; }
+
+        /* ========================================
+           RESPONSIVIDADE
+        ======================================== */
+        @media (max-width: 992px) {
+            .sidebar { margin-left: -250px; }
+            .sidebar.show { margin-left: 0; }
+            .content { margin-left: 0; padding: 16px; }
+            .sidebar-toggle { 
+                left: 8px; 
+                top: 12px;
+                opacity: 0.7;
+                background: rgba(108, 117, 125, 0.1);
+            }
+            .kpi-card { margin-bottom: 12px; }
+        }
+
+        @media (max-width: 768px) {
+            .page-header h4 { font-size: 1.25rem; }
+            .kpi-value { font-size: 1.5rem; }
+            .chart-card { min-height: 320px; }
+        }
+
+        /* ========================================
+           ANIMAÇÕES
+        ======================================== */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        
+        /* ========================================
+           SPINNER GLOBAL PARA CARREGAMENTOS
+        ======================================== */
+        .spinner-global {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9998;
+            display: none;
+        }
+        
+        .spinner-global.active { display: block; }
+        
+        .spinner-global .spinner-box {
+            background: white;
+            padding: 24px 32px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .spinner-global .spinner-circle {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e9ecef;
+            border-top-color: var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .spinner-global .spinner-text {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        
+        .spinner-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.5);
+            z-index: 9997;
+            display: none;
+        }
+        
+        .spinner-backdrop.active { display: block; }
+
+        /* ========================================
+           BARRA DE AÇÕES FLUTUANTE
+        ======================================== */
+        .barra-acoes {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #212529 0%, #343a40 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            z-index: 1050;
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+
+        /* ========================================
+           CORES DAS LINHAS
+        ======================================== */
+        .linha-sc.cor-amarelo { background-color: #fff3cd !important; }
+        .linha-sc.cor-vermelho { background-color: #f8d7da !important; }
+        .linha-sc.cor-azul { background-color: #cfe2ff !important; }
+        .linha-sc.cor-verde { background-color: #d1e7dd !important; }
+        
+        .linha-sc.cor-amarelo:hover { background-color: #ffe69c !important; }
+        .linha-sc.cor-vermelho:hover { background-color: #f1aeb5 !important; }
+        .linha-sc.cor-azul:hover { background-color: #9ec5fe !important; }
+        .linha-sc.cor-verde:hover { background-color: #a3cfbb !important; }
+
+        /* ========================================
+           CHECKBOX E BOTÕES
+        ======================================== */
+        .sc-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .btn-obs {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+        }
+        
+        .cor-btn.active {
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.5);
+        }
+        
+        .obs-indicator {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            display: inline-block;
+            border: 1px solid #dee2e6;
+            background-color: transparent;
+        }
+        
+        .obs-indicator.cor-amarelo { background-color: #ffc107; }
+        .obs-indicator.cor-vermelho { background-color: #dc3545; }
+        .obs-indicator.cor-azul { background-color: #0dcaf0; }
+        .obs-indicator.cor-verde { background-color: #198754; }
+        
+        /* Ícone de bloco de notas quando não há observação */
+        .obs-indicator.empty::before {
+            content: '\f249';
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 400;
+            color: #adb5bd;
+            font-size: 14px;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .obs-indicator {
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Spinner Global para Carregamentos -->
+<div class="spinner-backdrop" id="spinnerBackdrop"></div>
+<div class="spinner-global" id="spinnerGlobal">
+    <div class="spinner-box">
+        <div class="spinner-circle"></div>
+        <span class="spinner-text" id="spinnerText">Carregando...</span>
+    </div>
+</div>
+
+<!-- Botão de Toggle da Sidebar -->
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+    <i class="fas fa-bars"></i>
+</button>
+
+<div class="wrapper">
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h4 class="mb-0"><i class="fas fa-cubes me-2"></i>Polimaquinas</h4>
+            <small class="text-muted" style="font-size: 0.75rem;">Portal de Compras</small>
+        </div>
+        <ul class="list-unstyled components">
+            <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-chart-line"></i> Dashboard Financeiro</a></li>
+            <li><a href="{{ url_for('status_pedidos') }}"><i class="fas fa-tasks"></i> Status de Pedidos</a></li>
+            <li><a href="{{ url_for('performance') }}"><i class="fas fa-tachometer-alt"></i> OTD & Performance</a></li>
+            <li><a href="{{ url_for('variacao_preco') }}"><i class="fas fa-balance-scale"></i> Variação de Preço</a></li>
+            <li><a href="{{ url_for('terceiros') }}"><i class="fas fa-industry"></i> Terceiros</a></li>
+            <li class="active"><a href="{{ url_for('solicitacoes') }}"><i class="fas fa-file-alt"></i> Solicitações em Aberto</a></li>
+            <li><a href="{{ url_for('cotacoes') }}"><i class="fas fa-file-invoice-dollar"></i> Cotações e Orçamentos</a></li>
+            <li><a href="{{ url_for('avaliacao_iso') }}"><i class="fas fa-certificate"></i> Avaliação ISO (PQ021)</a></li>
+        </ul>
+    </nav>
+
+    <div class="content" id="content">
+        <!-- HEADER -->
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div>
+                <h4><i class="fas fa-file-alt me-2 text-primary"></i>Solicitações em Aberto</h4>
+                <small>Acompanhamento de SCs pendentes de atendimento</small>
+            </div>
+            <div>
+                <span class="badge bg-light text-dark border px-3 py-2">
+                    <i class="fas fa-user-circle me-1"></i> Admin
+                </span>
+            </div>
+        </div>
+
+        <!-- FILTROS -->
+        <div class="filter-card fade-in">
+            <form id="filterForm" action="{{ url_for('solicitacoes') }}" method="POST">
+                <div class="row g-2 align-items-end">
+                    <div class="col-lg-2 col-md-3">
+                        <label class="form-label-sm">SOLICITANTES</label>
+                        <select class="selectpicker form-control" name="solicitantes" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 1" title="Todos" id="solicitantes_select">
+                            {% for s in dados.opcoes_solicitantes %}
+                            <option value="{{ s }}" {% if s in filtros.solicitantes %}selected{% endif %}>{{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-lg-2 col-md-3">
+                        <label class="form-label-sm">BUSCA</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" name="busca_geral" id="busca_geral" placeholder="SC, Produto..." value="{{ filtros.busca_geral }}">
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-3">
+                        <label class="form-label-sm">COMPRADOR</label>
+                        <select class="selectpicker form-control" name="compradores" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 1" title="Todos" id="comprador_select">
+                            {% for c in dados.opcoes_compradores %}
+                            <option value="{{ c }}" {% if c in filtros.compradores %}selected{% endif %}>{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-lg-2 col-md-2">
+                        <label class="form-label-sm">STATUS</label>
+                        <select class="form-select form-select-sm" name="status" id="status_select">
+                            <option value="Todos" {% if filtros.status == 'Todos' %}selected{% endif %}>Todos</option>
+                            <option value="NORMAL" {% if filtros.status == 'NORMAL' %}selected{% endif %}>Normal</option>
+                            <option value="CRÍTICO" {% if filtros.status == 'CRÍTICO' %}selected{% endif %}>Crítico</option>
+                            <option value="PRAZO INCOMPATÍVEL" {% if filtros.status == 'PRAZO INCOMPATÍVEL' %}selected{% endif %}>Prazo Incompatível</option>
+                        </select>
+                    </div>
+                    <div class="col-lg-2 col-md-2">
+                        <label class="form-label-sm">FIRMADO/PREVISTO</label>
+                        <select class="form-select form-select-sm" name="tipo_operacao" id="tipo_operacao_select">
+                            <option value="Todos" {% if filtros.tipo_operacao == 'Todos' %}selected{% endif %}>Todos</option>
+                            <option value="F" {% if filtros.tipo_operacao == 'F' %}selected{% endif %}>Firmado</option>
+                            <option value="P" {% if filtros.tipo_operacao == 'P' %}selected{% endif %}>Previsto</option>
+                        </select>
+                    </div>
+                    <div class="col-lg-2 col-md-1">
+                        <label class="form-label-sm">&nbsp;</label>
+                        <div class="d-flex gap-1">
+                            <button type="submit" class="btn btn-primary btn-sm flex-grow-1" title="Filtrar"><i class="fas fa-filter me-1"></i>Filtrar</button>
+                            <a href="{{ url_for('limpar_filtros_solicitacoes') }}" class="btn btn-outline-secondary btn-sm" title="Limpar"><i class="fas fa-eraser"></i></a>
+                            <button type="button" class="btn btn-success btn-sm" onclick="exportarExcel()" title="Exportar para Excel"><i class="fas fa-file-excel"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- KPIs -->
+        <div class="row g-3 mb-4 fade-in">
+            <div class="col-md-4">
+                <div class="kpi-card border-blue" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Origem: SC1010 - Total de SCs em aberto">
+                    <div class="kpi-value text-primary">{{ dados.kpi_total }}</div>
+                    <div class="kpi-label">Total Solicitações</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="kpi-card border-red" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Cálculo automático - Data atual > Data necessidade">
+                    <div class="kpi-value text-danger">{{ dados.kpi_atrasadas }}</div>
+                    <div class="kpi-label">Críticas</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="kpi-card border-orange" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Cálculo automático - Prazo solicitado < Lead Time do produto">
+                    <div class="kpi-value text-warning">{{ dados.kpi_prazo_incompativel }}</div>
+                    <div class="kpi-label">Prazo Incompatível</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GRÁFICOS -->
+        <div class="row g-4 mb-4 fade-in">
+            <div class="col-lg-5">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <i class="fas fa-chart-pie me-2 text-warning"></i>Status das Solicitações
+                    </div>
+                    <div class="chart-canvas-container"><canvas id="chartStatus"></canvas></div>
+                </div>
+            </div>
+            <div class="col-lg-7">
+                <div class="chart-card">
+                    <div class="chart-header"><i class="fas fa-users me-2 text-primary"></i>Solicitações por Comprador</div>
+                    <div class="chart-canvas-container"><canvas id="chartCompradores"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABELA DE SOLICITAÇÕES -->
+        <div class="row fade-in">
+            <div class="col-12">
+                <div class="card-modern">
+                    <div class="card-title text-primary d-flex align-items-center">
+                        <span><i class="fas fa-list-alt"></i>Lista de Solicitações em Aberto</span>
+                        <small class="text-muted fw-normal ms-auto" style="font-size: 0.7rem;">{{ dados.tabela | length }} registros</small>
+                    </div>
+                    <div class="table-container">
+                        <table class="table table-modern table-striped table-hover" id="tabelaSolicitacoes">
+                            <thead>
+                                <tr>
+                                    <th class="text-center" style="width: 40px;">
+                                        <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" title="Selecionar todos">
+                                    </th>
+                                    <th class="sortable" onclick="sortTable('tabelaSolicitacoes', 1, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.numero_sc }}"><span class="sql-origin">SC <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaSolicitacoes', 2, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.solicitante }}"><span class="sql-origin">Solicitante <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaSolicitacoes', 3, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_produto }}"><span class="sql-origin">Produto <i class="fas fa-sort"></i></span></th>
+                                    <th data-bs-toggle="tooltip" title="📊 SB1010.B1_DESC">Descrição</th>
+                                    <th class="text-center sortable" onclick="sortTable('tabelaSolicitacoes', 5, 'number')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.quantidade }}"><span class="sql-origin">Qtd <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaSolicitacoes', 6, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.programa }}"><span class="sql-origin">Programa <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaSolicitacoes', 7, 'date')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_emissao }}"><span class="sql-origin">Emissão <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaSolicitacoes', 8, 'date')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_necessidade }}"><span class="sql-origin">Necessidade <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaSolicitacoes', 9, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_comprador }}"><span class="sql-origin">Comprador <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaSolicitacoes', 10, 'text')" data-bs-toggle="tooltip" title="📊 SA2010.A2_COD / SA2010.A2_NOME"><span class="sql-origin">Fornecedor <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaSolicitacoes', 11, 'obs')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.observacao }}" style="max-width: 80px;"><span class="sql-origin">OBS TOTVS <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center sortable" onclick="sortTable('tabelaSolicitacoes', 12, 'status')" data-bs-toggle="tooltip" title="Status calculado automaticamente: Normal / Crítico / Prazo Incompatível"><span class="sql-origin">Status <i class="fas fa-sort"></i></span></th>
+                                    <th style="width: 60px;" data-bs-toggle="tooltip" title="Anotações internas do comprador">Anotação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for linha in dados.tabela %}
+                                <tr data-sc="{{ linha.NumeroSC }}" data-item="{{ linha.ItemSC }}" data-status="{{ linha.Status }}" class="linha-sc">
+                                    <td class="text-center">
+                                        <input type="checkbox" class="sc-checkbox" 
+                                               data-sc="{{ linha.NumeroSC }}"
+                                               data-item="{{ linha.ItemSC }}"
+                                               data-produto="{{ linha.CodProduto }}"
+                                               data-descricao="{{ linha.DescricaoProduto }}"
+                                               data-quantidade="{{ linha.Quantidade }}"
+                                               data-unidade="{{ linha.UnidadeMedida }}"
+                                               data-necessidade="{{ linha.DataNecessidade }}">
+                                    </td>
+                                    <td class="fw-bold text-primary">{{ linha.NumeroSC }}</td>
+                                    <td class="text-truncate" style="max-width: 120px;" title="{{ linha.Solicitante }}">{{ linha.Solicitante }}</td>
+                                    <td class="fw-bold">{{ linha.CodProduto }}</td>
+                                    <td class="text-truncate" style="max-width: 180px;" title="{{ linha.DescricaoProduto }}">{{ linha.DescricaoProduto }}</td>
+                                    <td class="text-center">{{ "%.2f"|format(linha.Quantidade) }}</td>
+                                    <td class="text-truncate" style="max-width: 100px;" title="{{ linha.Programa if linha.Programa else '' }}">{{ linha.Programa if linha.Programa else '' }}</td>
+                                    <td>{{ linha.DataEmissao.strftime('%d/%m/%y') if linha.DataEmissao else '-' }}</td>
+                                    <td>{{ linha.DataNecessidade.strftime('%d/%m/%y') if linha.DataNecessidade else '-' }}</td>
+                                    <td>
+                                        {{ linha.NomeComprador }}
+                                        {% if linha.AtribuicaoManual %}
+                                            <i class="fas fa-hand-pointer text-primary ms-1" 
+                                               data-bs-toggle="tooltip" 
+                                               title="Atribuição manual - Comprador atribuído manualmente pelo sistema"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-truncate" style="max-width: 160px;" title="{{ linha.A2CodeFornecedor if linha.A2CodeFornecedor else '-' }} - {{ linha.NomeFornecedor if linha.NomeFornecedor else 'N/A' }}">
+                                        {% if linha.A2CodeFornecedor and linha.NomeFornecedor %}
+                                            {{ linha.A2CodeFornecedor }} - {{ linha.NomeFornecedor }}
+                                        {% elif linha.NomeFornecedor %}
+                                            {{ linha.NomeFornecedor }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="obs-totvs-cell" style="max-width: 80px;">
+                                        {% if linha.Observacao and linha.Observacao|trim %}
+                                            <span class="obs-preview" 
+                                                  onclick="abrirModalObsTotvs('{{ linha.NumeroSC }}', '{{ linha.ItemSC }}', this.dataset.obs)" 
+                                                  data-obs="{{ linha.Observacao }}"
+                                                  title="Clique para ver observação completa"
+                                                  style="cursor: pointer; color: #0d6efd; text-decoration: underline dotted;">
+                                                {{ linha.Observacao[:10] }}{% if linha.Observacao|length > 10 %}...{% endif %}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted" style="font-size: 0.75rem;">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if linha.Status == 'CRÍTICO' %}
+                                            <span class="badge badge-critico"><i class="fas fa-exclamation-circle me-1"></i>Crítico</span>
+                                        {% elif linha.Status == 'PRAZO INCOMPATÍVEL' %}
+                                            <span class="badge badge-urgente"><i class="fas fa-exclamation-triangle me-1"></i>Prazo Incompatível</span>
+                                        {% else %}
+                                            <span class="badge badge-normal"><i class="fas fa-check-circle me-1"></i>Normal</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center obs-cell">
+                                        <button class="btn btn-sm btn-outline-secondary btn-obs" 
+                                                onclick="abrirModalObs('{{ linha.NumeroSC }}', '{{ linha.ItemSC }}')" 
+                                                title="Adicionar anotação">
+                                            <span class="obs-indicator empty" data-sc="{{ linha.NumeroSC }}" data-item="{{ linha.ItemSC }}"></span>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="14" class="text-center py-4 text-muted"><i class="fas fa-check-circle fa-2x mb-2 d-block text-success"></i>Nenhuma solicitação em aberto encontrada.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BARRA DE AÇÕES FLUTUANTE -->
+        <div id="barraAcoes" class="barra-acoes" style="display: none;">
+            <div class="d-flex align-items-center gap-3">
+                <span id="contadorSelecionados" class="badge bg-primary px-3 py-2">0 selecionados</span>
+                <div class="btn-group">
+                    <button class="btn btn-success btn-sm" onclick="criarCotacao()">
+                        <i class="fas fa-file-invoice-dollar me-1"></i> Criar Cotação
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="abrirModalAtribuicao()">
+                        <i class="fas fa-user-tag me-1"></i> Atribuir Comprador
+                    </button>
+                    <button class="btn btn-warning btn-sm" onclick="aplicarCor('amarelo')">
+                        <i class="fas fa-circle text-warning"></i>
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="aplicarCor('vermelho')">
+                        <i class="fas fa-circle text-danger"></i>
+                    </button>
+                    <button class="btn btn-info btn-sm" onclick="aplicarCor('azul')">
+                        <i class="fas fa-circle text-info"></i>
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="aplicarCor('')" title="Remover cor">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <button class="btn btn-outline-light btn-sm" onclick="limparSelecao()">
+                    <i class="fas fa-times me-1"></i> Limpar
+                </button>
+            </div>
+        </div>
+
+        <!-- MODAL ANOTAÇÃO -->
+        <div class="modal fade" id="modalObs" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-sticky-note me-2"></i>Anotação da SC</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="obsNumeroSC">
+                        <input type="hidden" id="obsItemSC">
+                        <div class="mb-3">
+                            <label class="form-label">Cor de Destaque</label>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-warning cor-btn" onclick="selecionarCor('amarelo')">Amarelo</button>
+                                <button class="btn btn-outline-danger cor-btn" onclick="selecionarCor('vermelho')">Vermelho</button>
+                                <button class="btn btn-outline-info cor-btn" onclick="selecionarCor('azul')">Azul</button>
+                                <button class="btn btn-outline-success cor-btn" onclick="selecionarCor('verde')">Verde</button>
+                                <button class="btn btn-outline-secondary cor-btn" onclick="selecionarCor('')">Nenhuma</button>
+                            </div>
+                            <input type="hidden" id="obsCor" value="">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Anotação</label>
+                            <textarea class="form-control" id="obsTexto" rows="3" placeholder="Ex: Pedido já emitido, Aguardando retorno..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" onclick="salvarObs()">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL OBSERVAÇÃO TOTVS -->
+        <div class="modal fade" id="modalObsTotvs" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title"><i class="fas fa-file-alt me-2 text-primary"></i>Observação da Solicitação (TOTVS)</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-2">
+                            <span class="badge bg-primary me-2" id="modalObsTotvsSC"></span>
+                            <small class="text-muted">Observação cadastrada no sistema TOTVS</small>
+                        </div>
+                        <div class="border rounded p-3 bg-light" style="white-space: pre-wrap; font-family: 'Consolas', monospace; font-size: 0.9rem; max-height: 400px; overflow-y: auto;">
+                            <p id="modalObsTovtsTexto" class="mb-0"></p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL ATRIBUIR COMPRADOR -->
+        <div class="modal fade" id="modalAtribuirComprador" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-user-tag me-2"></i>Atribuir Comprador
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong id="qtdSelecionadasAtrib">0</strong> solicitação(ões) selecionada(s)
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Selecione o Comprador:</label>
+                            <select class="form-select" id="selectComprador">
+                                <option value="">-- Escolha um comprador --</option>
+                                <option value="018|Daniel Amaral">Daniel Amaral</option>
+                                <option value="016|Aline Chen">Aline Chen</option>
+                                <option value="007|Hélio Doce">Hélio Doce</option>
+                                <option value="008|Diego Moya">Diego Moya</option>
+                                <option value="999|Outros">Outros (Remover Atribuição)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Observação (Opcional)</label>
+                            <textarea class="form-control" id="obsAtribuicao" rows="2" 
+                                      placeholder="Ex: Item não possui fornecedor cadastrado..."></textarea>
+                        </div>
+                        
+                        <div class="alert alert-warning mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <small>A atribuição manual tem prioridade sobre o cadastro do TOTVS.</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" onclick="confirmarAtribuicao()">
+                            <i class="fas fa-check me-1"></i> Confirmar Atribuição
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL CRIAR COTAÇÃO -->
+        <div class="modal fade" id="modalCriarCotacao" tabindex="-1" data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-file-invoice-dollar me-2"></i>Criar Nova Cotação
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Itens Selecionados -->
+                        <div class="alert alert-info d-flex align-items-center mb-3">
+                            <i class="fas fa-boxes me-2 fs-5"></i>
+                            <div>
+                                <strong id="qtdItensCotacao">0</strong> item(ns) selecionado(s) para cotação
+                            </div>
+                        </div>
+
+                        <!-- Mensagem de Erro (oculta por padrão) -->
+                        <div class="alert alert-danger d-none mb-3" id="erroCotacao">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            <span id="erroTexto"></span>
+                        </div>
+
+                        <!-- Comprador Responsável -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-user me-1 text-success"></i>Comprador Responsável <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="cotacaoComprador" required>
+                                <option value="">-- Selecione o comprador --</option>
+                                <option value="Daniel Amaral">Daniel Amaral</option>
+                                <option value="Aline Chen">Aline Chen</option>
+                                <option value="Hélio Doce">Hélio Doce</option>
+                                <option value="Diego Moya">Diego Moya</option>
+                            </select>
+                            <div class="invalid-feedback">Selecione um comprador responsável</div>
+                        </div>
+
+                        <!-- Nome da Cotação -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-tag me-1 text-success"></i>Nome da Cotação
+                            </label>
+                            <input type="text" class="form-control" id="cotacaoNome" 
+                                   placeholder="Ex: Cotação de Gás, Cotação de Ferramentas...">
+                            <small class="text-muted">Deixe em branco para usar o nome padrão</small>
+                        </div>
+
+                        <!-- Data de Criação -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-calendar-alt me-1 text-success"></i>Data de Criação
+                            </label>
+                            <input type="date" class="form-control" id="cotacaoData">
+                        </div>
+
+                        <!-- Preview do Nome -->
+                        <div class="card bg-light border-0">
+                            <div class="card-body py-2">
+                                <small class="text-muted">Preview do código:</small>
+                                <div class="fw-bold text-success" id="previewNomeCotacao">
+                                    Cotação - DD/MM/YYYY - Nº
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i> Cancelar
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="confirmarCriacaoCotacao()">
+                            <i class="fas fa-check me-1"></i> Criar Cotação
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TOAST DE SUCESSO -->
+        <div class="toast-container position-fixed bottom-0 end-0 p-3">
+            <div id="toastSucesso" class="toast align-items-center text-bg-success border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <span id="toastMensagem">Operação realizada com sucesso!</span>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/js/bootstrap-select.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+<script>
+    // ========================================
+    // INICIALIZAÇÃO
+    // ========================================
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inicializa todos os tooltips do Bootstrap
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+
+        // Inicializa bootstrap-select
+        $('.selectpicker').selectpicker();
+
+        // Restaura estado do sidebar
+        if (localStorage.getItem('sidebarCollapsed') === 'true') {
+            document.getElementById('sidebar').classList.add('collapsed');
+            document.getElementById('content').classList.add('expanded');
+            document.getElementById('sidebarToggle').classList.add('collapsed');
+        }
+    });
+
+    // ========================================
+    // SIDEBAR TOGGLE
+    // ========================================
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const content = document.getElementById('content');
+        const toggleBtn = document.getElementById('sidebarToggle');
+        
+        sidebar.classList.toggle('collapsed');
+        content.classList.toggle('expanded');
+        toggleBtn.classList.toggle('collapsed');
+        
+        localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+    }
+
+    // ========================================
+    // CONFIGURAÇÕES DOS GRÁFICOS
+    // ========================================
+    Chart.register(ChartDataLabels);
+
+    const colors = { 
+        red: '#dc3545',      // Vermelho - Atrasado
+        green: '#28a745',    // Verde - Normal
+        blue: '#0d6efd',
+        orange: '#fd7e14',   // Laranja - Prazo Incompatível
+        gray: '#6c757d'
+    };
+
+    // ========================================
+    // GRÁFICO STATUS (Pizza)
+    // ========================================
+    // Mapeia cores dinamicamente baseado nos labels de status
+    const statusLabels = {{ dados.graf_status_labels | default([]) | tojson }};
+    const statusColors = statusLabels.map(label => {
+        if (label === 'CRÍTICO') return colors.red;
+        if (label === 'NORMAL') return colors.green;
+        if (label === 'PRAZO INCOMPATÍVEL') return colors.orange;
+        return colors.gray;
+    });
+
+    new Chart(document.getElementById('chartStatus'), {
+        type: 'doughnut',
+        data: {
+            labels: statusLabels,
+            datasets: [{ 
+                data: {{ dados.graf_status_values | default([]) | tojson }}, 
+                backgroundColor: statusColors, 
+                borderWidth: 2, 
+                borderColor: '#fff' 
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right' },
+                datalabels: { 
+                    color: '#fff', 
+                    font: { weight: 'bold' }, 
+                    formatter: (value, ctx) => { 
+                        let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0); 
+                        return (value * 100 / sum).toFixed(1) + "%"; 
+                    } 
+                }
+            }
+        }
+    });
+
+    // ========================================
+    // GRÁFICO COMPRADORES - BARRAS SEGMENTADAS POR STATUS
+    // ========================================
+    new Chart(document.getElementById('chartCompradores'), {
+        type: 'bar',
+        data: {
+            labels: {{ dados.graf_comp_labels | default([]) | tojson }},
+            datasets: [
+                {
+                    label: 'Normal',
+                    data: {{ dados.graf_comp_normal | default([]) | tojson }},
+                    backgroundColor: '#28a745',  // Verde
+                    borderRadius: 4
+                },
+                {
+                    label: 'Crítico',
+                    data: {{ dados.graf_comp_atrasado | default([]) | tojson }},
+                    backgroundColor: '#dc3545',  // Vermelho
+                    borderRadius: 4
+                },
+                {
+                    label: 'Prazo Incompatível',
+                    data: {{ dados.graf_comp_incompativel | default([]) | tojson }},
+                    backgroundColor: '#fd7e14',  // Laranja
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            layout: { padding: { right: 20 } },
+            scales: { 
+                x: { 
+                    stacked: true,  // Empilhamento horizontal
+                    grid: { display: false },
+                    ticks: { precision: 0 }
+                },
+                y: { 
+                    stacked: true,  // Empilhamento horizontal
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                legend: { 
+                    display: true,
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 15,
+                        padding: 10,
+                        font: { size: 11 }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            return context[0].label;  // Nome do comprador
+                        },
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            let value = context.parsed.x || 0;
+                            if (value > 0) {
+                                return label + ': ' + value;
+                            }
+                            return null;  // Não exibe se for 0
+                        },
+                        footer: function(context) {
+                            // Calcula total
+                            let total = 0;
+                            context.forEach(item => {
+                                total += item.parsed.x;
+                            });
+                            return 'Total: ' + total;
+                        }
+                    }
+                },
+                datalabels: { 
+                    color: 'white', 
+                    font: { weight: 'bold', size: 10 }, 
+                    display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
+                    formatter: value => value > 0 ? value : '',
+                    anchor: 'center',
+                    align: 'center'
+                }
+            }
+        }
+    });
+
+    // ========================================
+    // ORDENAÇÃO DE TABELA
+    // ========================================
+    function sortTable(tableId, colIndex, type) {
+        const table = document.getElementById(tableId);
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const th = table.querySelectorAll('th')[colIndex];
+        
+        // Verifica direção atual
+        const isAsc = th.classList.contains('asc');
+        
+        // Remove classes de todas as colunas
+        table.querySelectorAll('th').forEach(h => {
+            h.classList.remove('asc', 'desc');
+        });
+        
+        // Define nova direção
+        th.classList.add(isAsc ? 'desc' : 'asc');
+        const direction = isAsc ? -1 : 1;
+        
+        rows.sort((a, b) => {
+            let aVal = a.cells[colIndex]?.textContent.trim() || '';
+            let bVal = b.cells[colIndex]?.textContent.trim() || '';
+            
+            if (type === 'number') {
+                aVal = parseFloat(aVal.replace(/[^\d.-]/g, '')) || 0;
+                bVal = parseFloat(bVal.replace(/[^\d.-]/g, '')) || 0;
+                return (aVal - bVal) * direction;
+            } else if (type === 'date') {
+                // Formato DD/MM/YY
+                const parseDate = (str) => {
+                    if (!str || str === '-') return new Date(0);
+                    const parts = str.split('/');
+                    if (parts.length === 3) {
+                        let year = parseInt(parts[2]);
+                        if (year < 100) year += 2000;
+                        return new Date(year, parseInt(parts[1]) - 1, parseInt(parts[0]));
+                    }
+                    return new Date(0);
+                };
+                return (parseDate(aVal) - parseDate(bVal)) * direction;
+            } else if (type === 'obs') {
+                // Ordenação por presença de observação
+                // Com observação (tem conteúdo diferente de "-") = 1, Sem observação = 0
+                const aHasObs = a.cells[colIndex]?.querySelector('.obs-preview') ? 1 : 0;
+                const bHasObs = b.cells[colIndex]?.querySelector('.obs-preview') ? 1 : 0;
+                return (bHasObs - aHasObs) * direction; // Invertido para mostrar com obs primeiro
+            } else if (type === 'status') {
+                // Ordenação por prioridade de Status (mantida para uso futuro)
+                // Prioridade: ATRASADO (1) > PRAZO INCOMPATÍVEL (2) > NORMAL (3)
+                const statusPriority = {
+                    'ATRASADO': 1,
+                    'PRAZO INCOMPATÍVEL': 2,
+                    'NORMAL': 3
+                };
+                
+                // Obtém status do data-attribute
+                const aStatus = a.dataset.status || 'NORMAL';
+                const bStatus = b.dataset.status || 'NORMAL';
+                
+                const aPriority = statusPriority[aStatus] || 999;
+                const bPriority = statusPriority[bStatus] || 999;
+                
+                return (aPriority - bPriority) * direction;
+            } else {
+                // Ordenação de texto case-insensitive
+                return aVal.localeCompare(bVal, 'pt-BR') * direction;
+            }
+        });
+        
+        rows.forEach(row => tbody.appendChild(row));
+    }
+    
+    // ========================================
+    // SPINNER GLOBAL PARA CARREGAMENTOS
+    // ========================================
+    let spinnerTimeout = null;
+    let activeRequests = 0;
+    
+    function mostrarSpinner(texto = 'Carregando...') {
+        activeRequests++;
+        document.getElementById('spinnerText').textContent = texto;
+        
+        if (spinnerTimeout === null) {
+            spinnerTimeout = setTimeout(() => {
+                document.getElementById('spinnerBackdrop').classList.add('active');
+                document.getElementById('spinnerGlobal').classList.add('active');
+            }, 500);
+        }
+    }
+    
+    function esconderSpinner() {
+        activeRequests = Math.max(0, activeRequests - 1);
+        
+        if (activeRequests === 0) {
+            if (spinnerTimeout) {
+                clearTimeout(spinnerTimeout);
+                spinnerTimeout = null;
+            }
+            document.getElementById('spinnerBackdrop').classList.remove('active');
+            document.getElementById('spinnerGlobal').classList.remove('active');
+        }
+    }
+    
+    // Intercepta fetch para mostrar spinner automaticamente
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+        mostrarSpinner();
+        return originalFetch.apply(this, args)
+            .then(response => { esconderSpinner(); return response; })
+            .catch(error => { esconderSpinner(); throw error; });
+    };
+    
+    // Intercepta submissão de formulários
+    document.addEventListener('submit', function(e) {
+        if (e.target.tagName === 'FORM') {
+            mostrarSpinner('Aplicando filtros...');
+        }
+    });
+
+    // ========================================
+    // SELEÇÃO DE SOLICITAÇÕES E COTAÇÕES
+    // ========================================
+    
+    // Atualiza contagem de selecionados
+    function atualizarContador() {
+        const selecionados = document.querySelectorAll('.sc-checkbox:checked').length;
+        const barra = document.getElementById('barraAcoes');
+        const contador = document.getElementById('contadorSelecionados');
+        
+        if (selecionados > 0) {
+            barra.style.display = 'block';
+            contador.textContent = selecionados + ' selecionado(s)';
+        } else {
+            barra.style.display = 'none';
+        }
+    }
+    
+    // Toggle selecionar todos
+    function toggleSelectAll() {
+        const selectAll = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('.sc-checkbox');
+        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+        atualizarContador();
+    }
+    
+    // Limpar seleção
+    function limparSelecao() {
+        document.querySelectorAll('.sc-checkbox').forEach(cb => cb.checked = false);
+        document.getElementById('selectAll').checked = false;
+        atualizarContador();
+    }
+    
+    // Event listeners para checkboxes
+    document.querySelectorAll('.sc-checkbox').forEach(cb => {
+        cb.addEventListener('change', atualizarContador);
+    });
+    
+    // ========================================
+    // CRIAR COTAÇÃO - Modal melhorado
+    // ========================================
+    
+    let itensSelecionadosCotacao = [];
+    
+    // Abrir modal de criação de cotação
+    function criarCotacao() {
+        const selecionados = document.querySelectorAll('.sc-checkbox:checked');
+        
+        if (selecionados.length === 0) {
+            alert('Selecione pelo menos um item');
+            return;
+        }
+        
+        // Coletar itens selecionados
+        itensSelecionadosCotacao = [];
+        selecionados.forEach(cb => {
+            itensSelecionadosCotacao.push({
+                numero_sc: cb.dataset.sc,
+                item_sc: cb.dataset.item,
+                cod_produto: cb.dataset.produto,
+                descricao: cb.dataset.descricao,
+                quantidade: parseFloat(cb.dataset.quantidade) || 0,
+                unidade: cb.dataset.unidade || 'UN',
+                data_necessidade: cb.dataset.necessidade
+            });
+        });
+        
+        // Atualizar contador no modal
+        document.getElementById('qtdItensCotacao').textContent = itensSelecionadosCotacao.length;
+        
+        // Preencher data atual
+        const hoje = new Date();
+        const dataFormatada = hoje.toISOString().split('T')[0]; // YYYY-MM-DD
+        document.getElementById('cotacaoData').value = dataFormatada;
+        
+        // Limpar campos
+        document.getElementById('cotacaoComprador').value = '';
+        document.getElementById('cotacaoNome').value = '';
+        document.getElementById('erroCotacao').classList.add('d-none');
+        
+        // Atualizar preview
+        atualizarPreviewCotacao();
+        
+        // Abrir modal
+        new bootstrap.Modal(document.getElementById('modalCriarCotacao')).show();
+    }
+    
+    // Atualizar preview do nome da cotação
+    function atualizarPreviewCotacao() {
+        const dataInput = document.getElementById('cotacaoData').value;
+        const nomeCustom = document.getElementById('cotacaoNome').value.trim();
+        
+        let preview = '';
+        
+        if (dataInput) {
+            const [ano, mes, dia] = dataInput.split('-');
+            const dataFormatada = `${dia}/${mes}/${ano}`;
+            
+            if (nomeCustom) {
+                preview = `${nomeCustom} - ${dataFormatada} - Nº`;
+            } else {
+                preview = `Cotação - ${dataFormatada} - Nº`;
+            }
+        } else {
+            preview = 'Cotação - DD/MM/YYYY - Nº';
+        }
+        
+        document.getElementById('previewNomeCotacao').textContent = preview;
+    }
+    
+    // Listeners para atualizar preview
+    document.getElementById('cotacaoData').addEventListener('change', atualizarPreviewCotacao);
+    document.getElementById('cotacaoNome').addEventListener('input', atualizarPreviewCotacao);
+    
+    // Confirmar criação da cotação
+    function confirmarCriacaoCotacao() {
+        const comprador = document.getElementById('cotacaoComprador').value;
+        const nomeCustom = document.getElementById('cotacaoNome').value.trim();
+        const dataInput = document.getElementById('cotacaoData').value;
+        const erroDiv = document.getElementById('erroCotacao');
+        const erroTexto = document.getElementById('erroTexto');
+        
+        // Validação
+        if (!comprador) {
+            erroTexto.textContent = 'Selecione um comprador responsável!';
+            erroDiv.classList.remove('d-none');
+            document.getElementById('cotacaoComprador').focus();
+            return;
+        }
+        
+        // Esconder erro se existir
+        erroDiv.classList.add('d-none');
+        
+        // Formatar data
+        let dataCriacao = null;
+        if (dataInput) {
+            const [ano, mes, dia] = dataInput.split('-');
+            dataCriacao = `${dia}/${mes}/${ano}`;
+        }
+        
+        // Fechar modal
+        bootstrap.Modal.getInstance(document.getElementById('modalCriarCotacao')).hide();
+        
+        mostrarSpinner('Criando cotação...');
+        
+        fetch('/api/cotacao/criar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                itens: itensSelecionadosCotacao,
+                comprador: comprador,
+                nome_customizado: nomeCustom || null,
+                data_criacao: dataCriacao || null,
+                observacoes: ''
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            esconderSpinner();
+            if (data.success) {
+                // Mostrar toast de sucesso
+                mostrarToast('Cotação ' + data.codigo + ' criada com sucesso!');
+                
+                // Limpar seleção
+                limparSelecao();
+                
+                // Redirecionar para aba de cotações após breve delay
+                setTimeout(() => {
+                    window.location.href = '/cotacoes?novo=' + data.cotacao_id;
+                }, 1500);
+            } else {
+                alert('Erro: ' + data.error);
+            }
+        })
+        .catch(err => {
+            esconderSpinner();
+            alert('Erro ao criar cotação');
+            console.error(err);
+        });
+    }
+    
+    // Função para mostrar toast
+    function mostrarToast(mensagem) {
+        document.getElementById('toastMensagem').textContent = mensagem;
+        const toast = new bootstrap.Toast(document.getElementById('toastSucesso'));
+        toast.show();
+    }
+    
+    // ========================================
+    // ATRIBUIÇÃO MANUAL DE COMPRADOR
+    // ========================================
+    
+    // Abrir modal de atribuição
+    function abrirModalAtribuicao() {
+        const selecionados = document.querySelectorAll('.sc-checkbox:checked');
+        
+        if (selecionados.length === 0) {
+            alert('❌ Selecione pelo menos uma solicitação');
+            return;
+        }
+        
+        // Atualiza contador no modal
+        document.getElementById('qtdSelecionadasAtrib').textContent = selecionados.length;
+        
+        // Limpa campos
+        document.getElementById('selectComprador').value = '';
+        document.getElementById('obsAtribuicao').value = '';
+        
+        // Abre modal
+        new bootstrap.Modal(document.getElementById('modalAtribuirComprador')).show();
+    }
+    
+    // Confirmar atribuição
+    function confirmarAtribuicao() {
+        const selecionados = document.querySelectorAll('.sc-checkbox:checked');
+        const compradorSelecionado = document.getElementById('selectComprador').value;
+        const observacao = document.getElementById('obsAtribuicao').value.trim();
+        
+        if (!compradorSelecionado) {
+            alert('❌ Selecione um comprador');
+            return;
+        }
+        
+        // Parse do valor: "018|Daniel Amaral"
+        const [codComprador, nomeComprador] = compradorSelecionado.split('|');
+        
+        // Monta array de solicitações
+        const solicitacoes = [];
+        selecionados.forEach(cb => {
+            solicitacoes.push({
+                numero_sc: cb.dataset.sc,
+                item_sc: cb.dataset.item
+            });
+        });
+        
+        // Fecha modal
+        bootstrap.Modal.getInstance(document.getElementById('modalAtribuirComprador')).hide();
+        
+        mostrarSpinner('Atribuindo comprador...');
+        
+        // Envia requisição
+        fetch('/api/solicitacao/atribuir_comprador', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                solicitacoes: solicitacoes,
+                cod_comprador: codComprador,
+                nome_comprador: nomeComprador,
+                observacao: observacao || null
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            esconderSpinner();
+            if (data.success) {
+                alert('✅ ' + data.message);
+                // Recarrega página para refletir mudanças
+                location.reload();
+            } else {
+                alert('❌ Erro: ' + data.error);
+            }
+        })
+        .catch(err => {
+            esconderSpinner();
+            console.error('Erro ao atribuir comprador:', err);
+            alert('❌ Erro ao atribuir comprador');
+        });
+    }
+    
+    // ========================================
+    // CORES E ANOTAÇÕES
+    // ========================================
+    let anotacoesCache = {};
+    
+    // Carregar anotações ao iniciar
+    function carregarAnotacoes() {
+        fetch('/api/solicitacoes/anotacoes')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                anotacoesCache = data.anotacoes;
+                aplicarAnotacoesVisuais();
+            }
+        });
+    }
+    
+    // Aplicar cores e indicadores nas linhas
+    function aplicarAnotacoesVisuais() {
+        document.querySelectorAll('.linha-sc').forEach(linha => {
+            const sc = linha.dataset.sc;
+            const item = linha.dataset.item || '';
+            const key = sc + '-' + item;
+            
+            // Remove classes de cor da linha
+            linha.classList.remove('cor-amarelo', 'cor-vermelho', 'cor-azul', 'cor-verde');
+            
+            // Encontra o indicador (quadradinho)
+            const indicator = linha.querySelector(`.obs-indicator[data-sc="${sc}"][data-item="${item}"]`);
+            
+            if (indicator) {
+                // Remove todas as classes de cor do indicador
+                indicator.classList.remove('cor-amarelo', 'cor-vermelho', 'cor-azul', 'cor-verde');
+            }
+            
+            if (anotacoesCache[key]) {
+                const anotacao = anotacoesCache[key];
+                
+                // Aplica cor na linha (background)
+                if (anotacao.cor) {
+                    linha.classList.add('cor-' + anotacao.cor);
+                    if (indicator) {
+                        indicator.classList.add('cor-' + anotacao.cor);
+                        indicator.classList.remove('empty'); // Remove ícone quando há cor
+                    }
+                } else if (anotacao.observacao) {
+                    // Se tem observação mas não tem cor, remove o ícone
+                    if (indicator) {
+                        indicator.classList.remove('empty');
+                    }
+                } else {
+                    // Sem cor e sem observação - mostra ícone
+                    if (indicator) {
+                        indicator.classList.add('empty');
+                    }
+                }
+                
+                // Atualiza tooltip com observação
+                const obsCell = linha.querySelector('.obs-cell');
+                if (obsCell) {
+                    const btn = obsCell.querySelector('.btn-obs');
+                    if (anotacao.observacao) {
+                        btn.title = anotacao.observacao;
+                    } else {
+                        btn.title = 'Adicionar observação';
+                    }
+                }
+            } else {
+                // Sem anotação - mostra ícone e reseta o tooltip
+                if (indicator) {
+                    indicator.classList.add('empty');
+                }
+                const obsCell = linha.querySelector('.obs-cell');
+                if (obsCell) {
+                    const btn = obsCell.querySelector('.btn-obs');
+                    btn.title = 'Adicionar observação';
+                }
+            }
+        });
+    }
+    
+    // Aplicar cor em lote
+    function aplicarCor(cor) {
+        const selecionados = document.querySelectorAll('.sc-checkbox:checked');
+        
+        selecionados.forEach(cb => {
+            const sc = cb.dataset.sc;
+            const item = cb.dataset.item || '';
+            
+            fetch('/api/solicitacao/anotacao', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    numero_sc: sc,
+                    item_sc: item,
+                    cor: cor || null
+                })
+            });
+            
+            // Atualiza cache local
+            const key = sc + '-' + item;
+            if (!anotacoesCache[key]) anotacoesCache[key] = {};
+            anotacoesCache[key].cor = cor;
+        });
+        
+        aplicarAnotacoesVisuais();
+        limparSelecao();
+    }
+    
+    // Modal de observação
+    function abrirModalObs(numeroSC, itemSC) {
+        document.getElementById('obsNumeroSC').value = numeroSC;
+        document.getElementById('obsItemSC').value = itemSC || '';
+        
+        const key = numeroSC + '-' + (itemSC || '');
+        const anotacao = anotacoesCache[key] || {};
+        
+        document.getElementById('obsCor').value = anotacao.cor || '';
+        document.getElementById('obsTexto').value = anotacao.observacao || '';
+        
+        // Highlight botão de cor selecionada
+        document.querySelectorAll('.cor-btn').forEach(btn => btn.classList.remove('active'));
+        if (anotacao.cor) {
+            const btnAtivo = document.querySelector(`.cor-btn[onclick*="'${anotacao.cor}'"]:not([onclick*="''"])`);
+            if (btnAtivo) {
+                btnAtivo.classList.add('active');
+            }
+        } else {
+            // Destaca o botão "Nenhuma"
+            const btnNenhuma = document.querySelector('.cor-btn[onclick*="\'\'\'"]');
+            if (btnNenhuma) {
+                btnNenhuma.classList.add('active');
+            }
+        }
+        
+        new bootstrap.Modal(document.getElementById('modalObs')).show();
+    }
+    
+    function selecionarCor(cor) {
+        document.getElementById('obsCor').value = cor;
+        document.querySelectorAll('.cor-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+    }
+    
+    function salvarObs() {
+        const sc = document.getElementById('obsNumeroSC').value;
+        const item = document.getElementById('obsItemSC').value;
+        const cor = document.getElementById('obsCor').value;
+        const texto = document.getElementById('obsTexto').value.trim();
+        
+        // Se não tem cor E não tem texto, remove completamente a anotação
+        if (!cor && !texto) {
+            fetch('/api/solicitacao/anotacao', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    numero_sc: sc,
+                    item_sc: item
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const key = sc + '-' + item;
+                    delete anotacoesCache[key];
+                    aplicarAnotacoesVisuais();
+                    bootstrap.Modal.getInstance(document.getElementById('modalObs')).hide();
+                }
+            });
+        } else {
+            // Salva a anotação normalmente
+            fetch('/api/solicitacao/anotacao', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    numero_sc: sc,
+                    item_sc: item,
+                    cor: cor || null,
+                    observacao: texto || null
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const key = sc + '-' + item;
+                    anotacoesCache[key] = { cor: cor || null, observacao: texto || null };
+                    aplicarAnotacoesVisuais();
+                    bootstrap.Modal.getInstance(document.getElementById('modalObs')).hide();
+                }
+            });
+        }
+    }
+    
+    // ==========================================
+    // MODAL OBSERVAÇÃO TOTVS
+    // ==========================================
+    function abrirModalObsTotvs(numeroSC, itemSC, observacao) {
+        document.getElementById('modalObsTotvsSC').textContent = `SC ${numeroSC} - Item ${itemSC}`;
+        document.getElementById('modalObsTovtsTexto').textContent = observacao || 'Sem observação';
+        new bootstrap.Modal(document.getElementById('modalObsTotvs')).show();
+    }
+    
+    // ==========================================
+    // EXPORTAR PARA EXCEL
+    // ==========================================
+    function exportarExcel() {
+        const tabela = document.getElementById('tabelaSolicitacoes');
+        const linhasVisiveis = tabela.querySelectorAll('tbody tr.linha-sc');
+        
+        if (linhasVisiveis.length === 0) {
+            alert('❌ Nenhuma solicitação para exportar!');
+            return;
+        }
+        
+        // Cabeçalhos na nova ordem: Fornecedor → OBS TOTVS → Status → Anotação
+        const headers = ['SC', 'Solicitante', 'Produto', 'Descrição', 'Qtd', 'Programa', 'Emissão', 'Necessidade', 'Comprador', 'Fornecedor', 'OBS TOTVS', 'Status'];
+        
+        // Coletar dados das linhas visíveis
+        const dados = [];
+        linhasVisiveis.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 13) {
+                // Pegar observação do data-obs do span (agora na coluna 11)
+                const obsSpan = cells[11].querySelector('.obs-preview');
+                const obsTotvs = obsSpan ? obsSpan.dataset.obs || '' : '';
+                
+                dados.push([
+                    cells[1].textContent.trim(),  // SC
+                    cells[2].getAttribute('title') || cells[2].textContent.trim(),  // Solicitante
+                    cells[3].textContent.trim(),  // Produto
+                    cells[4].getAttribute('title') || cells[4].textContent.trim(),  // Descrição
+                    cells[5].textContent.trim(),  // Qtd
+                    cells[6].getAttribute('title') || cells[6].textContent.trim(),  // Programa
+                    cells[7].textContent.trim(),  // Emissão
+                    cells[8].textContent.trim(),  // Necessidade
+                    cells[9].textContent.trim(),  // Comprador
+                    cells[10].getAttribute('title') || cells[10].textContent.trim(),  // Fornecedor
+                    obsTotvs,  // OBS TOTVS
+                    cells[12].textContent.trim().replace(/\s+/g, ' ')  // Status
+                ]);
+            }
+        });
+        
+        // Criar conteúdo CSV com separador de ponto e vírgula (para Excel BR)
+        let csvContent = '\uFEFF'; // BOM para UTF-8
+        csvContent += headers.join(';') + '\n';
+        dados.forEach(row => {
+            csvContent += row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(';') + '\n';
+        });
+        
+        // Criar arquivo e baixar
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        
+        // Nome do arquivo com data
+        const hoje = new Date();
+        const dataStr = `${hoje.getDate().toString().padStart(2, '0')}-${(hoje.getMonth() + 1).toString().padStart(2, '0')}-${hoje.getFullYear()}`;
+        link.setAttribute('href', url);
+        link.setAttribute('download', `Solicitacoes_Aberto_${dataStr}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        alert(`✅ ${dados.length} solicitações exportadas com sucesso!`);
+    }
+    
+    // Carregar anotações ao iniciar a página
+    document.addEventListener('DOMContentLoaded', carregarAnotacoes);
+</script>
+</body>
+</html>

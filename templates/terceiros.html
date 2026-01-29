@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Terceiros - Industrialização Externa</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/css/bootstrap-select.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --sidebar-bg: #212529;
+            --primary-blue: #0d6efd;
+            --danger-red: #dc3545;
+            --success-green: #198754;
+            --warning-yellow: #ffc107;
+            --text-primary: #1a1a2e;
+            --text-secondary: #6c757d;
+            --border-color: #e9ecef;
+            --transition: all 0.25s ease;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 0.875rem;
+            overflow-x: hidden;
+        }
+
+        /* LAYOUT COM SIDEBAR */
+        .wrapper { display: flex; width: 100%; align-items: stretch; }
+        
+        .sidebar {
+            min-width: 250px;
+            max-width: 250px;
+            background: linear-gradient(180deg, #1a1d21 0%, #212529 100%);
+            color: #fff;
+            min-height: 100vh;
+            transition: var(--transition);
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 999;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+        }
+
+        .sidebar.collapsed { margin-left: -250px; }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar ul.components { padding: 10px 0; }
+
+        .sidebar ul li {
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .sidebar ul li a {
+            padding: 12px 20px;
+            display: block;
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            transition: var(--transition);
+            font-size: 0.9rem;
+        }
+
+        .sidebar ul li a:hover { 
+            background: rgba(255,255,255,0.05); 
+            color: #fff;
+            padding-left: 25px;
+        }
+
+        .sidebar ul li.active a {
+            background: var(--primary-blue);
+            color: #fff;
+            border-left: 4px solid #fff;
+        }
+
+        .sidebar ul li a i { margin-right: 10px; width: 20px; }
+
+        .content {
+            width: 100%;
+            padding: 20px 30px;
+            margin-left: 250px;
+            transition: margin-left 0.3s;
+            min-height: 100vh;
+        }
+        
+        .content.expanded { margin-left: 0; }
+
+        /* BOTÃO TOGGLE SIDEBAR */
+        .sidebar-toggle {
+            position: fixed;
+            top: 72px;
+            left: 254px;
+            z-index: 998;
+            background: transparent;
+            color: rgba(108, 117, 125, 0.4);
+            border: none;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            box-shadow: none;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            opacity: 0.5;
+        }
+        
+        .sidebar-toggle:hover { 
+            background: rgba(108, 117, 125, 0.15);
+            color: var(--text-secondary);
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        .sidebar-toggle.collapsed { 
+            left: 8px; 
+            top: 12px;
+            opacity: 0.7;
+            background: rgba(108, 117, 125, 0.1);
+        }
+
+        /* PAGE HEADER */
+        .page-header { margin-bottom: 24px; }
+        .page-header h4 { font-weight: 700; font-size: 1.5rem; color: var(--text-primary); margin-bottom: 4px; }
+        .page-header small { color: var(--text-secondary); font-size: 0.85rem; }
+
+        /* CARDS KPI */
+        .kpi-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+            border-left: 4px solid;
+            margin-bottom: 15px;
+        }
+
+        .kpi-card:hover { transform: translateY(-3px); }
+        .kpi-card.danger { border-left-color: var(--danger-red); }
+        .kpi-card.success { border-left-color: var(--success-green); }
+        .kpi-card.primary { border-left-color: var(--primary-blue); }
+        .kpi-card.warning { border-left-color: var(--warning-yellow); }
+
+        .kpi-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .kpi-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        /* INFO CARD */
+        .info-card {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .info-card .icon {
+            font-size: 4rem;
+            color: var(--primary-blue);
+            margin-bottom: 20px;
+        }
+
+        .info-card h5 {
+            color: var(--text-primary);
+            margin-bottom: 15px;
+        }
+
+        .info-card p {
+            color: var(--text-secondary);
+            margin-bottom: 0;
+        }
+
+        /* CHECKLIST */
+        .checklist {
+            text-align: left;
+            max-width: 500px;
+            margin: 20px auto;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .checklist-item.pending {
+            color: var(--text-secondary);
+        }
+
+        .checklist-item.done {
+            color: var(--success-green);
+            text-decoration: line-through;
+        }
+
+        .checklist-item i {
+            margin-right: 12px;
+            width: 20px;
+        }
+
+        .checklist-item.pending i {
+            color: var(--warning-yellow);
+        }
+
+        .checklist-item.done i {
+            color: var(--success-green);
+        }
+
+        /* TABELA DE DADOS */
+        .table-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            height: 750px;
+        }
+
+        .table-responsive {
+            max-height: 690px;
+            overflow-y: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            font-size: 0.72rem;
+        }
+
+        .data-table thead th {
+            background: #f8f9fa;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 6px 4px;
+            font-weight: 600;
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--border-color);
+            white-space: nowrap;
+            font-size: 0.7rem;
+        }
+
+        .data-table tbody td {
+            padding: 5px 4px;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Colunas com truncate */
+        .col-descricao { max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .col-programa { max-width: 80px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .col-fornecedor { max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .data-table tbody tr:hover {
+            background: rgba(13, 110, 253, 0.05);
+        }
+
+        .badge-status {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-status.retornado {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-status.em-terceiro {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge-status.aguardando {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .produto-op-col {
+            font-family: 'Consolas', monospace;
+            font-weight: 600;
+            color: var(--primary-blue);
+        }
+
+        /* FILTROS */
+        .filter-section {
+            background: white;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        /* FILTRO DE TIPOS DE SERVIÇO - LATERAL DIREITA */
+        .servicos-filter-sidebar {
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid #e9ecef;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .servicos-filter-sidebar h6 {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #dee2e6;
+            flex-shrink: 0;
+        }
+        
+        .servicos-list {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .servico-checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 10px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: var(--transition);
+        }
+
+        .servico-checkbox-item:hover {
+            background: rgba(13, 110, 253, 0.08);
+            border-radius: 4px;
+        }
+
+        .servico-checkbox-item input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            margin-right: 8px;
+            cursor: pointer;
+            accent-color: var(--primary-blue);
+            flex-shrink: 0;
+        }
+
+        .servico-checkbox-item label {
+            cursor: pointer;
+            margin: 0;
+            user-select: none;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            color: #495057;
+            font-weight: 500;
+        }
+
+        .servico-checkbox-item input[type="checkbox"]:checked + label {
+            color: var(--primary-blue);
+            font-weight: 700;
+        }
+
+        /* Sidebar de serviços com altura fixa e scroll */
+        .servicos-filter-sidebar {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            border: 1px solid #e9ecef;
+            height: 750px;
+            overflow-y: auto;
+        }
+
+        .servicos-filter-sidebar h6 {
+            margin-bottom: 15px;
+            position: sticky;
+            top: 0;
+            background: #ffffff;
+            padding-bottom: 10px;
+        }
+
+        .servicos-list {
+            padding-right: 5px;
+        }
+
+        /* Row com altura igual */
+        .row-igual-altura {
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .row-igual-altura > [class*='col-'] {
+            display: block;
+        }
+
+        /* FILTER CARD no topo (padrão das outras abas) */
+        .filter-card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+            margin-bottom: 24px;
+        }
+        
+        .form-label-sm {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        /* Bootstrap Select - Estilo do dropdown */
+        .bootstrap-select > .dropdown-toggle {
+            border: 1px solid var(--border-color) !important;
+            background-color: #fff !important;
+            height: calc(1.5em + 0.5rem + 2px) !important;
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.875rem !important;
+            border-radius: 4px !important;
+        }
+        
+        .bootstrap-select > .dropdown-toggle:focus {
+            border-color: var(--primary-blue) !important;
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15) !important;
+        }
+
+        /* Ordenação de Tabelas */
+        .sortable { cursor: pointer; user-select: none; position: relative; }
+        .sortable:hover { background-color: rgba(13, 110, 253, 0.1); }
+        .sortable i { margin-left: 5px; font-size: 0.8rem; opacity: 0.6; }
+        .sortable.asc i::before { content: "\f0de"; }
+        .sortable.desc i::before { content: "\f0dd"; }    </style>
+</head>
+<body>
+
+<!-- BOTÃO TOGGLE SIDEBAR -->
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+    <i class="fas fa-bars"></i>
+</button>
+
+<div class="wrapper">
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h4 class="mb-0"><i class="fas fa-cubes me-2"></i>Polimaquinas</h4>
+            <small class="text-muted" style="font-size: 0.75rem;">Portal de Compras</small>
+        </div>
+        <ul class="list-unstyled components">
+            <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-chart-line"></i> Dashboard Financeiro</a></li>
+            <li><a href="{{ url_for('status_pedidos') }}"><i class="fas fa-tasks"></i> Status de Pedidos</a></li>
+            <li><a href="{{ url_for('performance') }}"><i class="fas fa-tachometer-alt"></i> OTD & Performance</a></li>
+            <li><a href="{{ url_for('variacao_preco') }}"><i class="fas fa-balance-scale"></i> Variação de Preço</a></li>
+            <li class="active"><a href="{{ url_for('terceiros') }}"><i class="fas fa-industry"></i> Terceiros</a></li>
+            <li><a href="{{ url_for('solicitacoes') }}"><i class="fas fa-file-alt"></i> Solicitações em Aberto</a></li>
+            <li><a href="{{ url_for('cotacoes') }}"><i class="fas fa-file-invoice-dollar"></i> Cotações e Orçamentos</a></li>
+            <li><a href="{{ url_for('avaliacao_iso') }}"><i class="fas fa-certificate"></i> Avaliação ISO (PQ021)</a></li>
+        </ul>
+    </nav>
+
+    <div class="content" id="content">
+        <!-- HEADER -->
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div>
+                <h4><i class="fas fa-industry me-2 text-primary"></i>Controle de Terceiros</h4>
+                <small>Pedidos de Compra em Aberto - Produtos BN (Industrialização Externa)</small>
+            </div>
+            <div>
+                <span class="badge bg-light text-dark border px-3 py-2">
+                    <i class="fas fa-user-circle me-1"></i>{{ user }}
+                </span>
+            </div>
+        </div>
+
+        <div class="container-fluid py-4">
+            <!-- FILTROS NO TOPO (como nas outras abas) -->
+            <div class="filter-card">
+                <form id="filterForm" method="GET" class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label-sm">BUSCAR PEDIDO:</label>
+                        <input type="text" class="form-control form-control-sm" name="busca_pedido" id="buscaPedido" placeholder="Nº Pedido..." value="{{ filtros.busca_pedido if filtros and filtros.busca_pedido else '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label-sm">PROGRAMA OP/CÓD.PRODUTO:</label>
+                        <input type="text" class="form-control form-control-sm" name="busca_produto" id="buscaProdutoOP" placeholder="Programa ou Código..." value="{{ filtros.busca_produto if filtros and filtros.busca_produto else '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label-sm">FORNECEDORES:</label>
+                        <select class="selectpicker form-control form-control-sm" name="fornecedores" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 2" title="Selecione..." id="fornecedores_select">
+                            {% for f in dados.opcoes_fornecedores %}
+                            <option value="{{ f }}">{{ f }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label-sm">DIAS EM ABERTO:</label>
+                        <select class="form-select form-select-sm" name="filtro_dias" id="filtroDias">
+                            <option value="">Todos</option>
+                            <option value="critico" {{ 'selected' if filtros and filtros.filtro_dias == 'critico' else '' }}>Críticos (&gt; 30 dias)</option>
+                            <option value="atencao" {{ 'selected' if filtros and filtros.filtro_dias == 'atencao' else '' }}>Atenção (15-30 dias)</option>
+                            <option value="normal" {{ 'selected' if filtros and filtros.filtro_dias == 'normal' else '' }}>Normal (&le; 15 dias)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label-sm">&nbsp;</label>
+                        <div class="d-flex gap-1">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="filtrarTabela()" title="Filtrar"><i class="fas fa-filter"></i></button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="limparFiltros()" title="Limpar"><i class="fas fa-eraser"></i></button>
+                            <button type="button" class="btn btn-success btn-sm" onclick="exportarExcel()" title="Exportar para Excel"><i class="fas fa-file-excel"></i></button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- KPIs - Pedidos BN em Aberto -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="kpi-card primary">
+                        <div class="kpi-value text-primary">{{ dados.kpis.total_pedidos }}</div>
+                        <div class="kpi-label">Total Pedidos BN em Aberto</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card success">
+                        <div class="kpi-value text-success">{{ dados.kpis.normal }}</div>
+                        <div class="kpi-label">Normal (&le; 15 dias)</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card warning">
+                        <div class="kpi-value text-warning">{{ dados.kpis.atencao }}</div>
+                        <div class="kpi-label">Atenção (15-30 dias)</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card danger">
+                        <div class="kpi-value text-danger">{{ dados.kpis.criticos }}</div>
+                        <div class="kpi-label">Críticos (&gt; 30 dias)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ÁREA DE DADOS - TABELA TERCEIROS -->
+            <div class="row row-igual-altura">
+                <!-- COLUNA PRINCIPAL - TABELA -->
+                <div class="col-md-9">
+                    {% if dados.tabela and dados.tabela|length > 0 %}
+                    
+                    <!-- TABELA DE DADOS -->
+                    <div class="table-card">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0"><i class="fas fa-table me-2"></i>Pedidos de Compra BN em Aberto</h6>
+                            <div>
+                                <span class="badge bg-secondary me-2">Média: {{ dados.kpis.media_dias }} dias</span>
+                                <span class="badge bg-primary" id="contadorRegistros">{{ dados.tabela|length }} registros</span>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table data-table" id="tabelaTerceiros">
+                                <thead>
+                                    <tr>
+                                        <th class="sortable" onclick="sortTable('tabelaTerceiros', 0, 'text')">Nº Pedido <i class="fas fa-sort"></i></th>
+                                        <th class="sortable" onclick="sortTable('tabelaTerceiros', 1, 'text')">Item <i class="fas fa-sort"></i></th>
+                                        <th class="sortable" onclick="sortTable('tabelaTerceiros', 2, 'text')">Produto OP <i class="fas fa-sort"></i></th>
+                                        <th class="sortable" onclick="sortTable('tabelaTerceiros', 3, 'text')">Descrição do Produto <i class="fas fa-sort"></i></th>
+                                        <th class="sortable" onclick="sortTable('tabelaTerceiros', 4, 'text')">Programa OP <i class="fas fa-sort"></i></th>
+                                        <th class="sortable" onclick="sortTable('tabelaTerceiros', 5, 'number')">Quantidade <i class="fas fa-sort"></i></th>
+                                        <th class="sortable" onclick="sortTable('tabelaTerceiros', 6, 'date')">Data Emissão <i class="fas fa-sort"></i></th>
+                                        <th class="sortable" onclick="sortTable('tabelaTerceiros', 7, 'date')">Entrega Prevista <i class="fas fa-sort"></i></th>
+                                        <th class="sortable" onclick="sortTable('tabelaTerceiros', 8, 'text')">Fornecedor <i class="fas fa-sort"></i></th>
+                                        <th class="sortable" onclick="sortTable('tabelaTerceiros', 9, 'number')">
+                                            Dias em Aberto 
+                                            <i class="fas fa-sort-down" id="iconOrdenacao"></i>
+                                        </th>
+                                        <th class="text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in dados.tabela %}
+                                    <tr class="linha-dados" 
+                                        data-pedido="{{ item['Número Pedido'] }}"
+                                        data-produto="{{ item['Produto OP'] }}"
+                                        data-programa="{{ item['Programa OP'] }}"
+                                        data-fornecedor="{{ item.Fornecedor }}"
+                                        data-dias="{{ item['Dias em Aberto'] }}"
+                                        data-bn="{{ item['Codigo BN'] }}"
+                                        data-dataemissao="{{ item['Data de Emissão'] }}">
+                                        <td class="fw-bold text-primary">{{ item['Número Pedido'] }}</td>
+                                        <td>{{ item['Item Pedido'] }}</td>
+                                        <td class="produto-op-col">{{ item['Produto OP'] }}</td>
+                                        <td class="col-descricao" title="{{ item['Descrição do Produto'] if item['Descrição do Produto'] else '-' }}">{{ item['Descrição do Produto'][:40] if item['Descrição do Produto'] else '-' }}{% if item['Descrição do Produto'] and item['Descrição do Produto']|length > 40 %}...{% endif %}</td>
+                                        <td class="col-programa" title="{{ item['Programa OP'] if item['Programa OP'] else '-' }}">{{ item['Programa OP'][:15] if item['Programa OP'] else '-' }}{% if item['Programa OP'] and item['Programa OP']|length > 15 %}...{% endif %}</td>
+                                        <td class="text-center">{{ "{:.0f}".format(item['Quantidade do Item']) if item['Quantidade do Item'] else '0' }}</td>
+                                        <td>{{ item['Data de Emissão'] if item['Data de Emissão'] else '-' }}</td>
+                                        <td>{{ item['Data Entrega Prevista'] if item['Data Entrega Prevista'] else '-' }}</td>
+                                        <td class="col-fornecedor" title="{{ item.Fornecedor if item.Fornecedor else '-' }}">{{ item.Fornecedor[:20] if item.Fornecedor else '-' }}{% if item.Fornecedor and item.Fornecedor|length > 20 %}...{% endif %}</td>
+                                        <td class="text-center">
+                                            {% set dias = item['Dias em Aberto']|int if item['Dias em Aberto'] else 0 %}
+                                            {% if dias > 30 %}
+                                            <span class="badge bg-danger">{{ dias }}d</span>
+                                            {% elif dias > 15 %}
+                                            <span class="badge bg-warning text-dark">{{ dias }}d</span>
+                                            {% else %}
+                                            <span class="badge bg-success">{{ dias }}d</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="d-flex gap-1 justify-content-center">
+                                                {% if item.FaxWhatsAppLimpo %}
+                                                <a href="https://wa.me/55{{ item.FaxWhatsAppLimpo }}?text={{ 'Olá, gostaria de solicitar uma atualização sobre o Pedido ' ~ item['Número Pedido'] ~ ' - Item ' ~ item['Item Pedido'] ~ ' (' ~ item['Produto OP'] ~ '). Previsão de entrega: ' ~ (item['Data Entrega Prevista'] if item['Data Entrega Prevista'] else 'N/A') ~ '. Aguardo retorno.' | urlencode }}" 
+                                                   target="_blank" 
+                                                   class="btn btn-sm btn-outline-success border-0" 
+                                                   title="WhatsApp: {{ item.FaxWhatsAppOriginal }}">
+                                                    <i class="fab fa-whatsapp fa-lg"></i>
+                                                </a>
+                                                {% else %}
+                                                <span class="text-muted small" title="Sem telefone"><i class="fab fa-whatsapp text-muted"></i></span>
+                                                {% endif %}
+                                                
+                                                {% if item.EmailFornecedor %}
+                                                <button onclick="event.stopPropagation(); enviarEmailTerceiros('{{ item.EmailFornecedor }}', '{{ item['Número Pedido'] }}', '{{ item['Item Pedido'] }}', '{{ item['Produto OP'] }}', '{{ item['Data Entrega Prevista'] if item['Data Entrega Prevista'] else 'N/A' }}', '{{ item.Fornecedor }}');" 
+                                                        class="btn btn-sm btn-outline-primary border-0" 
+                                                        title="Enviar E-mail: {{ item.EmailFornecedor }}">
+                                                    <i class="fas fa-envelope fa-lg"></i>
+                                                </button>
+                                                {% else %}
+                                                <span class="text-muted small" title="Sem e-mail"><i class="fas fa-envelope text-muted"></i></span>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- MENSAGEM QUANDO NÃO HÁ DADOS -->
+                    <div class="info-card">
+                        <div class="icon">
+                            <i class="fas fa-inbox"></i>
+                        </div>
+                        <h5>Nenhum Pedido BN em Aberto</h5>
+                        <p class="mb-4">{{ dados.mensagem }}</p>
+                        <p class="text-muted small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Esta aba exibe exclusivamente pedidos de compra em aberto de produtos cujo código inicia com 'BN'.
+                        </p>
+                    </div>
+                    {% endif %}
+                </div> <!-- Fecha col-md-9 -->
+
+                <!-- COLUNA LATERAL - FILTRO DE SERVIÇOS -->
+                <div class="col-md-3">
+                    <div class="servicos-filter-sidebar">
+                        <h6><i class="fas fa-filter me-2"></i>TIPO DE SERVIÇO</h6>
+                        
+                        <div class="servicos-list">
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servicoTodos" data-codigo="" checked onchange="toggleServico(this)">
+                                <label for="servicoTodos">TODOS</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico019" data-codigo="BN000019" onchange="toggleServico(this)">
+                                <label for="servico019">ALÍVIO TENSÃO ALUMÍNIO</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico018" data-codigo="BN000018" onchange="toggleServico(this)">
+                                <label for="servico018">ANODIZAÇÃO DURA</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico020" data-codigo="BN000020" onchange="toggleServico(this)">
+                                <label for="servico020">CALANDRAR</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico009" data-codigo="BN000009" onchange="toggleServico(this)">
+                                <label for="servico009">CORTE DE CHAPA</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico010" data-codigo="BN000010" onchange="toggleServico(this)">
+                                <label for="servico010">CORTE DE CHAPA FINA</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico011" data-codigo="BN000011" onchange="toggleServico(this)">
+                                <label for="servico011">CORTE E DOBRA LATÃO/INOX</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico021" data-codigo="BN000021" onchange="toggleServico(this)">
+                                <label for="servico021">CORTE TUBO LASER</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico015" data-codigo="BN000015" onchange="toggleServico(this)">
+                                <label for="servico015">CROMO</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico022" data-codigo="BN000022" onchange="toggleServico(this)">
+                                <label for="servico022">DESEMPENAMENTO CHAPAS</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico004" data-codigo="BN000004" onchange="toggleServico(this)">
+                                <label for="servico004">EMBORRACHAMENTO</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico013" data-codigo="BN000013" onchange="toggleServico(this)">
+                                <label for="servico013">FURAÇÃO</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico007" data-codigo="BN000007" onchange="toggleServico(this)">
+                                <label for="servico007">JATEAMENTO</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico008" data-codigo="BN000008" onchange="toggleServico(this)">
+                                <label for="servico008">MONTAGEM PAINEL ELÉTRICO</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico016" data-codigo="BN000016" onchange="toggleServico(this)">
+                                <label for="servico016">NÍQUEL</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico012" data-codigo="BN000012" onchange="toggleServico(this)">
+                                <label for="servico012">OXIDAÇÃO NEGRA</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico017" data-codigo="BN000017" onchange="toggleServico(this)">
+                                <label for="servico017">RECARTILHA</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico005" data-codigo="BN000005" onchange="toggleServico(this)">
+                                <label for="servico005">RECOZIMENTO</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico006" data-codigo="BN000006" onchange="toggleServico(this)">
+                                <label for="servico006">TÊMPERA</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico003" data-codigo="BN000003" onchange="toggleServico(this)">
+                                <label for="servico003">TERCEIROS</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico014" data-codigo="BN000014" onchange="toggleServico(this)">
+                                <label for="servico014">USINAGEM DOS DENTES</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico001" data-codigo="BN000001" onchange="toggleServico(this)">
+                                <label for="servico001">ZINCO AZUL</label>
+                            </div>
+                            <div class="servico-checkbox-item">
+                                <input type="checkbox" id="servico002" data-codigo="BN000002" onchange="toggleServico(this)">
+                                <label for="servico002">ZINCO PRETO</label>
+                            </div>
+                        </div>
+                    </div>
+                </div> <!-- Fecha col-md-3 -->
+            </div> <!-- Fecha row -->
+        </div>
+
+    </div> <!-- Fecha content -->
+</div> <!-- Fecha wrapper -->
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/js/bootstrap-select.min.js"></script>
+
+<script>
+    // Inicializar selectpicker
+    $(document).ready(function() {
+        $('.selectpicker').selectpicker();
+    });
+
+    // Array para armazenar os serviços selecionados
+    let servicosSelecionados = [];
+    
+    // Função global de ordenação de tabelas
+    let sortDirections = {};
+    
+    function sortTable(tableId, columnIndex, dataType) {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => row.cells.length > columnIndex);
+        
+        const sortKey = `${tableId}_${columnIndex}`;
+        const isAscending = !sortDirections[sortKey];
+        sortDirections[sortKey] = isAscending;
+        
+        rows.sort((a, b) => {
+            let aValue = a.cells[columnIndex].textContent.trim();
+            let bValue = b.cells[columnIndex].textContent.trim();
+            
+            if (dataType === 'number') {
+                aValue = parseFloat(aValue.replace(/[^0-9.-]/g, '')) || 0;
+                bValue = parseFloat(bValue.replace(/[^0-9.-]/g, '')) || 0;
+            } else if (dataType === 'date') {
+                aValue = aValue === '-' ? new Date(0) : parseDate(aValue);
+                bValue = bValue === '-' ? new Date(0) : parseDate(bValue);
+            }
+            
+            if (aValue < bValue) return isAscending ? -1 : 1;
+            if (aValue > bValue) return isAscending ? 1 : -1;
+            return 0;
+        });
+        
+        rows.forEach(row => tbody.appendChild(row));
+        
+        // Atualizar ícones
+        table.querySelectorAll('th.sortable i').forEach(icon => {
+            icon.className = 'fas fa-sort';
+        });
+        const sortIcon = table.querySelectorAll('th.sortable')[columnIndex]?.querySelector('i');
+        if (sortIcon) {
+            sortIcon.className = isAscending ? 'fas fa-sort-up' : 'fas fa-sort-down';
+        }
+    }
+    
+    function parseDate(dateStr) {
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            const year = parts[2].length === 2 ? 2000 + parseInt(parts[2]) : parseInt(parts[2]);
+            return new Date(year, parseInt(parts[1]) - 1, parseInt(parts[0]));
+        }
+        return new Date(dateStr);
+    }
+
+    // Toggle Sidebar
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const content = document.getElementById('content');
+        const toggle = document.getElementById('sidebarToggle');
+        
+        sidebar.classList.toggle('collapsed');
+        content.classList.toggle('expanded');
+        toggle.classList.toggle('collapsed');
+    }
+
+    // Toggle de checkbox de serviço
+    function toggleServico(checkbox) {
+        const codigoBN = checkbox.dataset.codigo;
+        const parentItem = checkbox.closest('.servico-checkbox-item');
+        
+        // Se for "TODOS"
+        if (codigoBN === '') {
+            if (checkbox.checked) {
+                // Desmarcar todos os outros
+                document.querySelectorAll('.servicos-list input[type="checkbox"]').forEach(cb => {
+                    if (cb.dataset.codigo !== '') {
+                        cb.checked = false;
+                        cb.closest('.servico-checkbox-item').classList.remove('checked');
+                    }
+                });
+                servicosSelecionados = [];
+                parentItem.classList.add('checked');
+            }
+        } else {
+            // Desmarcar "TODOS" quando selecionar qualquer outro
+            const todosCb = document.getElementById('servicoTodos');
+            if (checkbox.checked) {
+                todosCb.checked = false;
+                todosCb.closest('.servico-checkbox-item').classList.remove('checked');
+                if (!servicosSelecionados.includes(codigoBN)) {
+                    servicosSelecionados.push(codigoBN);
+                }
+                parentItem.classList.add('checked');
+            } else {
+                servicosSelecionados = servicosSelecionados.filter(s => s !== codigoBN);
+                parentItem.classList.remove('checked');
+                
+                // Se nenhum estiver selecionado, marcar "TODOS"
+                if (servicosSelecionados.length === 0) {
+                    todosCb.checked = true;
+                    todosCb.closest('.servico-checkbox-item').classList.add('checked');
+                }
+            }
+        }
+        
+        // Aplicar filtro
+        filtrarTabela();
+    }
+
+    // Filtrar tabela (combinando todos os filtros)
+    function filtrarTabela() {
+        const buscaPedido = document.getElementById('buscaPedido').value.toLowerCase();
+        const buscaProdutoOP = document.getElementById('buscaProdutoOP').value.toLowerCase();
+        const fornecedoresSelecionados = $('#fornecedores_select').val() || [];
+        const filtroDias = document.getElementById('filtroDias').value;
+        
+        const linhas = document.querySelectorAll('.linha-dados');
+        let visibleCount = 0;
+        
+        // Contadores para KPIs
+        let totalCriticos = 0;
+        let totalAtencao = 0;
+        let totalNormal = 0;
+        let somaDias = 0;
+        
+        linhas.forEach(linha => {
+            const pedido = (linha.dataset.pedido || '').toLowerCase();
+            const produto = (linha.dataset.produto || '').toLowerCase();
+            const programa = (linha.dataset.programa || '').toLowerCase();
+            const fornecedor = linha.dataset.fornecedor || '';
+            const dias = parseInt(linha.dataset.dias) || 0;
+            const codigoBN = (linha.dataset.bn || '').toUpperCase();
+            
+            // Filtro de busca por pedido
+            const matchPedido = !buscaPedido || pedido.includes(buscaPedido);
+            
+            // Filtro de busca por produto OU programa (busca em ambos)
+            const matchProduto = !buscaProdutoOP || produto.includes(buscaProdutoOP) || programa.includes(buscaProdutoOP);
+            
+            // Filtro de fornecedor (múltipla seleção)
+            const matchFornecedor = fornecedoresSelecionados.length === 0 || fornecedoresSelecionados.includes(fornecedor);
+            
+            // Filtro por dias em aberto
+            let matchDias = true;
+            if (filtroDias === 'critico') {
+                matchDias = dias > 30;
+            } else if (filtroDias === 'atencao') {
+                matchDias = dias > 15 && dias <= 30;
+            } else if (filtroDias === 'normal') {
+                matchDias = dias <= 15;
+            }
+            
+            // Filtro por tipo de serviço (código BN)
+            let matchServico = true;
+            if (servicosSelecionados.length > 0) {
+                matchServico = servicosSelecionados.includes(codigoBN);
+            }
+            
+            // Mostrar linha apenas se passar em todos os filtros
+            if (matchPedido && matchProduto && matchFornecedor && matchDias && matchServico) {
+                linha.style.display = '';
+                visibleCount++;
+                
+                // Atualizar contadores de KPI
+                somaDias += dias;
+                if (dias > 30) {
+                    totalCriticos++;
+                } else if (dias > 15) {
+                    totalAtencao++;
+                } else {
+                    totalNormal++;
+                }
+            } else {
+                linha.style.display = 'none';
+            }
+        });
+        
+        // Atualizar KPIs na tela
+        const mediaDias = visibleCount > 0 ? Math.round(somaDias / visibleCount) : 0;
+        
+        document.querySelector('.kpi-card.primary .kpi-value').textContent = visibleCount;
+        document.querySelector('.kpi-card.success .kpi-value').textContent = totalNormal;
+        document.querySelector('.kpi-card.warning .kpi-value').textContent = totalAtencao;
+        document.querySelector('.kpi-card.danger .kpi-value').textContent = totalCriticos;
+        
+        // Atualizar média de dias no badge
+        const badgeMedia = document.querySelector('.badge.bg-secondary');
+        if (badgeMedia) {
+            badgeMedia.textContent = `Média: ${mediaDias} dias`;
+        }
+        
+        // Atualizar contador
+        document.getElementById('contadorRegistros').textContent = visibleCount + ' registros';
+    }
+    
+    // Limpar filtros
+    function limparFiltros() {
+        document.getElementById('buscaPedido').value = '';
+        document.getElementById('buscaProdutoOP').value = '';
+        $('#fornecedores_select').selectpicker('val', []);
+        document.getElementById('filtroDias').value = '';
+        
+        // Resetar checkboxes de serviço
+        servicosSelecionados = [];
+        document.querySelectorAll('.servicos-filter-sidebar input[type="checkbox"]').forEach(cb => {
+            cb.checked = (cb.dataset.codigo === '');
+        });
+        
+        filtrarTabela();
+    }
+    
+    // ==========================================
+    // FUNÇÃO PARA ENVIAR EMAIL DE COBRANÇA
+    // ==========================================
+    function enviarEmailTerceiros(email, pedido, item, produto, dataEntrega, fornecedor) {
+        if (!confirm(`Enviar e-mail de cobrança do Pedido ${pedido} - Item ${item} (${produto})?`)) return;
+        
+        fetch('/enviar_cobranca', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                email: email, 
+                pedido: `${pedido} - Item ${item}`, 
+                fornecedor: fornecedor, 
+                data: dataEntrega, 
+                produto: produto 
+            })
+        })
+        .then(response => response.json())
+        .then(data => { 
+            alert(data.success ? '✅ E-mail de cobrança enviado com sucesso!' : '❌ Erro ao enviar: ' + data.message); 
+        })
+        .catch(error => { 
+            console.error('Erro:', error); 
+            alert('❌ Erro ao enviar e-mail de cobrança.'); 
+        });
+    }
+    
+    // ==========================================
+    // FUNÇÃO PARA EXPORTAR PARA EXCEL
+    // ==========================================
+    function exportarExcel() {
+        const tabela = document.getElementById('tabelaTerceiros');
+        const linhasVisiveis = tabela.querySelectorAll('tbody tr:not([style*="display: none"])');
+        
+        if (linhasVisiveis.length === 0) {
+            alert('❌ Nenhum item visível para exportar!');
+            return;
+        }
+        
+        // Cabeçalhos (excluindo coluna de Ações)
+        const headers = ['Nº Pedido', 'Item', 'Produto OP', 'Descrição', 'Programa OP', 'Quantidade', 'Data Emissão', 'Entrega Prevista', 'Fornecedor', 'Dias em Aberto'];
+        
+        // Coletar dados das linhas visíveis
+        const dados = [];
+        linhasVisiveis.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 10) {
+                dados.push([
+                    cells[0].textContent.trim(),  // Nº Pedido
+                    cells[1].textContent.trim(),  // Item
+                    cells[2].textContent.trim(),  // Produto OP
+                    cells[3].getAttribute('title') || cells[3].textContent.trim(),  // Descrição (pega o title completo)
+                    cells[4].textContent.trim(),  // Programa OP
+                    cells[5].textContent.trim(),  // Quantidade
+                    cells[6].textContent.trim(),  // Data Emissão
+                    cells[7].textContent.trim(),  // Entrega Prevista
+                    cells[8].getAttribute('title') || cells[8].textContent.trim(),  // Fornecedor (pega o title completo)
+                    cells[9].textContent.trim()   // Dias em Aberto
+                ]);
+            }
+        });
+        
+        // Criar conteúdo CSV com separador de ponto e vírgula (para Excel BR)
+        let csvContent = '\uFEFF'; // BOM para UTF-8
+        csvContent += headers.join(';') + '\n';
+        dados.forEach(row => {
+            csvContent += row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(';') + '\n';
+        });
+        
+        // Criar arquivo e baixar
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        
+        // Nome do arquivo com data
+        const hoje = new Date();
+        const dataStr = `${hoje.getDate().toString().padStart(2, '0')}-${(hoje.getMonth() + 1).toString().padStart(2, '0')}-${hoje.getFullYear()}`;
+        
+        // Pegar nome do fornecedor selecionado (se houver apenas um)
+        const fornecedoresSelecionados = $('#fornecedores_select').val() || [];
+        let nomeArquivo = `Terceiros_${dataStr}`;
+        if (fornecedoresSelecionados.length === 1) {
+            const nomeFornecedor = fornecedoresSelecionados[0].replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
+            nomeArquivo = `Terceiros_${nomeFornecedor}_${dataStr}`;
+        }
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${nomeArquivo}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        alert(`✅ Exportados ${dados.length} itens para Excel!`);
+    }
+</script>
+
+</body>
+</html>

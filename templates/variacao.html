@@ -3,34 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Variação de Preço - Saving & Inflação</title>
+    <title>Variação de Preço - Análise Estratégica</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/css/bootstrap-select.min.css">
+    <!-- Estilos customizados para dropdowns mensais -->
     
     <style>
-        /* ========================================
-           VARIÁVEIS CSS - DESIGN SYSTEM
-        ======================================== */
         :root {
             --bg-color: #f0f2f5;
             --card-bg: #ffffff;
-            --sidebar-bg: #212529;
             --primary-blue: #0d6efd;
-            --secondary-gray: #6c757d;
             --text-primary: #1a1a2e;
             --text-secondary: #6c757d;
             --border-color: #e9ecef;
             --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
             --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
-            --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
             --radius-sm: 6px;
             --radius-md: 10px;
-            --radius-lg: 16px;
             --transition: all 0.25s ease;
             --saving-color: #198754;
-            --inflacao-color: #dc3545;
-            --estavel-color: #6c757d;
+            --inflation-color: #dc3545;
+            --cost-avoidance-color: #0d6efd;
+            --primeira-compra-color: #6c757d;
         }
 
         * { box-sizing: border-box; }
@@ -44,9 +40,6 @@
             line-height: 1.5;
         }
 
-        /* ========================================
-           LAYOUT COM SIDEBAR
-        ======================================== */
         .wrapper { display: flex; width: 100%; align-items: stretch; }
         
         .sidebar {
@@ -90,9 +83,6 @@
         .sidebar ul li a:hover { color: #fff; background: rgba(255,255,255,0.08); padding-left: 24px; }
         .sidebar ul li.active > a { color: #fff; background: var(--primary-blue); border-left: 4px solid #fff; }
 
-        /* ========================================
-           CONTEÚDO PRINCIPAL
-        ======================================== */
         .content {
             width: 100%;
             padding: 24px 28px;
@@ -103,41 +93,51 @@
         
         .content.expanded { margin-left: 0; }
 
-        /* ========================================
-           BOTÃO TOGGLE SIDEBAR
-        ======================================== */
+        /* BOTÃO TOGGLE SIDEBAR (Ultra Discreto) */
         .sidebar-toggle {
             position: fixed;
-            top: 18px;
-            left: 262px;
-            z-index: 1001;
-            background: var(--primary-blue);
-            color: white;
+            top: 72px;
+            left: 254px;
+            z-index: 998;
+            background: transparent;
+            color: rgba(108, 117, 125, 0.4);
             border: none;
-            border-radius: 50%;
-            width: 38px;
-            height: 38px;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
             cursor: pointer;
-            box-shadow: var(--shadow-md);
-            transition: var(--transition);
+            box-shadow: none;
+            transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 0.7rem;
+            opacity: 0.5;
         }
         
-        .sidebar-toggle:hover { background: #0b5ed7; transform: scale(1.08); }
-        .sidebar-toggle.collapsed { left: 12px; }
+        .sidebar-toggle:hover { 
+            background: rgba(108, 117, 125, 0.15);
+            color: var(--text-secondary);
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        .sidebar-toggle.collapsed { 
+            left: 8px; 
+            top: 12px;
+            opacity: 0.7;
+            background: rgba(108, 117, 125, 0.1);
+        }
+        
+        .sidebar-toggle.collapsed:hover {
+            opacity: 1;
+            background: rgba(108, 117, 125, 0.2);
+        }
 
-        /* ========================================
-           HEADER DA PÁGINA
-        ======================================== */
         .page-header { margin-bottom: 24px; }
         .page-header h4 { font-weight: 700; font-size: 1.5rem; color: var(--text-primary); margin-bottom: 4px; }
         .page-header small { color: var(--text-secondary); font-size: 0.85rem; }
 
-        /* ========================================
-           FILTROS
-        ======================================== */
         .filter-card {
             background: var(--card-bg);
             border-radius: var(--radius-md);
@@ -156,23 +156,36 @@
             letter-spacing: 0.5px;
         }
 
+        /* Padronização visual do Bootstrap Select */
+        .bootstrap-select > .dropdown-toggle {
+            border: 1px solid var(--border-color) !important;
+            background-color: #fff !important;
+            height: calc(1.5em + 0.5rem + 2px) !important;
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.875rem !important;
+            border-radius: var(--radius-sm) !important;
+        }
+        
+        .bootstrap-select > .dropdown-toggle:focus {
+            border-color: var(--primary-blue) !important;
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15) !important;
+        }
+
         .form-control, .form-select { 
             border-radius: var(--radius-sm); 
             border: 1px solid var(--border-color); 
             font-size: 0.875rem; 
         }
+        
         .form-control:focus, .form-select:focus { 
             border-color: var(--primary-blue); 
             box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15); 
         }
 
-        /* ========================================
-           KPIs VARIAÇÃO
-        ======================================== */
         .kpi-card {
             background: var(--card-bg);
             border-radius: var(--radius-md);
-            padding: 24px 20px;
+            padding: 20px 16px;
             text-align: center;
             box-shadow: var(--shadow-sm);
             border: 1px solid var(--border-color);
@@ -184,22 +197,122 @@
 
         .kpi-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
         .kpi-card.border-green { border-left-color: var(--saving-color); }
-        .kpi-card.border-red { border-left-color: var(--inflacao-color); }
-        .kpi-card.border-blue { border-left-color: var(--primary-blue); }
+        .kpi-card.border-red { border-left-color: var(--inflation-color); }
+        .kpi-card.border-blue { border-left-color: var(--cost-avoidance-color); }
+        .kpi-card.border-gray { border-left-color: var(--primeira-compra-color); }
+        .kpi-card.border-purple { border-left-color: #6f42c1; }
 
-        .kpi-value { font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-bottom: 6px; letter-spacing: -1px; }
+        .kpi-value { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; letter-spacing: -1px; }
         .kpi-value.text-saving { color: var(--saving-color); }
-        .kpi-value.text-inflacao { color: var(--inflacao-color); }
-        .kpi-value.text-saldo-positivo { color: var(--inflacao-color); }
-        .kpi-value.text-saldo-negativo { color: var(--saving-color); }
+        .kpi-value.text-inflation { color: var(--inflation-color); }
+        .kpi-value.text-positive { color: var(--saving-color); }
+        .kpi-value.text-negative { color: var(--inflation-color); }
         
-        .kpi-label { font-size: 0.7rem; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.8px; font-weight: 600; }
-        .kpi-subtitle { font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px; }
-        .kpi-icon { font-size: 2rem; opacity: 0.15; position: absolute; top: 15px; right: 15px; }
+        .kpi-label { font-size: 0.68rem; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.6px; font-weight: 600; }
+        .kpi-subtitle { font-size: 0.72rem; color: var(--text-secondary); margin-top: 6px; }
+        .kpi-icon { font-size: 1.8rem; opacity: 0.15; position: absolute; top: 12px; right: 12px; }
 
-        /* ========================================
-           GRÁFICOS
-        ======================================== */
+        /* =====================================================
+           TOOLTIP INFORMATIVO - EXPLICAÇÃO CONTEXTUAL
+           ===================================================== */
+        .info-tooltip {
+            position: relative;
+            cursor: help;
+        }
+        
+        .info-tooltip .tooltip-content {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            z-index: 9999;
+            bottom: calc(100% + 10px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 320px;
+            background: linear-gradient(135deg, #1a1d21 0%, #2d3238 100%);
+            color: #fff;
+            padding: 16px;
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            font-size: 0.75rem;
+            line-height: 1.5;
+            text-align: left;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .info-tooltip .tooltip-content::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 8px solid transparent;
+            border-top-color: #2d3238;
+        }
+        
+        .info-tooltip:hover .tooltip-content {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .tooltip-section {
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+        }
+        
+        .tooltip-section:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .tooltip-title {
+            font-weight: 700;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .tooltip-title.conceito { color: #60a5fa; }
+        .tooltip-title.calculo { color: #34d399; }
+        .tooltip-title.origem { color: #fbbf24; }
+        
+        .tooltip-text {
+            color: rgba(255,255,255,0.9);
+            font-size: 0.72rem;
+        }
+        
+        .kpi-card .info-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        
+        .kpi-card:hover .info-badge {
+            opacity: 1;
+            color: var(--primary-blue);
+        }
+        
+        .chart-header .info-tooltip .tooltip-content {
+            left: 0;
+            transform: translateX(0);
+        }
+        
+        .chart-header .info-tooltip .tooltip-content::after {
+            left: 30px;
+        }
+
         .chart-card {
             background: var(--card-bg);
             border-radius: var(--radius-md);
@@ -224,9 +337,7 @@
             align-items: center;
         }
         
-        .chart-header i {
-            color: var(--primary-blue);
-        }
+        .chart-header i { color: var(--primary-blue); }
 
         .chart-container {
             position: relative;
@@ -240,9 +351,6 @@
             width: 100% !important;
         }
 
-        /* ========================================
-           TABELA
-        ======================================== */
         .table-card {
             background: var(--card-bg);
             border-radius: var(--radius-md);
@@ -264,13 +372,13 @@
         }
 
         .table-responsive {
-            max-height: 500px;
+            max-height: 550px;
             overflow-y: auto;
         }
 
         .table {
             margin-bottom: 0;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
         }
 
         .table th {
@@ -279,17 +387,17 @@
             top: 0;
             z-index: 10;
             font-weight: 600;
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: var(--text-secondary);
             border-bottom: 2px solid var(--border-color);
-            padding: 12px 10px;
+            padding: 10px 8px;
             white-space: nowrap;
         }
 
         .table td {
-            padding: 10px;
+            padding: 8px;
             vertical-align: middle;
             border-bottom: 1px solid var(--border-color);
         }
@@ -298,63 +406,264 @@
             background-color: rgba(13, 110, 253, 0.04);
         }
 
-        /* ========================================
-           BADGES DE CLASSIFICAÇÃO
-        ======================================== */
         .badge-saving {
             background-color: rgba(25, 135, 84, 0.15);
             color: var(--saving-color);
             font-weight: 600;
             padding: 5px 10px;
             border-radius: 20px;
+            font-size: 0.72rem;
         }
 
-        .badge-inflacao {
+        .badge-inflation {
             background-color: rgba(220, 53, 69, 0.15);
-            color: var(--inflacao-color);
+            color: var(--inflation-color);
             font-weight: 600;
             padding: 5px 10px;
             border-radius: 20px;
+            font-size: 0.72rem;
         }
 
-        .badge-estavel {
+        .badge-cost-avoidance {
+            background-color: rgba(13, 110, 253, 0.15);
+            color: var(--cost-avoidance-color);
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+        }
+
+        .badge-primeira-compra {
             background-color: rgba(108, 117, 125, 0.15);
-            color: var(--estavel-color);
+            color: var(--primeira-compra-color);
             font-weight: 600;
             padding: 5px 10px;
             border-radius: 20px;
+            font-size: 0.72rem;
         }
 
-        /* Cores condicionais para valores */
-        .valor-saving { color: var(--saving-color); font-weight: 600; }
-        .valor-inflacao { color: var(--inflacao-color); font-weight: 600; }
-        .valor-estavel { color: var(--estavel-color); }
+        .badge-antiga {
+            background-color: rgba(255, 193, 7, 0.2);
+            color: #856404;
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 4px;
+        }
 
-        /* ========================================
-           RESPONSIVO
-        ======================================== */
+        .valor-saving { color: var(--saving-color); font-weight: 600; }
+        .valor-inflation { color: var(--inflation-color); font-weight: 600; }
+        .valor-neutral { color: var(--text-secondary); }
+        .valor-na { color: var(--primeira-compra-color); font-style: italic; }
+
+        .legend-box {
+            background: var(--card-bg);
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 16px;
+        }
+        
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 20px;
+            font-size: 0.75rem;
+        }
+        
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        
+        .legend-dot.saving { background: var(--saving-color); }
+        .legend-dot.inflation { background: var(--inflation-color); }
+        .legend-dot.cost-avoidance { background: var(--cost-avoidance-color); }
+        .legend-dot.primeira-compra { background: var(--primeira-compra-color); }
+
         @media (max-width: 992px) {
             .sidebar { margin-left: -250px; }
             .sidebar.active { margin-left: 0; }
             .content { margin-left: 0; }
-            .sidebar-toggle { left: 12px; }
-            .sidebar-toggle.collapsed { left: 12px; }
+            .sidebar-toggle { 
+                left: 8px; 
+                top: 12px;
+                opacity: 0.7;
+                background: rgba(108, 117, 125, 0.1);
+            }
+        }
+
+        /* SISTEMA DE ANOTAÇÕES */
+        .btn-anotacao {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            font-size: 0.8rem;
+        }
+        
+        .btn-anotacao:hover {
+            background: rgba(13, 110, 253, 0.1);
+            color: var(--primary-blue);
+        }
+        
+        .btn-anotacao.has-note {
+            background: #ffc107;
+            border-radius: 4px;
+            padding: 6px 10px;
+        }
+        
+        .btn-anotacao.has-note:hover {
+            background: #ffb300;
+        }
+        
+        .btn-anotacao.has-note i,
+        .btn-anotacao.has-note i::before {
+            color: #1a1a2e !important;
+            animation: pulse 2s infinite;
+        }
+        
+        .btn-anotacao.has-note:hover i,
+        .btn-anotacao.has-note:hover i::before {
+            color: #000 !important;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .modal-anotacao .modal-header {
+            background: linear-gradient(135deg, #ffc107, #ffb300);
+            color: #1a1a2e;
+            border-radius: var(--radius-md) var(--radius-md) 0 0;
+        }
+        
+        .modal-anotacao .modal-header .btn-close {
+            filter: brightness(0.2);
+        }
+        
+        .modal-anotacao .modal-body {
+            padding: 24px;
+        }
+        
+        .modal-anotacao textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .modal-anotacao .pedido-info {
+            background: #f8f9fa;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            margin-bottom: 16px;
+            font-size: 0.8rem;
+        }
+        
+        .modal-anotacao .pedido-info strong {
+            color: #ffc107;
+        }
+        
+        .btn-delete-note {
+            color: var(--inflation-color);
+        }
+        
+        .btn-delete-note:hover {
+            background: rgba(220, 53, 69, 0.1);
+        }
+
+        /* Variação percentual */
+        .variacao-percent {
+            font-size: 0.65rem;
+            display: block;
+            margin-top: 2px;
+            opacity: 0.85;
+        }
+
+        /* ========================================
+           SPINNER GLOBAL
+        ======================================== */
+        .spinner-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.6);
+            z-index: 9997;
+            display: none;
+        }
+        .spinner-backdrop.active { display: block; }
+        
+        .spinner-global {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9998;
+            display: none;
+        }
+        .spinner-global.active { display: block; }
+        
+        .spinner-global .spinner-box {
+            background: white;
+            padding: 24px 32px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .spinner-global .spinner-circle {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e9ecef;
+            border-top-color: var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .spinner-global .spinner-text {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-primary);
         }
     </style>
 </head>
 <body>
+    <!-- Spinner Global de Carregamento -->
+    <div class="spinner-backdrop" id="spinnerBackdrop"></div>
+    <div class="spinner-global" id="spinnerGlobal">
+        <div class="spinner-box">
+            <div class="spinner-circle"></div>
+            <span class="spinner-text" id="spinnerText">Carregando...</span>
+        </div>
+    </div>
+
     <div class="wrapper">
         <!-- SIDEBAR -->
         <nav id="sidebar" class="sidebar">
             <div class="sidebar-header">
-                <h4 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Compras</h4>
+                <h4 class="mb-0"><i class="fas fa-cubes me-2"></i>Polimaquinas</h4>
+                <small class="text-muted" style="font-size: 0.75rem;">Portal de Compras</small>
             </div>
             <ul class="list-unstyled components">
                 <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-chart-line"></i> Dashboard Financeiro</a></li>
-                <li><a href="{{ url_for('status_pedidos') }}"><i class="fas fa-clipboard-list"></i> Status Pedidos</a></li>
+                <li><a href="{{ url_for('status_pedidos') }}"><i class="fas fa-tasks"></i> Status de Pedidos</a></li>
                 <li><a href="{{ url_for('performance') }}"><i class="fas fa-tachometer-alt"></i> OTD & Performance</a></li>
                 <li class="active"><a href="{{ url_for('variacao_preco') }}"><i class="fas fa-balance-scale"></i> Variação de Preço</a></li>
-                <li><a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Sair</a></li>
+                <li><a href="{{ url_for('terceiros') }}"><i class="fas fa-industry"></i> Terceiros</a></li>
+                <li><a href="{{ url_for('solicitacoes') }}"><i class="fas fa-file-alt"></i> Solicitações em Aberto</a></li>
+                <li><a href="{{ url_for('cotacoes') }}"><i class="fas fa-file-invoice-dollar"></i> Cotações e Orçamentos</a></li>
+                <li><a href="{{ url_for('avaliacao_iso') }}"><i class="fas fa-certificate"></i> Avaliação ISO (PQ021)</a></li>
             </ul>
         </nav>
 
@@ -366,10 +675,13 @@
             <div class="page-header d-flex justify-content-between align-items-center">
                 <div>
                     <h4><i class="fas fa-balance-scale text-primary me-2"></i>Variação de Preço</h4>
-                    <small>Análise de Saving & Inflação nas compras</small>
+                    <small>Análise Par-a-Par: Saving, Inflation & Cost Avoidance</small>
                 </div>
                 <div>
-                    <span class="badge bg-secondary">{{ total_items }} itens com histórico</span>
+                    <span class="badge bg-secondary">{{ total_items }} itens únicos</span>
+                    <a href="{{ url_for('limpar_cache_variacao') }}" class="btn btn-outline-warning btn-sm ms-2" title="Atualizar dados do banco">
+                        <i class="fas fa-sync-alt"></i>
+                    </a>
                 </div>
             </div>
 
@@ -382,15 +694,34 @@
 
             <!-- FILTROS -->
             <div class="filter-card">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros de Análise</h6>
-                    <small class="text-muted">
-                        <i class="fas fa-info-circle me-1"></i>Dados disponíveis desde 01/01/2024
-                    </small>
-                </div>
-                <form method="POST" class="row g-3 align-items-end">
+                <form method="POST" class="row g-2 align-items-end">
+                    <div class="col-md-1">
+                        <label class="form-label-sm">PERÍODO - DE:</label>
+                        <select name="data_inicio" class="form-control form-control-sm" id="selectDataInicio">
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label-sm">ATÉ:</label>
+                        <select name="data_fim" class="form-control form-control-sm" id="selectDataFim">
+                        </select>
+                    </div>
                     <div class="col-md-2">
-                        <label class="form-label-sm">Comprador</label>
+                        <label class="form-label-sm">FORNECEDORES</label>
+                        <select class="selectpicker form-control" name="fornecedores" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 2" title="Selecione...">
+                            {% for f in fornecedores %}
+                            <option value="{{ f }}" {% if f in fornecedores_selecionados %}selected{% endif %}>{{ f }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label-sm">BUSCA <small class="text-primary">(ANÁLISE)</small></label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" name="busca_geral" placeholder="Produto, Pedido" value="{{ busca_geral|default('') }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label-sm">COMPRADOR</label>
                         <select name="comprador" class="form-select form-select-sm">
                             <option value="Todos">Todos</option>
                             {% for comp in compradores %}
@@ -398,8 +729,8 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label-sm">Tipo Produto</label>
+                    <div class="col-md-1">
+                        <label class="form-label-sm">TIPO</label>
                         <select name="tipo_produto" class="form-select form-select-sm">
                             <option value="Todos">Todos</option>
                             {% for tipo in tipos_produto %}
@@ -408,83 +739,350 @@
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label-sm">Classificação</label>
+                        <label class="form-label-sm">CLASSIFICAÇÃO</label>
                         <select name="classificacao" class="form-select form-select-sm">
-                            <option value="Todos">Todos</option>
-                            <option value="Saving" {% if classificacao_selecionada == 'Saving' %}selected{% endif %}>💰 Saving</option>
-                            <option value="Inflação" {% if classificacao_selecionada == 'Inflação' %}selected{% endif %}>📈 Inflação</option>
-                            <option value="Estável" {% if classificacao_selecionada == 'Estável' %}selected{% endif %}>➖ Estável</option>
+                            <option value="Todos" {% if classificacao_selecionada == 'Todos' %}selected{% endif %}>Todos</option>
+                            <option value="Saving" {% if classificacao_selecionada == 'Saving' %}selected{% endif %}>🟢 Saving</option>
+                            <option value="Inflation" {% if classificacao_selecionada == 'Inflation' %}selected{% endif %}>🔴 Inflation</option>
+                            <option value="Cost Avoidance" {% if classificacao_selecionada == 'Cost Avoidance' %}selected{% endif %}>🔵 Cost Avoidance</option>
+                            <option value="Primeira Compra" {% if classificacao_selecionada == 'Primeira Compra' %}selected{% endif %}>⚪ 1ª Compra</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label-sm">Data Início</label>
-                        <input type="date" name="data_inicio" class="form-control form-control-sm" 
-                               value="{{ data_inicio }}" min="2024-01-01">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label-sm">Data Fim</label>
-                        <input type="date" name="data_fim" class="form-control form-control-sm" 
-                               value="{{ data_fim }}" min="2024-01-01">
-                    </div>
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-primary btn-sm w-100">
-                            <i class="fas fa-search me-1"></i> Aplicar
-                        </button>
+                    <div class="col-md-1">
+                        <label class="form-label-sm">&nbsp;</label>
+                        <div class="d-flex gap-1">
+                            <button type="submit" class="btn btn-primary btn-sm" title="Filtrar"><i class="fas fa-filter"></i></button>
+                            <a href="{{ url_for('limpar_cache_variacao') }}" class="btn btn-outline-secondary btn-sm" title="Limpar filtros"><i class="fas fa-eraser"></i></a>
+                        </div>
                     </div>
                 </form>
             </div>
+            
+            <!-- INDICADOR DE MODO -->
+            {% if modo_analitico %}
+            <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
+                <i class="fas fa-microscope fa-lg me-3"></i>
+                <div>
+                    <strong>Modo Análise Profunda (Notas Fiscais)</strong> — 
+                    {% if produto_analisado %}
+                    Analisando: <strong>{{ produto_analisado.descricao }}</strong> ({{ produto_analisado.total_compras }} NFs encontradas)
+                    {% else %}
+                    Exibindo todas as notas fiscais do período para os itens encontrados
+                    {% endif %}
+                    <br><small class="text-muted">Limpe o campo "Busca" para voltar à visão consolidada | Valores baseados em Notas Fiscais faturadas</small>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-light border d-flex align-items-center mb-3" role="alert">
+                <i class="fas fa-chart-pie fa-lg me-3 text-primary"></i>
+                <div>
+                    <strong>Visão Consolidada (Notas Fiscais)</strong> — Uma linha por produto (NF mais recente comparada com anterior)
+                    <br><small class="text-muted">Use o campo "Busca" para análise histórica detalhada de um item específico | Valores baseados em preços faturados</small>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- KPIs -->
-            <div class="row g-4 mb-4">
-                <!-- Total Saving -->
-                <div class="col-md-4">
-                    <div class="kpi-card border-green">
+            {% if modo_analitico %}
+            <!-- KPIs MODO ANALÍTICO (foco no item pesquisado) -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-2">
+                    <div class="kpi-card border-secondary info-tooltip">
+                        <i class="fas fa-info-circle info-badge"></i>
+                        <div class="tooltip-content">
+                            <div class="tooltip-section">
+                                <div class="tooltip-title conceito"><i class="fas fa-lightbulb"></i> CONCEITO</div>
+                                <div class="tooltip-text">Quantidade total de notas fiscais de entrada (ENFs) válidas encontradas para o item pesquisado no período selecionado. Cada NF representa um evento de compra efetivado.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title calculo"><i class="fas fa-calculator"></i> LÓGICA DE CÁLCULO</div>
+                                <div class="tooltip-text">Contagem simples de ENFs distintas que atendem aos filtros aplicados (período, fornecedor, produto). Apenas NFs vinculadas a pedidos de compra são consideradas.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title origem"><i class="fas fa-database"></i> ORIGEM DOS DADOS</div>
+                                <div class="tooltip-text">SQL Server → ERP TOTVS → Tabela SD1010 (Itens de NF de Entrada). Granularidade: Nota Fiscal.</div>
+                            </div>
+                        </div>
+                        <i class="fas fa-shopping-cart kpi-icon text-secondary"></i>
+                        <div class="kpi-value text-secondary">{{ count_compras|default(0) }}</div>
+                        <div class="kpi-label">Total de NFs</div>
+                        <div class="kpi-subtitle">no período filtrado</div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="kpi-card border-green info-tooltip">
+                        <i class="fas fa-info-circle info-badge"></i>
+                        <div class="tooltip-content">
+                            <div class="tooltip-section">
+                                <div class="tooltip-title conceito"><i class="fas fa-lightbulb"></i> CONCEITO</div>
+                                <div class="tooltip-text">Saving representa a economia real obtida quando o preço unitário faturado na NF atual é MENOR que o preço da NF imediatamente anterior do mesmo produto.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title calculo"><i class="fas fa-calculator"></i> LÓGICA DE CÁLCULO</div>
+                                <div class="tooltip-text">Valor: Σ (Preço Anterior - Preço Atual) × Qtd. Representa a economia financeira obtida em relação ao que pagaríamos mantendo preços anteriores.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title origem"><i class="fas fa-database"></i> ORIGEM DOS DADOS</div>
+                                <div class="tooltip-text">SQL Server → ERP TOTVS → SD1010 (D1_VUNIT, D1_QUANT). Comparação par-a-par entre NFs consecutivas do mesmo produto.</div>
+                            </div>
+                        </div>
                         <i class="fas fa-arrow-down kpi-icon" style="color: var(--saving-color);"></i>
-                        <div class="kpi-value text-saving">R$ {{ "{:,.2f}".format(total_saving).replace(",", "X").replace(".", ",").replace("X", ".") }}</div>
-                        <div class="kpi-label">Total Saving (Economia)</div>
-                        <div class="kpi-subtitle">{{ count_saving }} itens com redução de preço</div>
+                        <div class="kpi-value text-saving">R$ {{ "{:,.2f}".format(total_pago_menos|default(0)).replace(",", "X").replace(".", ",").replace("X", ".") }}</div>
+                        <div class="kpi-label">Economia (Saving)</div>
+                        <div class="kpi-subtitle">{{ count_saving|default(0) }} compras</div>
                     </div>
                 </div>
-                
-                <!-- Total Inflação -->
-                <div class="col-md-4">
-                    <div class="kpi-card border-red">
-                        <i class="fas fa-arrow-up kpi-icon" style="color: var(--inflacao-color);"></i>
-                        <div class="kpi-value text-inflacao">R$ {{ "{:,.2f}".format(total_inflacao).replace(",", "X").replace(".", ",").replace("X", ".") }}</div>
-                        <div class="kpi-label">Total Inflação (Aumento)</div>
-                        <div class="kpi-subtitle">{{ count_inflacao }} itens com aumento de preço</div>
+                <div class="col-md-2">
+                    <div class="kpi-card border-red info-tooltip">
+                        <i class="fas fa-info-circle info-badge"></i>
+                        <div class="tooltip-content">
+                            <div class="tooltip-section">
+                                <div class="tooltip-title conceito"><i class="fas fa-lightbulb"></i> CONCEITO</div>
+                                <div class="tooltip-text">Inflation representa o aumento de custo quando o preço unitário faturado na NF atual é MAIOR que o preço da NF imediatamente anterior do mesmo produto.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title calculo"><i class="fas fa-calculator"></i> LÓGICA DE CÁLCULO</div>
+                                <div class="tooltip-text">Valor: Σ (Preço Atual - Preço Anterior) × Qtd. Representa o aumento de custo em relação ao que pagávamos antes.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title origem"><i class="fas fa-database"></i> ORIGEM DOS DADOS</div>
+                                <div class="tooltip-text">SQL Server → ERP TOTVS → SD1010 (D1_VUNIT, D1_QUANT). Comparação par-a-par entre NFs consecutivas do mesmo produto.</div>
+                            </div>
+                        </div>
+                        <i class="fas fa-arrow-up kpi-icon" style="color: var(--inflation-color);"></i>
+                        <div class="kpi-value text-inflation">R$ {{ "{:,.2f}".format(total_pago_mais|default(0)).replace(",", "X").replace(".", ",").replace("X", ".") }}</div>
+                        <div class="kpi-label">Aumento (Inflation)</div>
+                        <div class="kpi-subtitle">{{ count_inflacao|default(0) }} compras</div>
                     </div>
                 </div>
-                
-                <!-- Saldo Final -->
-                <div class="col-md-4">
-                    <div class="kpi-card border-blue">
-                        <i class="fas fa-balance-scale kpi-icon" style="color: var(--primary-blue);"></i>
-                        <div class="kpi-value {% if saldo_final < 0 %}text-saldo-negativo{% else %}text-saldo-positivo{% endif %}">
-                            R$ {{ "{:,.2f}".format(saldo_final|abs).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                <div class="col-md-2">
+                    <div class="kpi-card {% if saldo_liquido >= 0 %}border-green{% else %}border-red{% endif %} info-tooltip">
+                        <i class="fas fa-info-circle info-badge"></i>
+                        <div class="tooltip-content">
+                            <div class="tooltip-section">
+                                <div class="tooltip-title conceito"><i class="fas fa-lightbulb"></i> CONCEITO</div>
+                                <div class="tooltip-text">Saldo Líquido é o resultado financeiro final: diferença entre economia (Saving) e aumento (Inflation). Positivo = economia líquida; Negativo = prejuízo líquido.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title calculo"><i class="fas fa-calculator"></i> LÓGICA DE CÁLCULO</div>
+                                <div class="tooltip-text">Saldo = Total Saving - Total Inflation. Representa o resultado financeiro líquido do período.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title origem"><i class="fas fa-database"></i> ORIGEM DOS DADOS</div>
+                                <div class="tooltip-text">Cálculo derivado dos indicadores Saving e Inflation. Base: NFs do ERP TOTVS (SD1010).</div>
+                            </div>
                         </div>
-                        <div class="kpi-label">
-                            Saldo Final 
-                            {% if saldo_final < 0 %}
-                            <span class="badge badge-saving ms-1">ECONOMIA LÍQUIDA</span>
-                            {% elif saldo_final > 0 %}
-                            <span class="badge badge-inflacao ms-1">AUMENTO LÍQUIDO</span>
-                            {% else %}
-                            <span class="badge badge-estavel ms-1">NEUTRO</span>
-                            {% endif %}
+                        <i class="fas fa-balance-scale kpi-icon {% if saldo_liquido >= 0 %}text-success{% else %}text-danger{% endif %}"></i>
+                        <div class="kpi-value {% if saldo_liquido >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            R$ {{ "{:,.2f}".format(saldo_liquido|default(0)|abs).replace(",", "X").replace(".", ",").replace("X", ".") }}
                         </div>
-                        <div class="kpi-subtitle">{{ count_estavel }} itens sem variação</div>
+                        <div class="kpi-label">Saldo Líquido</div>
+                        <div class="kpi-subtitle">{% if saldo_liquido >= 0 %}economia líquida{% else %}aumento líquido{% endif %}</div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="kpi-card border-blue info-tooltip">
+                        <i class="fas fa-info-circle info-badge"></i>
+                        <div class="tooltip-content">
+                            <div class="tooltip-section">
+                                <div class="tooltip-title conceito"><i class="fas fa-lightbulb"></i> CONCEITO</div>
+                                <div class="tooltip-text">Cost Avoidance indica compras onde o preço foi MANTIDO em relação à NF anterior. Representa proteção contra aumentos de preço e estabilidade de custos.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title calculo"><i class="fas fa-calculator"></i> LÓGICA DE CÁLCULO</div>
+                                <div class="tooltip-text">Contagem de NFs onde Preço Atual = Preço Anterior (variação zero). Não há impacto financeiro imediato, mas indica negociação bem-sucedida.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title origem"><i class="fas fa-database"></i> ORIGEM DOS DADOS</div>
+                                <div class="tooltip-text">SQL Server → ERP TOTVS → SD1010 (D1_VUNIT). Comparação par-a-par entre NFs consecutivas.</div>
+                            </div>
+                        </div>
+                        <i class="fas fa-shield-alt kpi-icon" style="color: var(--cost-avoidance-color);"></i>
+                        <div class="kpi-value" style="color: var(--cost-avoidance-color);">R$ {{ "{:,.2f}".format(valor_cost_avoidance|default(0)).replace(",", "X").replace(".", ",").replace("X", ".") }}</div>
+                        <div class="kpi-label">Cost Avoidance</div>
+                        <div class="kpi-subtitle">{{ count_cost_avoidance|default(0) }} preços mantidos</div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="kpi-card border-purple info-tooltip">
+                        <i class="fas fa-info-circle info-badge"></i>
+                        <div class="tooltip-content">
+                            <div class="tooltip-section">
+                                <div class="tooltip-title conceito"><i class="fas fa-lightbulb"></i> CONCEITO</div>
+                                <div class="tooltip-text">Cost Avoidance Acumulado representa a economia continuada gerada por manter preços estáveis. Se um preço foi reduzido e mantido nas compras seguintes, o benefício se acumula.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title calculo"><i class="fas fa-calculator"></i> LÓGICA DE CÁLCULO</div>
+                                <div class="tooltip-text">Soma de: (Menor Preço Histórico Anterior - Preço Atual) × Quantidade, para NFs com preço mantido abaixo do pico histórico. Benefício recorrente de negociações passadas.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title origem"><i class="fas fa-database"></i> ORIGEM DOS DADOS</div>
+                                <div class="tooltip-text">SQL Server → ERP TOTVS → SD1010. Análise histórica completa de preços por produto.</div>
+                            </div>
+                        </div>
+                        <i class="fas fa-trophy kpi-icon" style="color: #6f42c1;"></i>
+                        <div class="kpi-value" style="color: #6f42c1;">R$ {{ "{:,.2f}".format(cost_avoidance_acumulado|default(0)).replace(",", "X").replace(".", ",").replace("X", ".") }}</div>
+                        <div class="kpi-label">C.A. Acumulado</div>
+                        <div class="kpi-subtitle">economia continuada</div>
                     </div>
                 </div>
             </div>
+            {% else %}
+            <!-- KPIs MODO EXECUTIVO (visão consolidada) -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="kpi-card border-green info-tooltip">
+                        <i class="fas fa-info-circle info-badge"></i>
+                        <div class="tooltip-content">
+                            <div class="tooltip-section">
+                                <div class="tooltip-title conceito"><i class="fas fa-lightbulb"></i> CONCEITO</div>
+                                <div class="tooltip-text">Saving consolidado: soma de todas as economias obtidas quando o preço faturado foi MENOR que o preço anterior. Representa ganhos reais de negociação.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title calculo"><i class="fas fa-calculator"></i> LÓGICA DE CÁLCULO</div>
+                                <div class="tooltip-text">Valor: Σ (Preço Anterior - Preço Atual) × Qtd. Representa a economia financeira em relação ao que pagaríamos mantendo preços anteriores.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title origem"><i class="fas fa-database"></i> ORIGEM DOS DADOS</div>
+                                <div class="tooltip-text">SQL Server → ERP TOTVS → SD1010. Visão consolidada por produto (NF mais recente vs anterior).</div>
+                            </div>
+                        </div>
+                        <i class="fas fa-arrow-down kpi-icon" style="color: var(--saving-color);"></i>
+                        <div class="kpi-value text-saving">R$ {{ "{:,.2f}".format(total_pago_menos|default(0)).replace(",", "X").replace(".", ",").replace("X", ".") }}</div>
+                        <div class="kpi-label">Economia (Saving)</div>
+                        <div class="kpi-subtitle">{{ count_saving|default(0) }} compras</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card border-red info-tooltip">
+                        <i class="fas fa-info-circle info-badge"></i>
+                        <div class="tooltip-content">
+                            <div class="tooltip-section">
+                                <div class="tooltip-title conceito"><i class="fas fa-lightbulb"></i> CONCEITO</div>
+                                <div class="tooltip-text">Inflation consolidado: soma de todos os aumentos de custo quando o preço faturado foi MAIOR que o preço anterior. Representa pressão inflacionária.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title calculo"><i class="fas fa-calculator"></i> LÓGICA DE CÁLCULO</div>
+                                <div class="tooltip-text">Valor: Σ (Preço Atual - Preço Anterior) × Qtd. Representa o aumento de custo em relação ao que pagávamos antes.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title origem"><i class="fas fa-database"></i> ORIGEM DOS DADOS</div>
+                                <div class="tooltip-text">SQL Server → ERP TOTVS → SD1010. Visão consolidada por produto (NF mais recente vs anterior).</div>
+                            </div>
+                        </div>
+                        <i class="fas fa-arrow-up kpi-icon" style="color: var(--inflation-color);"></i>
+                        <div class="kpi-value text-inflation">R$ {{ "{:,.2f}".format(total_pago_mais|default(0)).replace(",", "X").replace(".", ",").replace("X", ".") }}</div>
+                        <div class="kpi-label">Aumento (Inflation)</div>
+                        <div class="kpi-subtitle">{{ count_inflacao|default(0) }} compras</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card {% if saldo_liquido >= 0 %}border-green{% else %}border-red{% endif %} info-tooltip">
+                        <i class="fas fa-info-circle info-badge"></i>
+                        <div class="tooltip-content">
+                            <div class="tooltip-section">
+                                <div class="tooltip-title conceito"><i class="fas fa-lightbulb"></i> CONCEITO</div>
+                                <div class="tooltip-text">Saldo Líquido: resultado financeiro final do período. Diferença entre economia total (Saving) e aumento total (Inflation).</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title calculo"><i class="fas fa-calculator"></i> LÓGICA DE CÁLCULO</div>
+                                <div class="tooltip-text">Saldo = Total Saving - Total Inflation. Representa o resultado financeiro líquido do período.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title origem"><i class="fas fa-database"></i> ORIGEM DOS DADOS</div>
+                                <div class="tooltip-text">Cálculo derivado. Base: NFs do ERP TOTVS (SD1010) consolidadas por produto.</div>
+                            </div>
+                        </div>
+                        <i class="fas fa-balance-scale kpi-icon {% if saldo_liquido >= 0 %}text-success{% else %}text-danger{% endif %}"></i>
+                        <div class="kpi-value {% if saldo_liquido >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            R$ {{ "{:,.2f}".format(saldo_liquido|default(0)|abs).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                        </div>
+                        <div class="kpi-label">Saldo Líquido</div>
+                        <div class="kpi-subtitle">{% if saldo_liquido >= 0 %}economia líquida{% else %}aumento líquido{% endif %}</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="kpi-card border-blue info-tooltip">
+                        <i class="fas fa-info-circle info-badge"></i>
+                        <div class="tooltip-content">
+                            <div class="tooltip-section">
+                                <div class="tooltip-title conceito"><i class="fas fa-lightbulb"></i> CONCEITO</div>
+                                <div class="tooltip-text">Cost Avoidance: quantidade de itens onde o preço foi MANTIDO igual ao anterior. Indica estabilidade de custos e negociação preventiva.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title calculo"><i class="fas fa-calculator"></i> LÓGICA DE CÁLCULO</div>
+                                <div class="tooltip-text">Contagem de produtos onde Preço Atual = Preço Anterior (variação = 0%). Sem impacto financeiro imediato, mas protege contra aumentos.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title origem"><i class="fas fa-database"></i> ORIGEM DOS DADOS</div>
+                                <div class="tooltip-text">SQL Server → ERP TOTVS → SD1010. Comparação NF atual vs NF anterior por produto.</div>
+                            </div>
+                        </div>
+                        <i class="fas fa-shield-alt kpi-icon" style="color: var(--cost-avoidance-color);"></i>
+                        <div class="kpi-value" style="color: var(--cost-avoidance-color);">
+                            R$ {{ "{:,.2f}".format(valor_cost_avoidance|default(0)).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                        </div>
+                        <div class="kpi-label">Cost Avoidance</div>
+                        <div class="kpi-subtitle">{{ count_cost_avoidance|default(0) }} preços mantidos</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
-            <!-- GRÁFICOS -->
+            <!-- GRÁFICO DE EVOLUÇÃO (APENAS MODO ANALÍTICO) -->
+            {% if modo_analitico %}
             <div class="row g-4 mb-4">
-                <!-- Variação por Comprador -->
+                <div class="col-12">
+                    <div class="chart-card">
+                        <div class="chart-header info-tooltip">
+                            <i class="fas fa-chart-line me-2"></i>Evolução Histórica de Preço
+                            {% if produto_analisado %}
+                            <small class="text-muted ms-2">— {{ produto_analisado.descricao }}</small>
+                            {% endif %}
+                            <i class="fas fa-info-circle ms-2 text-secondary" style="font-size: 0.8rem; opacity: 0.6;"></i>
+                            <div class="tooltip-content">
+                                <div class="tooltip-section">
+                                    <div class="tooltip-title conceito"><i class="fas fa-lightbulb"></i> CONCEITO</div>
+                                    <div class="tooltip-text">Linha do tempo mostrando a evolução do preço unitário faturado do produto ao longo das notas fiscais recebidas. Permite visualizar tendências e sazonalidades.</div>
+                                </div>
+                                <div class="tooltip-section">
+                                    <div class="tooltip-title calculo"><i class="fas fa-calculator"></i> LÓGICA DE CÁLCULO</div>
+                                    <div class="tooltip-text">Cada ponto representa o preço unitário (D1_VUNIT) de uma NF, plotado na data de digitação (D1_DTDIGIT). Ordenado cronologicamente.</div>
+                                </div>
+                                <div class="tooltip-section">
+                                    <div class="tooltip-title origem"><i class="fas fa-database"></i> ORIGEM DOS DADOS</div>
+                                    <div class="tooltip-text">SQL Server → ERP TOTVS → SD1010 (D1_VUNIT, D1_DTDIGIT). Apenas NFs com pedido associado. Tooltip mostra NF, pedido e preço.</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart-container" style="height: 300px;">
+                            <canvas id="chartEvolucao"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <!-- GRÁFICOS MODO EXECUTIVO -->
+            <div class="row g-4 mb-4">
                 <div class="col-md-6">
                     <div class="chart-card">
-                        <div class="chart-header">
-                            <i class="fas fa-user-tie me-2"></i>Variação por Comprador
+                        <div class="chart-header info-tooltip">
+                            <i class="fas fa-user-tie me-2"></i>Impacto Financeiro por Comprador
+                            <i class="fas fa-info-circle ms-2 text-secondary" style="font-size: 0.8rem; opacity: 0.6;"></i>
+                            <div class="tooltip-content">
+                                <div class="tooltip-section">
+                                    <div class="tooltip-title conceito"><i class="fas fa-lightbulb"></i> CONCEITO</div>
+                                    <div class="tooltip-text">Distribuição do impacto financeiro (Saving vs Inflation) por comprador responsável. Permite identificar performance individual do time de compras.</div>
+                                </div>
+                                <div class="tooltip-section">
+                                    <div class="tooltip-title calculo"><i class="fas fa-calculator"></i> LÓGICA DE CÁLCULO</div>
+                                    <div class="tooltip-text">Agrupa impactos financeiros por comprador (definido no cadastro do fornecedor). Barras verdes = economia; Barras vermelhas = aumento.</div>
+                                </div>
+                                <div class="tooltip-section">
+                                    <div class="tooltip-title origem"><i class="fas fa-database"></i> ORIGEM DOS DADOS</div>
+                                    <div class="tooltip-text">SQL Server → ERP TOTVS → SD1010 + SA2010 (A2_X_COMPR). Comprador vinculado ao fornecedor da NF.</div>
+                                </div>
+                            </div>
                         </div>
                         <div class="chart-container">
                             <canvas id="chartComprador"></canvas>
@@ -492,11 +1090,25 @@
                     </div>
                 </div>
                 
-                <!-- Variação por Mês -->
                 <div class="col-md-6">
                     <div class="chart-card">
-                        <div class="chart-header">
+                        <div class="chart-header info-tooltip">
                             <i class="fas fa-calendar-alt me-2"></i>Evolução Mensal
+                            <i class="fas fa-info-circle ms-2 text-secondary" style="font-size: 0.8rem; opacity: 0.6;"></i>
+                            <div class="tooltip-content">
+                                <div class="tooltip-section">
+                                    <div class="tooltip-title conceito"><i class="fas fa-lightbulb"></i> CONCEITO</div>
+                                    <div class="tooltip-text">Evolução mensal do impacto financeiro total. Mostra tendência ao longo dos meses, permitindo identificar sazonalidades e períodos críticos.</div>
+                                </div>
+                                <div class="tooltip-section">
+                                    <div class="tooltip-title calculo"><i class="fas fa-calculator"></i> LÓGICA DE CÁLCULO</div>
+                                    <div class="tooltip-text">Agrupa impactos por mês de emissão da NF (D1_DTDIGIT). Valores positivos = economia mensal; Valores negativos = aumento mensal.</div>
+                                </div>
+                                <div class="tooltip-section">
+                                    <div class="tooltip-title origem"><i class="fas fa-database"></i> ORIGEM DOS DADOS</div>
+                                    <div class="tooltip-text">SQL Server → ERP TOTVS → SD1010. Agregação mensal de impactos financeiros calculados.</div>
+                                </div>
+                            </div>
                         </div>
                         <div class="chart-container">
                             <canvas id="chartMensal"></canvas>
@@ -504,64 +1116,204 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
 
-            <!-- TABELA DE DETALHES -->
+            <!-- TABELA -->
             <div class="table-card">
-                <div class="card-title">
-                    <i class="fas fa-table"></i>
-                    Detalhamento - Variação de Preços
-                    <span class="badge bg-secondary ms-2">{{ items|length }} registros</span>
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div class="card-title info-tooltip mb-0 d-flex align-items-center">
+                        <i class="fas fa-table me-2"></i>
+                        {% if modo_analitico %}
+                        Histórico de Notas Fiscais
+                        {% else %}
+                        Detalhamento - Variação de Preços (NFs)
+                        {% endif %}
+                        <span class="badge bg-secondary ms-2">{{ items|length }} registros</span>
+                        <i class="fas fa-info-circle ms-2 text-secondary" style="font-size: 0.75rem; opacity: 0.6;"></i>
+                        <div class="tooltip-content" style="left: 0; transform: none;">
+                            <div class="tooltip-section">
+                                <div class="tooltip-title conceito"><i class="fas fa-lightbulb"></i> CONCEITO</div>
+                                <div class="tooltip-text">{% if modo_analitico %}Lista detalhada de todas as NFs do produto pesquisado, com histórico completo de variações de preço e rastreabilidade pedido-NF.{% else %}Visão consolidada por produto: mostra a NF mais recente vs a anterior, com classificação e impacto financeiro.{% endif %}</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title calculo"><i class="fas fa-calculator"></i> LÓGICA DE CÁLCULO</div>
+                                <div class="tooltip-text">Cada linha representa uma NF com pedido associado. Variação = (Preço Atual - Preço Anterior) / Preço Anterior × 100. Impacto = Diferença × Quantidade.</div>
+                            </div>
+                            <div class="tooltip-section">
+                                <div class="tooltip-title origem"><i class="fas fa-database"></i> ORIGEM DOS DADOS</div>
+                                <div class="tooltip-text">SQL Server → ERP TOTVS → SD1010 (Itens NF) + D1_PEDIDO (Pedido Origem). Apenas NFs vinculadas a pedidos de compra. Governança: NFs sem pedido são excluídas.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 me-3">
+                        <button class="btn btn-sm btn-outline-info" onclick="gerenciarAnotacoes()" title="Ver/Gerenciar todas as anotações">
+                            <i class="fas fa-clipboard-list"></i> <span class="d-none d-md-inline">Gerenciar Anotações</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    <table class="table table-hover" id="tabelaVariacao">
                         <thead>
                             <tr>
-                                <th>Pedido</th>
-                                <th>Emissão</th>
-                                <th>Produto</th>
-                                <th>Fornecedor Atual</th>
-                                <th class="text-end">Qtd</th>
-                                <th class="text-end">Preço Atual</th>
-                                <th class="text-end">Último Preço</th>
-                                <th>Última Compra</th>
-                                <th class="text-end">Variação R$</th>
-                                <th class="text-end">Variação %</th>
-                                <th class="text-center">Status</th>
+                                {% if modo_analitico %}
+                                <th class="sortable" onclick="sortTable('tabelaVariacao', 0, 'text')">NF <i class="fas fa-sort"></i></th>
+                                <th class="sortable" onclick="sortTable('tabelaVariacao', 1, 'text')">Pedido <i class="fas fa-sort"></i></th>
+                                <th class="sortable" onclick="sortTable('tabelaVariacao', 2, 'date')">Data <i class="fas fa-sort"></i></th>
+                                <th class="sortable" onclick="sortTable('tabelaVariacao', 3, 'text')">Produto <i class="fas fa-sort"></i></th>
+                                <th class="text-end sortable" onclick="sortTable('tabelaVariacao', 4, 'number')">Qtd <i class="fas fa-sort"></i></th>
+                                <th class="text-end sortable" onclick="sortTable('tabelaVariacao', 5, 'number')">Preço Unit. <i class="fas fa-sort"></i></th>
+                                <th class="text-end sortable" onclick="sortTable('tabelaVariacao', 6, 'number')">Preço Anterior <i class="fas fa-sort"></i></th>
+                                <th class="text-end sortable" onclick="sortTable('tabelaVariacao', 7, 'number')">Variação <i class="fas fa-sort"></i></th>
+                                <th class="text-center sortable" onclick="sortTable('tabelaVariacao', 8, 'text')">Classificação <i class="fas fa-sort"></i></th>
+                                <th class="text-end sortable" onclick="sortTable('tabelaVariacao', 9, 'number')">Impacto (R$) <i class="fas fa-sort"></i></th>
+                                <th class="text-center">Anotação</th>
+                                {% else %}
+                                <th class="sortable" onclick="sortTable('tabelaVariacao', 0, 'text')">NF <i class="fas fa-sort"></i></th>
+                                <th class="sortable" onclick="sortTable('tabelaVariacao', 1, 'text')">Pedido <i class="fas fa-sort"></i></th>
+                                <th class="sortable" onclick="sortTable('tabelaVariacao', 2, 'date')">Data <i class="fas fa-sort"></i></th>
+                                <th class="sortable" onclick="sortTable('tabelaVariacao', 3, 'text')">Produto <i class="fas fa-sort"></i></th>
+                                <th class="sortable" onclick="sortTable('tabelaVariacao', 4, 'text')">Fornecedor <i class="fas fa-sort"></i></th>
+                                <th class="text-end sortable" onclick="sortTable('tabelaVariacao', 5, 'number')">Qtd <i class="fas fa-sort"></i></th>
+                                <th class="text-end sortable" onclick="sortTable('tabelaVariacao', 6, 'number')">Preço Unit. <i class="fas fa-sort"></i></th>
+                                <th class="text-end sortable" onclick="sortTable('tabelaVariacao', 7, 'number')">Preço Anterior <i class="fas fa-sort"></i></th>
+                                <th class="text-end sortable" onclick="sortTable('tabelaVariacao', 8, 'number')">Variação <i class="fas fa-sort"></i></th>
+                                <th class="text-center sortable" onclick="sortTable('tabelaVariacao', 9, 'text')">Classificação <i class="fas fa-sort"></i></th>
+                                <th class="text-end sortable" onclick="sortTable('tabelaVariacao', 10, 'number')">Impacto (R$) <i class="fas fa-sort"></i></th>
+                                <th class="text-center">Anotação</th>
+                                {% endif %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for item in items %}
                             <tr>
-                                <td><strong>{{ item.NumeroPedido }}-{{ item.ItemPedido }}</strong></td>
+                                {% if modo_analitico %}
+                                <td>
+                                    <span class="badge bg-primary text-white">{{ item.NumeroNota }}</span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ item.NumeroPedido }}</small>
+                                </td>
                                 <td>{{ item.DataEmissao }}</td>
                                 <td title="{{ item.DescricaoProduto }}">
                                     <small class="text-muted">{{ item.CodProduto }}</small><br>
-                                    {{ item.DescricaoProduto }}
+                                    {{ item.DescricaoProduto[:35] }}...
                                 </td>
-                                <td>{{ item.NomeFornecedor }}</td>
                                 <td class="text-end">{{ "{:,.0f}".format(item.QtdPedida).replace(",", ".") }}</td>
-                                <td class="text-end">R$ {{ "{:,.2f}".format(item.PrecoAtual).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
-                                <td class="text-end">R$ {{ "{:,.2f}".format(item.UltimoPrecoUnitario).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
-                                <td>{{ item.DataUltimaCompra }}</td>
-                                <td class="text-end {% if item.Classificacao == 'Saving' %}valor-saving{% elif item.Classificacao == 'Inflação' %}valor-inflacao{% else %}valor-estavel{% endif %}">
-                                    {% if item.Classificacao == 'Saving' %}
-                                    <i class="fas fa-arrow-down me-1"></i>
-                                    {% elif item.Classificacao == 'Inflação' %}
-                                    <i class="fas fa-arrow-up me-1"></i>
+                                <td class="text-end fw-bold">R$ {{ "{:,.2f}".format(item.PrecoUnitarioAtual).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+                                <td class="text-end">
+                                    {% if item.PrecoUnitarioAnterior %}
+                                        R$ {{ "{:,.2f}".format(item.PrecoUnitarioAnterior).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                                        {% if item.NotaAnterior %}
+                                        <br><small class="text-muted">NF {{ item.NotaAnterior }}</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="valor-na">—</span>
                                     {% endif %}
-                                    R$ {{ "{:,.2f}".format(item.VariacaoValor|abs).replace(",", "X").replace(".", ",").replace("X", ".") }}
                                 </td>
-                                <td class="text-end {% if item.Classificacao == 'Saving' %}valor-saving{% elif item.Classificacao == 'Inflação' %}valor-inflacao{% else %}valor-estavel{% endif %}">
-                                    {{ "{:,.1f}".format(item.VariacaoPercentual).replace(",", "X").replace(".", ",").replace("X", ".") }}%
+                                <td class="text-end {% if item.Classificacao == 'Saving' %}text-success{% elif item.Classificacao == 'Inflation' %}text-danger{% endif %}">
+                                    {% if item.PrecoUnitarioAnterior %}
+                                        {% set diff = item.PrecoUnitarioAtual - item.PrecoUnitarioAnterior %}
+                                        {% set percent = ((item.PrecoUnitarioAtual - item.PrecoUnitarioAnterior) / item.PrecoUnitarioAnterior * 100) if item.PrecoUnitarioAnterior != 0 else 0 %}
+                                        {% if diff < 0 %}
+                                        <i class="fas fa-arrow-down me-1"></i>R$ {{ "{:,.2f}".format(diff|abs).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                                        <span class="variacao-percent">{{ "{:,.2f}".format(percent|abs).replace(",", "X").replace(".", ",").replace("X", ".") }}%</span>
+                                        {% elif diff > 0 %}
+                                        <i class="fas fa-arrow-up me-1"></i>R$ {{ "{:,.2f}".format(diff).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                                        <span class="variacao-percent">+{{ "{:,.2f}".format(percent).replace(",", "X").replace(".", ",").replace("X", ".") }}%</span>
+                                        {% else %}
+                                        <i class="fas fa-equals me-1"></i>R$ 0,00
+                                        <span class="variacao-percent">0,00%</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="valor-na">—</span>
+                                    {% endif %}
                                 </td>
+                                {% else %}
+                                <!-- MODO EXECUTIVO: Colunas padronizadas com modo analítico -->
+                                <td>
+                                    <span class="badge bg-primary text-white">{{ item.NumeroNota }}</span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ item.NumeroPedido }}</small>
+                                </td>
+                                <td>{{ item.DataEmissao }}</td>
+                                <td title="{{ item.DescricaoProduto }}">
+                                    <small class="text-muted">{{ item.CodProduto }}</small><br>
+                                    {{ item.DescricaoProduto[:35] }}...
+                                </td>
+                                <td title="{{ item.FornecedorAtual }}">
+                                    <small class="text-muted">{{ item.CodFornecedor }}</small><br>
+                                    {{ item.FornecedorAtual[:22] }}{% if item.FornecedorAtual|length > 22 %}...{% endif %}
+                                </td>
+                                <td class="text-end">{{ "{:,.0f}".format(item.QtdPedida).replace(",", ".") }}</td>
+                                <td class="text-end fw-bold">R$ {{ "{:,.2f}".format(item.PrecoUnitarioAtual).replace(",", "X").replace(".", ",").replace("X", ".") }}</td>
+                                <td class="text-end">
+                                    {% if item.PrecoUnitarioAnterior %}
+                                        R$ {{ "{:,.2f}".format(item.PrecoUnitarioAnterior).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                                        {% if item.NotaAnterior %}
+                                        <br><small class="text-muted">NF {{ item.NotaAnterior }}</small>
+                                        {% endif %}
+                                        {% if item.CompraAntiga %}
+                                        <span class="badge-antiga" title="Mais de 2 anos"><i class="fas fa-clock"></i></span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="valor-na">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end {% if item.Classificacao == 'Saving' %}text-success{% elif item.Classificacao == 'Inflation' %}text-danger{% endif %}">
+                                    {% if item.PrecoUnitarioAnterior %}
+                                        {% set diff = item.PrecoUnitarioAtual - item.PrecoUnitarioAnterior %}
+                                        {% set percent = ((item.PrecoUnitarioAtual - item.PrecoUnitarioAnterior) / item.PrecoUnitarioAnterior * 100) if item.PrecoUnitarioAnterior != 0 else 0 %}
+                                        {% if diff < 0 %}
+                                        <i class="fas fa-arrow-down me-1"></i>R$ {{ "{:,.2f}".format(diff|abs).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                                        <span class="variacao-percent">{{ "{:,.2f}".format(percent|abs).replace(",", "X").replace(".", ",").replace("X", ".") }}%</span>
+                                        {% elif diff > 0 %}
+                                        <i class="fas fa-arrow-up me-1"></i>R$ {{ "{:,.2f}".format(diff).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                                        <span class="variacao-percent">+{{ "{:,.2f}".format(percent).replace(",", "X").replace(".", ",").replace("X", ".") }}%</span>
+                                        {% else %}
+                                        <i class="fas fa-equals me-1"></i>R$ 0,00
+                                        <span class="variacao-percent">0,00%</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="valor-na">—</span>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
                                 <td class="text-center">
                                     {% if item.Classificacao == 'Saving' %}
-                                    <span class="badge badge-saving"><i class="fas fa-check me-1"></i>Saving</span>
-                                    {% elif item.Classificacao == 'Inflação' %}
-                                    <span class="badge badge-inflacao"><i class="fas fa-exclamation me-1"></i>Inflação</span>
+                                    <span class="badge badge-saving"><i class="fas fa-arrow-down me-1"></i>Saving</span>
+                                    {% elif item.Classificacao == 'Inflation' %}
+                                    <span class="badge badge-inflation"><i class="fas fa-arrow-up me-1"></i>Inflation</span>
+                                    {% elif item.Classificacao == 'Cost Avoidance' %}
+                                    <span class="badge badge-cost-avoidance"><i class="fas fa-equals me-1"></i>Cost Avoidance</span>
                                     {% else %}
-                                    <span class="badge badge-estavel"><i class="fas fa-minus me-1"></i>Estável</span>
+                                    <span class="badge badge-primeira-compra"><i class="fas fa-plus me-1"></i>1ª Compra</span>
                                     {% endif %}
+                                </td>
+                                <td class="text-end {% if item.Classificacao == 'Saving' %}valor-saving{% elif item.Classificacao == 'Inflation' %}valor-inflation{% elif item.Classificacao == 'Primeira Compra' %}valor-na{% else %}valor-neutral{% endif %}">
+                                    {% if item.ImpactoFinanceiro is not none %}
+                                        {% if item.Classificacao == 'Saving' %}
+                                        <i class="fas fa-arrow-down me-1"></i>
+                                        {% elif item.Classificacao == 'Inflation' %}
+                                        <i class="fas fa-arrow-up me-1"></i>
+                                        {% endif %}
+                                        R$ {{ "{:,.2f}".format(item.ImpactoFinanceiro|abs).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                                    {% else %}
+                                        <span class="valor-na">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn-anotacao" 
+                                            data-pedido="{{ item.NumeroPedido }}"
+                                            data-nota="{{ item.NumeroNota }}"
+                                            data-codproduto="{{ item.CodProduto }}"
+                                            data-produto="{{ item.DescricaoProduto }}"
+                                            data-data="{{ item.DataEmissao }}"
+                                            onclick="abrirModalAnotacaoBtn(this)"
+                                            id="btn-nota-{{ item.NumeroPedido }}-{{ item.NumeroNota }}-{{ item.CodProduto }}"
+                                            title="Adicionar/Editar Anotação">
+                                        <i class="far fa-sticky-note"></i>
+                                    </button>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -573,13 +1325,202 @@
         </div>
     </div>
 
-    <!-- Scripts -->
+    <!-- MODAL DE ANOTAÇÃO -->
+    <div class="modal fade modal-anotacao" id="modalAnotacao" tabindex="-1" aria-labelledby="modalAnotacaoLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalAnotacaoLabel">
+                        <i class="fas fa-sticky-note me-2"></i>Anotação / Justificativa
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="pedido-info">
+                        <div><strong>Pedido:</strong> <span id="infoPedido"></span></div>
+                        <div><strong>NF:</strong> <span id="infoNota"></span></div>
+                        <div><strong>Produto:</strong> <span id="infoProduto"></span></div>
+                        <div><strong>Data:</strong> <span id="infoData"></span></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="textoAnotacao" class="form-label">Anotação:</label>
+                        <textarea class="form-control" id="textoAnotacao" rows="4" 
+                                  placeholder="Digite sua justificativa ou anotação sobre este pedido..."></textarea>
+                    </div>
+                    <input type="hidden" id="anotacaoPedido">
+                    <input type="hidden" id="anotacaoNota">
+                    <input type="hidden" id="anotacaoCodProduto">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-danger btn-delete-note" onclick="apagarAnotacao()" title="Apagar anotação">
+                        <i class="fas fa-trash-alt me-1"></i>Apagar
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="salvarAnotacao()">
+                        <i class="fas fa-save me-1"></i>Salvar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE GERENCIAMENTO DE ANOTAÇÕES -->
+    <div class="modal fade" id="modalGerenciarAnotacoes" tabindex="-1" aria-labelledby="modalGerenciarLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title" id="modalGerenciarLabel">
+                        <i class="fas fa-clipboard-list me-2"></i>Gerenciar Anotações - Sistema Universal
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-cloud me-2"></i>
+                            <strong>Anotações no servidor:</strong> <span id="totalAnotacoes">0</span>
+                        </div>
+                        <button class="btn btn-sm btn-primary" onclick="atualizarAnotacoesServidor()" title="Atualizar do servidor">
+                            <i class="fas fa-sync-alt me-1"></i>Atualizar
+                        </button>
+                    </div>
+                    
+                    <!-- Área para recuperar anotações antigas do LocalStorage -->
+                    <div class="alert alert-warning" id="alertaLocalStorage" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Anotações antigas encontradas!</strong>
+                                <br><small>Existem <span id="qtdLocalStorage">0</span> anotações salvas neste navegador que ainda não foram migradas para o servidor.</small>
+                            </div>
+                            <button class="btn btn-sm btn-warning" onclick="migrarLocalStorageParaServidor()">
+                                <i class="fas fa-cloud-upload-alt me-1"></i>Migrar para Servidor
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Sistema Universal:</strong> As anotações são salvas no servidor e compartilhadas automaticamente entre todos os usuários. 
+                        Qualquer anotação feita por qualquer pessoa será visível para todos.
+                    </div>
+                    <div id="listaAnotacoes">
+                        <div class="text-center py-3">
+                            <div class="spinner-border text-info" role="status">
+                                <span class="visually-hidden">Carregando...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Carregando anotações do servidor...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="verificarLocalStorage()" title="Verificar se há anotações antigas neste navegador">
+                            <i class="fas fa-search me-1"></i>Verificar Navegador Antigo
+                        </button>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-success" onclick="exportarAnotacoes()">
+                            <i class="fas fa-download me-1"></i>Exportar JSON
+                        </button>
+                        <button type="button" class="btn btn-warning" onclick="importarAnotacoes()">
+                            <i class="fas fa-upload me-1"></i>Importar JSON
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <input type="file" id="fileInputAnotacoes" style="display:none" accept=".json">
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/js/bootstrap-select.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script>
+        // ========================================
+        // INICIALIZAÇÃO DOS DROPDOWNS MENSAIS
+        // ========================================
+        (function() {
+            const meses = [
+                'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+                'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+            ];
+            
+            const dataAtual = new Date();
+            const anoAtual = dataAtual.getFullYear();
+            
+            // Função para obter último dia do mês
+            function ultimoDiaMes(ano, mes) {
+                return new Date(ano, mes + 1, 0).getDate();
+            }
+            
+            // Gerar opções
+            const opcoesInicio = [];
+            const opcoesFim = [];
+            for (let ano = anoAtual - 2; ano <= anoAtual + 1; ano++) {
+                for (let mes = 0; mes < 12; mes++) {
+                    const valorInicio = `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
+                    const ultimoDia = ultimoDiaMes(ano, mes);
+                    const valorFim = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+                    const texto = `${meses[mes]}/${ano}`;
+                    opcoesInicio.push({ valor: valorInicio, texto });
+                    opcoesFim.push({ valor: valorFim, texto });
+                }
+            }
+            
+            function preencherSelectInicio(selectId, valorInicial) {
+                const select = document.getElementById(selectId);
+                if (!select) return;
+                select.innerHTML = '';
+                opcoesInicio.forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt.valor;
+                    option.textContent = opt.texto;
+                    select.appendChild(option);
+                });
+                if (valorInicial) {
+                    const partes = valorInicial.split('-');
+                    select.value = `${partes[0]}-${partes[1]}-01`;
+                } else {
+                    select.value = `${anoAtual}-01-01`;
+                }
+            }
+            
+            function preencherSelectFim(selectId, valorInicial) {
+                const select = document.getElementById(selectId);
+                if (!select) return;
+                select.innerHTML = '';
+                opcoesFim.forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt.valor;
+                    option.textContent = opt.texto;
+                    select.appendChild(option);
+                });
+                if (valorInicial) {
+                    const partes = valorInicial.split('-');
+                    const ano = parseInt(partes[0]);
+                    const mes = parseInt(partes[1]) - 1;
+                    const ultimoDia = ultimoDiaMes(ano, mes);
+                    select.value = `${partes[0]}-${partes[1]}-${String(ultimoDia).padStart(2, '0')}`;
+                } else {
+                    select.value = `${anoAtual}-12-31`;
+                }
+            }
+            
+            preencherSelectInicio('selectDataInicio', '{{ data_inicio }}');
+            preencherSelectFim('selectDataFim', '{{ data_fim }}');
+        })();
+    </script>
     
     <script>
-        // Toggle Sidebar
+        // Inicializar bootstrap-select
+        $(document).ready(function() {
+            $('.selectpicker').selectpicker();
+        });
+        
         const sidebarToggle = document.getElementById('sidebarToggle');
         const sidebar = document.getElementById('sidebar');
         const content = document.getElementById('content');
@@ -590,11 +1531,11 @@
             sidebarToggle.classList.toggle('collapsed');
         });
 
-        // Dados dos gráficos (passados pelo Flask)
         const chartCompradorData = {{ chart_compradores | tojson | safe }};
         const chartMensalData = {{ chart_meses | tojson | safe }};
+        const chartEvolucaoData = {{ chart_evolucao | tojson | safe }};
+        const modoAnalitico = {{ 'true' if modo_analitico else 'false' }};
 
-        // Função para formatar valores em R$ de forma compacta
         function formatCurrency(value) {
             const absValue = Math.abs(value);
             if (absValue >= 1000000) {
@@ -605,12 +1546,10 @@
             return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
         }
 
-        // Formato completo para tooltips
         function formatCurrencyFull(value) {
             return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
         }
 
-        // Função para determinar cores com base no valor (negativo = verde/saving, positivo = vermelho/inflação)
         function getBarColors(valores) {
             return valores.map(v => v < 0 ? 'rgba(25, 135, 84, 0.85)' : 'rgba(220, 53, 69, 0.85)');
         }
@@ -619,7 +1558,6 @@
             return valores.map(v => v < 0 ? 'rgba(25, 135, 84, 1)' : 'rgba(220, 53, 69, 1)');
         }
 
-        // Formatar labels de mês (2024-01 -> Jan/24)
         function formatMonth(label) {
             const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
             const parts = label.split('-');
@@ -630,198 +1568,821 @@
             }
             return label;
         }
+        
+        // GRÁFICO DE EVOLUÇÃO (MODO ANALÍTICO)
+        if (modoAnalitico && chartEvolucaoData && chartEvolucaoData.labels && chartEvolucaoData.labels.length > 0) {
+            const ctxEvolucao = document.getElementById('chartEvolucao');
+            if (ctxEvolucao) {
+                new Chart(ctxEvolucao.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: chartEvolucaoData.labels,
+                        datasets: [{
+                            label: 'Preço Unitário',
+                            data: chartEvolucaoData.precos,
+                            borderColor: 'rgba(13, 110, 253, 1)',
+                            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 6,
+                            pointBackgroundColor: 'rgba(13, 110, 253, 1)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointHoverRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        layout: {
+                            padding: {
+                                top: 50,
+                                right: 20,
+                                bottom: 15,
+                                left: 15
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(context) {
+                                        const idx = context[0].dataIndex;
+                                        return 'Data: ' + chartEvolucaoData.labels[idx];
+                                    },
+                                    label: function(context) {
+                                        const idx = context.dataIndex;
+                                        return [
+                                            'Preço: ' + formatCurrencyFull(context.raw),
+                                            'NF: ' + (chartEvolucaoData.notas ? chartEvolucaoData.notas[idx] : 'N/A'),
+                                            'Pedido: ' + chartEvolucaoData.pedidos[idx]
+                                        ];
+                                    }
+                                }
+                            },
+                            datalabels: {
+                                display: true,
+                                anchor: 'end',
+                                align: 'top',
+                                color: '#333',
+                                font: { weight: 'bold', size: 10 },
+                                formatter: function(value) {
+                                    return formatCurrency(value);
+                                },
+                                clip: false,
+                                offset: 8
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { display: false }
+                            },
+                            y: {
+                                beginAtZero: false,
+                                afterDataLimits: function(scale) {
+                                    scale.max = scale.max * 1.15;
+                                },
+                                ticks: {
+                                    callback: function(value) { return formatCurrency(value); }
+                                }
+                            }
+                        }
+                    },
+                    plugins: [ChartDataLabels]
+                });
+            }
+        }
 
-        // ==========================================
-        // GRÁFICO POR COMPRADOR (Barras Horizontais)
-        // ==========================================
-        if (chartCompradorData.labels && chartCompradorData.labels.length > 0) {
-            const ctxComprador = document.getElementById('chartComprador').getContext('2d');
-            
-            new Chart(ctxComprador, {
+        // Gráfico por Comprador (MODO EXECUTIVO)
+        if (!modoAnalitico && chartCompradorData && chartCompradorData.labels && chartCompradorData.labels.length > 0) {
+            const ctxComprador = document.getElementById('chartComprador');
+            if (ctxComprador) {
+                new Chart(ctxComprador.getContext('2d'), {
                 type: 'bar',
                 data: {
                     labels: chartCompradorData.labels,
-                    datasets: [{
-                        label: 'Variação Total (R$)',
-                        data: chartCompradorData.valores,
-                        backgroundColor: getBarColors(chartCompradorData.valores),
-                        borderColor: getBorderColors(chartCompradorData.valores),
-                        borderWidth: 2,
-                        borderRadius: 4,
-                        barThickness: 28
-                    }]
+                    datasets: [
+                        {
+                            label: 'Economia (Saving)',
+                            data: chartCompradorData.saving,
+                            backgroundColor: 'rgba(25, 135, 84, 0.85)',
+                            borderColor: 'rgba(25, 135, 84, 1)',
+                            borderWidth: 1,
+                            borderRadius: 3
+                        },
+                        {
+                            label: 'Pago a Mais (Inflation)',
+                            data: chartCompradorData.inflation,
+                            backgroundColor: 'rgba(220, 53, 69, 0.85)',
+                            borderColor: 'rgba(220, 53, 69, 1)',
+                            borderWidth: 1,
+                            borderRadius: 3
+                        },
+                        {
+                            label: 'Cost Avoidance',
+                            data: chartCompradorData.cost_avoidance,
+                            backgroundColor: 'rgba(13, 110, 253, 0.85)',
+                            borderColor: 'rgba(13, 110, 253, 1)',
+                            borderWidth: 1,
+                            borderRadius: 3
+                        }
+                    ]
                 },
                 options: {
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    layout: {
-                        padding: { right: 15, left: 10 }
-                    },
+                    layout: { padding: { right: 70 } },
                     plugins: {
-                        legend: { display: false },
+                        legend: { 
+                            display: true,
+                            position: 'top',
+                            labels: { boxWidth: 12, padding: 8, font: { size: 10 } }
+                        },
                         tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleFont: { size: 13, weight: 'bold' },
-                            bodyFont: { size: 12 },
-                            padding: 12,
-                            cornerRadius: 8,
                             callbacks: {
-                                title: function(ctx) {
-                                    return ctx[0].label;
-                                },
-                                label: function(ctx) {
-                                    const valor = ctx.raw;
-                                    const tipo = valor < 0 ? '✅ Saving' : '⚠️ Inflação';
-                                    return tipo + ': ' + formatCurrencyFull(Math.abs(valor));
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + formatCurrencyFull(context.raw);
                                 }
                             }
                         },
                         datalabels: {
                             display: true,
-                            anchor: function(ctx) {
-                                return ctx.dataset.data[ctx.dataIndex] < 0 ? 'start' : 'end';
-                            },
-                            align: function(ctx) {
-                                return ctx.dataset.data[ctx.dataIndex] < 0 ? 'start' : 'end';
-                            },
+                            anchor: 'end',
+                            align: 'right',
                             offset: 4,
+                            color: '#333',
+                            font: { weight: 'bold', size: 9 },
                             formatter: function(value) {
-                                const prefix = value < 0 ? '-' : '+';
-                                return prefix + formatCurrency(Math.abs(value));
-                            },
-                            color: function(ctx) {
-                                return ctx.dataset.data[ctx.dataIndex] < 0 ? '#198754' : '#dc3545';
-                            },
-                            font: { weight: 'bold', size: 11 }
+                                if (value === 0 || value === null) return '';
+                                const absVal = Math.abs(value);
+                                if (absVal >= 1000000) return (value/1000000).toFixed(1) + 'M';
+                                if (absVal >= 1000) return (value/1000).toFixed(0) + 'k';
+                                return value.toFixed(0);
+                            }
                         }
                     },
                     scales: {
-                        x: {
-                            grid: { 
-                                color: 'rgba(0,0,0,0.06)',
-                                drawBorder: false
-                            },
-                            ticks: {
-                                font: { size: 10 },
-                                color: '#6c757d',
-                                callback: function(value) {
-                                    return formatCurrency(value);
-                                }
-                            }
+                        x: { 
+                            display: false,
+                            type: 'logarithmic',
+                            stacked: false
                         },
-                        y: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: '500' },
-                                color: '#333',
-                                padding: 8
-                            }
+                        y: { 
+                            stacked: false,
+                            grid: { display: false }
                         }
                     }
                 },
                 plugins: [ChartDataLabels]
             });
+            }
         }
 
-        // ==========================================
-        // GRÁFICO MENSAL (Barras Verticais)
-        // ==========================================
-        if (chartMensalData.labels && chartMensalData.labels.length > 0) {
-            const ctxMensal = document.getElementById('chartMensal').getContext('2d');
+        // Gráfico por Mês (MODO EXECUTIVO)
+        if (!modoAnalitico && chartMensalData && chartMensalData.labels && chartMensalData.labels.length > 0) {
+            const ctxMensal = document.getElementById('chartMensal');
+            if (ctxMensal) {
+                const labelsFormatadas = chartMensalData.labels.map(formatMonth);
             
-            // Formatar labels dos meses
-            const labelsFormatadas = chartMensalData.labels.map(formatMonth);
-            
-            new Chart(ctxMensal, {
+                new Chart(ctxMensal.getContext('2d'), {
                 type: 'bar',
                 data: {
                     labels: labelsFormatadas,
-                    datasets: [{
-                        label: 'Variação Mensal (R$)',
-                        data: chartMensalData.valores,
-                        backgroundColor: getBarColors(chartMensalData.valores),
-                        borderColor: getBorderColors(chartMensalData.valores),
-                        borderWidth: 2,
-                        borderRadius: 4,
-                        maxBarThickness: 50
-                    }]
+                    datasets: [
+                        {
+                            label: 'Economia (Saving)',
+                            data: chartMensalData.saving,
+                            backgroundColor: 'rgba(25, 135, 84, 0.85)',
+                            borderColor: 'rgba(25, 135, 84, 1)',
+                            borderWidth: 1,
+                            borderRadius: 3
+                        },
+                        {
+                            label: 'Pago a Mais (Inflation)',
+                            data: chartMensalData.inflation,
+                            backgroundColor: 'rgba(220, 53, 69, 0.85)',
+                            borderColor: 'rgba(220, 53, 69, 1)',
+                            borderWidth: 1,
+                            borderRadius: 3
+                        },
+                        {
+                            label: 'Cost Avoidance',
+                            data: chartMensalData.cost_avoidance,
+                            backgroundColor: 'rgba(13, 110, 253, 0.85)',
+                            borderColor: 'rgba(13, 110, 253, 1)',
+                            borderWidth: 1,
+                            borderRadius: 3
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    layout: {
-                        padding: { top: 30, bottom: 10 }
-                    },
+                    layout: { padding: { top: 30 } },
                     plugins: {
-                        legend: { display: false },
+                        legend: { 
+                            display: true,
+                            position: 'top',
+                            labels: { boxWidth: 12, padding: 8, font: { size: 10 } }
+                        },
                         tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleFont: { size: 13, weight: 'bold' },
-                            bodyFont: { size: 12 },
-                            padding: 12,
-                            cornerRadius: 8,
                             callbacks: {
-                                title: function(ctx) {
-                                    return 'Mês: ' + ctx[0].label;
-                                },
-                                label: function(ctx) {
-                                    const valor = ctx.raw;
-                                    const tipo = valor < 0 ? '✅ Economia' : '⚠️ Aumento';
-                                    return tipo + ': ' + formatCurrencyFull(Math.abs(valor));
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + formatCurrencyFull(context.raw);
                                 }
                             }
                         },
                         datalabels: {
-                            display: function(ctx) {
-                                // Esconde labels se houver muitos meses
-                                return chartMensalData.labels.length <= 12;
-                            },
-                            anchor: function(ctx) {
-                                return ctx.dataset.data[ctx.dataIndex] < 0 ? 'start' : 'end';
-                            },
-                            align: function(ctx) {
-                                return ctx.dataset.data[ctx.dataIndex] < 0 ? 'bottom' : 'top';
-                            },
+                            display: true,
+                            anchor: 'end',
+                            align: 'top',
                             offset: 2,
+                            color: '#333',
+                            font: { weight: 'bold', size: 8 },
                             formatter: function(value) {
-                                return formatCurrency(value);
-                            },
-                            color: function(ctx) {
-                                return ctx.dataset.data[ctx.dataIndex] < 0 ? '#198754' : '#dc3545';
-                            },
-                            font: { weight: 'bold', size: 10 },
-                            rotation: 0
+                                if (value === 0 || value === null) return '';
+                                const absVal = Math.abs(value);
+                                if (absVal >= 1000000) return (value/1000000).toFixed(1) + 'M';
+                                if (absVal >= 1000) return (value/1000).toFixed(0) + 'k';
+                                return value.toFixed(0);
+                            }
                         }
                     },
                     scales: {
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: '500' },
-                                color: '#333',
-                                maxRotation: 45,
-                                minRotation: 0
-                            }
+                        x: { 
+                            stacked: false,
+                            grid: { display: false }
                         },
-                        y: {
-                            grid: { 
-                                color: 'rgba(0,0,0,0.06)',
-                                drawBorder: false
-                            },
-                            ticks: {
-                                font: { size: 10 },
-                                color: '#6c757d',
-                                callback: function(value) {
-                                    return formatCurrency(value);
-                                }
-                            }
+                        y: { 
+                            display: false,
+                            type: 'logarithmic',
+                            stacked: false
                         }
                     }
                 },
                 plugins: [ChartDataLabels]
+                });
+            }
+        }
+
+        // =====================================================
+        // SISTEMA DE ANOTAÇÕES - SERVIDOR (UNIVERSAL)
+        // =====================================================
+        // Anotações são salvas no servidor, compartilhadas entre todos os usuários
+        let anotacoesCache = {};
+        
+        async function getAnotacoes() {
+            try {
+                const response = await fetch('/api/anotacoes');
+                const data = await response.json();
+                if (data.success) {
+                    // Converte formato do servidor para formato simples (chave: texto)
+                    anotacoesCache = {};
+                    for (const [chave, valor] of Object.entries(data.anotacoes)) {
+                        anotacoesCache[chave] = typeof valor === 'object' ? valor.texto : valor;
+                    }
+                    return anotacoesCache;
+                }
+            } catch (error) {
+                console.error('Erro ao carregar anotações:', error);
+            }
+            return {};
+        }
+        
+        async function saveAnotacao(chave, texto) {
+            try {
+                const response = await fetch('/api/anotacoes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chave, texto })
+                });
+                const data = await response.json();
+                return data.success;
+            } catch (error) {
+                console.error('Erro ao salvar anotação:', error);
+                return false;
+            }
+        }
+        
+        function getChaveAnotacao(pedido, nota, codProduto) {
+            return `${pedido}_${nota}_${codProduto}`;
+        }
+        
+        // Função wrapper que lê os data attributes do botão
+        function abrirModalAnotacaoBtn(btn) {
+            const pedido = btn.dataset.pedido;
+            const nota = btn.dataset.nota;
+            const codProduto = btn.dataset.codproduto;
+            const produto = btn.dataset.produto;
+            const data = btn.dataset.data;
+            abrirModalAnotacao(pedido, nota, codProduto, produto, data);
+        }
+        
+        async function abrirModalAnotacao(pedido, nota, codProduto, produto, data) {
+            // Preencher informações
+            document.getElementById('infoPedido').textContent = pedido;
+            document.getElementById('infoNota').textContent = nota;
+            document.getElementById('infoProduto').textContent = `${codProduto} - ${produto}`;
+            document.getElementById('infoData').textContent = data;
+            
+            // Guardar referências
+            document.getElementById('anotacaoPedido').value = pedido;
+            document.getElementById('anotacaoNota').value = nota;
+            document.getElementById('anotacaoCodProduto').value = codProduto;
+            
+            // Carregar anotação existente do servidor
+            const anotacoes = await getAnotacoes();
+            const chave = getChaveAnotacao(pedido, nota, codProduto);
+            const anotacaoExistente = anotacoes[chave] || '';
+            document.getElementById('textoAnotacao').value = anotacaoExistente;
+            
+            // Abrir modal
+            const modal = new bootstrap.Modal(document.getElementById('modalAnotacao'));
+            modal.show();
+        }
+        
+        async function salvarAnotacao() {
+            const pedido = document.getElementById('anotacaoPedido').value;
+            const nota = document.getElementById('anotacaoNota').value;
+            const codProduto = document.getElementById('anotacaoCodProduto').value;
+            const texto = document.getElementById('textoAnotacao').value.trim();
+            
+            const chave = getChaveAnotacao(pedido, nota, codProduto);
+            
+            const sucesso = await saveAnotacao(chave, texto);
+            
+            if (sucesso) {
+                atualizarVisualAnotacao(pedido, nota, codProduto, texto);
+                bootstrap.Modal.getInstance(document.getElementById('modalAnotacao')).hide();
+                mostrarToast(texto ? 'Anotação salva com sucesso!' : 'Anotação removida.');
+            } else {
+                mostrarToast('Erro ao salvar anotação!', 'danger');
+            }
+        }
+        
+        async function apagarAnotacao() {
+            const pedido = document.getElementById('anotacaoPedido').value;
+            const nota = document.getElementById('anotacaoNota').value;
+            const codProduto = document.getElementById('anotacaoCodProduto').value;
+            
+            if (confirm('Tem certeza que deseja apagar esta anotação?')) {
+                const chave = getChaveAnotacao(pedido, nota, codProduto);
+                
+                const sucesso = await saveAnotacao(chave, '');
+                
+                if (sucesso) {
+                    atualizarVisualAnotacao(pedido, nota, codProduto, '');
+                    bootstrap.Modal.getInstance(document.getElementById('modalAnotacao')).hide();
+                    mostrarToast('Anotação apagada.');
+                } else {
+                    mostrarToast('Erro ao apagar anotação!', 'danger');
+                }
+            }
+        }
+        
+        function atualizarVisualAnotacao(pedido, nota, codProduto, texto) {
+            // Tentar com ID direto
+            let btn = document.getElementById(`btn-nota-${pedido}-${nota}-${codProduto}`);
+            
+            // Fallback: buscar por data attributes se ID não funcionar
+            if (!btn) {
+                const botoes = document.querySelectorAll('.btn-anotacao');
+                for (const b of botoes) {
+                    if (b.dataset.pedido === pedido && 
+                        b.dataset.nota === nota && 
+                        b.dataset.codproduto === codProduto) {
+                        btn = b;
+                        break;
+                    }
+                }
+            }
+            
+            if (btn) {
+                if (texto) {
+                    btn.classList.add('has-note');
+                    btn.querySelector('i').className = 'fas fa-sticky-note';
+                    btn.title = 'Editar Anotação - ' + texto.substring(0, 50) + (texto.length > 50 ? '...' : '');
+                } else {
+                    btn.classList.remove('has-note');
+                    btn.querySelector('i').className = 'far fa-sticky-note';
+                    btn.title = 'Adicionar Anotação';
+                }
+            } else {
+                console.warn(`Botão não encontrado: Pedido=${pedido}, Nota=${nota}, Produto=${codProduto}`);
+            }
+        }
+        
+        function mostrarToast(mensagem, tipo = 'success') {
+            // Criar toast dinâmico
+            let bgClass, icon;
+            switch(tipo) {
+                case 'danger':
+                    bgClass = 'text-bg-danger';
+                    icon = 'fa-exclamation-circle';
+                    break;
+                case 'info':
+                    bgClass = 'text-bg-info';
+                    icon = 'fa-info-circle';
+                    break;
+                default:
+                    bgClass = 'text-bg-success';
+                    icon = 'fa-check-circle';
+            }
+            
+            const toastHtml = `
+                <div class="toast-container position-fixed bottom-0 end-0 p-3">
+                    <div class="toast align-items-center ${bgClass} border-0" role="alert">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                <i class="fas ${icon} me-2"></i>${mensagem}
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const container = document.createElement('div');
+            container.innerHTML = toastHtml;
+            document.body.appendChild(container);
+            
+            const toastEl = container.querySelector('.toast');
+            const toast = new bootstrap.Toast(toastEl, { delay: 2500 });
+            toast.show();
+            
+            toastEl.addEventListener('hidden.bs.toast', () => {
+                container.remove();
             });
         }
+        
+        // Carregar anotações ao iniciar a página
+        async function carregarAnotacoesExistentes() {
+            const anotacoes = await getAnotacoes();
+            let contador = 0;
+            
+            for (const [chave, texto] of Object.entries(anotacoes)) {
+                const partes = chave.split('_');
+                if (partes.length >= 3) {
+                    const pedido = partes[0];
+                    const nota = partes[1];
+                    const codProduto = partes.slice(2).join('_'); // Caso o codProduto tenha underscore
+                    atualizarVisualAnotacao(pedido, nota, codProduto, texto);
+                    contador++;
+                }
+            }
+            
+            // Debug: mostrar quantas anotações foram carregadas no console
+            if (contador > 0) {
+                console.log(`✅ ${contador} anotações carregadas do servidor`);
+            } else {
+                console.log('⚠️ Nenhuma anotação encontrada no servidor');
+            }
+        }
+        
+        // Executar ao carregar a página
+        document.addEventListener('DOMContentLoaded', carregarAnotacoesExistentes);
+
+        // =====================================================
+        // GERENCIAMENTO DE ANOTAÇÕES
+        // =====================================================
+        
+        // Função para atualizar anotações do servidor (botão Atualizar)
+        async function atualizarAnotacoesServidor() {
+            mostrarToast('Atualizando anotações do servidor...', 'info');
+            
+            // Recarrega anotações do servidor
+            await carregarAnotacoesExistentes();
+            
+            // Atualiza a lista no modal se estiver aberto
+            const modal = document.getElementById('modalGerenciarAnotacoes');
+            if (modal.classList.contains('show')) {
+                await carregarListaAnotacoesModal();
+            }
+            
+            mostrarToast('Anotações atualizadas com sucesso!');
+        }
+        
+        // Função auxiliar para carregar lista de anotações no modal
+        async function carregarListaAnotacoesModal() {
+            const lista = document.getElementById('listaAnotacoes');
+            
+            // Mostra loading
+            lista.innerHTML = `
+                <div class="text-center py-3">
+                    <div class="spinner-border text-info" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Carregando anotações do servidor...</p>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch('/api/anotacoes');
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error('Erro na resposta do servidor');
+                }
+                
+                const anotacoesCompletas = data.anotacoes || {};
+                const totalAnotacoes = Object.keys(anotacoesCompletas).filter(k => {
+                    const v = anotacoesCompletas[k];
+                    return (typeof v === 'object' ? v.texto : v);
+                }).length;
+                
+                document.getElementById('totalAnotacoes').textContent = totalAnotacoes;
+                
+                if (totalAnotacoes === 0) {
+                    lista.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>Nenhuma anotação salva no servidor.</div>';
+                    return;
+                }
+                
+                let html = '<div class="list-group">';
+                
+                for (const [chave, valor] of Object.entries(anotacoesCompletas)) {
+                    const partes = chave.split('_');
+                    const pedido = partes[0];
+                    const nota = partes[1];
+                    const codProduto = partes.slice(2).join('_');
+                    
+                    // Extrair dados (pode ser objeto ou string)
+                    const texto = typeof valor === 'object' ? valor.texto : valor;
+                    const usuario = typeof valor === 'object' ? (valor.usuario || 'Desconhecido') : 'Desconhecido';
+                    const dataAnotacao = typeof valor === 'object' ? (valor.data || '') : '';
+                    
+                    if (!texto) continue; // Pular anotações vazias
+                    
+                    html += `
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">
+                                        <span class="badge bg-primary me-1">Pedido: ${pedido}</span>
+                                        <span class="badge bg-success me-1">NF: ${nota}</span>
+                                        <span class="badge bg-info">${codProduto}</span>
+                                    </h6>
+                                    <p class="mb-1">${texto}</p>
+                                    <small class="text-muted">
+                                        <i class="fas fa-user me-1"></i><strong>${usuario}</strong>
+                                        ${dataAnotacao ? `<span class="ms-3"><i class="fas fa-clock me-1"></i>${dataAnotacao}</span>` : ''}
+                                    </small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger ms-2" onclick="removerAnotacaoLista('${chave}')" title="Excluir">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                html += '</div>';
+                lista.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Erro ao carregar anotações:', error);
+                lista.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Erro ao carregar anotações do servidor.</strong>
+                        <br><small>Verifique sua conexão e clique em "Atualizar" para tentar novamente.</small>
+                    </div>
+                `;
+            }
+        }
+        
+        async function gerenciarAnotacoes() {
+            // Abre o modal primeiro
+            const modal = new bootstrap.Modal(document.getElementById('modalGerenciarAnotacoes'));
+            modal.show();
+            
+            // Carrega as anotações
+            await carregarListaAnotacoesModal();
+        }
+        
+        async function removerAnotacaoLista(chave) {
+            if (confirm('Tem certeza que deseja excluir esta anotação?')) {
+                const sucesso = await saveAnotacao(chave, '');
+                
+                if (sucesso) {
+                    // Atualizar visual na tabela
+                    const partes = chave.split('_');
+                    const pedido = partes[0];
+                    const nota = partes[1];
+                    const codProduto = partes.slice(2).join('_');
+                    atualizarVisualAnotacao(pedido, nota, codProduto, '');
+                    
+                    // Recarregar lista no modal
+                    await carregarListaAnotacoesModal();
+                    mostrarToast('Anotação excluída!');
+                } else {
+                    mostrarToast('Erro ao excluir anotação!', 'danger');
+                }
+            }
+        }
+        
+        async function exportarAnotacoes() {
+            try {
+                const response = await fetch('/api/anotacoes/exportar');
+                const data = await response.json();
+                
+                const dataStr = JSON.stringify(data.anotacoes, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `anotacoes_variacao_${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                
+                URL.revokeObjectURL(url);
+                mostrarToast('Anotações exportadas com sucesso!');
+            } catch (error) {
+                mostrarToast('Erro ao exportar anotações!', 'danger');
+            }
+        }
+        
+        function importarAnotacoes() {
+            const fileInput = document.getElementById('fileInputAnotacoes');
+            
+            fileInput.onchange = async function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = async function(event) {
+                    try {
+                        const importedData = JSON.parse(event.target.result);
+                        
+                        if (confirm(`Deseja importar ${Object.keys(importedData).length} anotações? As anotações existentes serão mescladas.`)) {
+                            const response = await fetch('/api/anotacoes/importar', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ anotacoes: importedData })
+                            });
+                            
+                            const result = await response.json();
+                            
+                            if (result.success) {
+                                await carregarAnotacoesExistentes();
+                                gerenciarAnotacoes();
+                                mostrarToast(`${result.importadas} anotações importadas com sucesso!`);
+                            } else {
+                                mostrarToast('Erro ao importar anotações!', 'danger');
+                            }
+                        }
+                    } catch (error) {
+                        alert('Erro ao importar arquivo. Verifique se o formato JSON está correto.');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            
+            fileInput.click();
+        }
+        
+        // ========================================
+        // MIGRAÇÃO DO LOCALSTORAGE (NAVEGADOR ANTIGO)
+        // ========================================
+        function verificarLocalStorage() {
+            const alertaDiv = document.getElementById('alertaLocalStorage');
+            const qtdSpan = document.getElementById('qtdLocalStorage');
+            
+            // Verificar se existe dados no localStorage
+            const dadosAntigos = localStorage.getItem('variacao_anotacoes');
+            
+            if (dadosAntigos) {
+                try {
+                    const anotacoes = JSON.parse(dadosAntigos);
+                    const quantidade = Object.keys(anotacoes).length;
+                    
+                    if (quantidade > 0) {
+                        qtdSpan.textContent = quantidade;
+                        alertaDiv.style.display = 'block';
+                        mostrarToast(`Encontradas ${quantidade} anotações no navegador antigo!`, 'info');
+                    } else {
+                        alertaDiv.style.display = 'none';
+                        mostrarToast('Nenhuma anotação encontrada no navegador.', 'warning');
+                    }
+                } catch (e) {
+                    alertaDiv.style.display = 'none';
+                    mostrarToast('Erro ao ler dados do navegador.', 'danger');
+                }
+            } else {
+                alertaDiv.style.display = 'none';
+                mostrarToast('Nenhuma anotação antiga encontrada neste navegador.', 'warning');
+            }
+        }
+        
+        async function migrarLocalStorageParaServidor() {
+            const dadosAntigos = localStorage.getItem('variacao_anotacoes');
+            
+            if (!dadosAntigos) {
+                mostrarToast('Nenhuma anotação para migrar.', 'warning');
+                return;
+            }
+            
+            try {
+                const anotacoes = JSON.parse(dadosAntigos);
+                const quantidade = Object.keys(anotacoes).length;
+                
+                if (quantidade === 0) {
+                    mostrarToast('Nenhuma anotação para migrar.', 'warning');
+                    return;
+                }
+                
+                if (!confirm(`Deseja migrar ${quantidade} anotações do navegador antigo para o servidor?\n\nIsso permitirá que todos vejam essas anotações.`)) {
+                    return;
+                }
+                
+                mostrarSpinner('Migrando anotações...');
+                
+                const response = await fetch('/api/anotacoes/importar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ anotacoes: anotacoes })
+                });
+                
+                const result = await response.json();
+                
+                esconderSpinner();
+                
+                if (result.success) {
+                    // Perguntar se quer limpar o localStorage
+                    if (confirm(`${result.importadas} anotações migradas com sucesso!\n\nDeseja remover as anotações antigas do navegador?\n(Recomendado para evitar duplicação)`)) {
+                        localStorage.removeItem('variacao_anotacoes');
+                    }
+                    
+                    // Esconder o alerta e recarregar
+                    document.getElementById('alertaLocalStorage').style.display = 'none';
+                    await carregarAnotacoesExistentes();
+                    gerenciarAnotacoes();
+                    mostrarToast(`${result.importadas} anotações migradas para o servidor!`);
+                } else {
+                    mostrarToast('Erro ao migrar anotações!', 'danger');
+                }
+            } catch (error) {
+                esconderSpinner();
+                console.error('Erro na migração:', error);
+                mostrarToast('Erro ao migrar anotações!', 'danger');
+            }
+        }
+
+        // ========================================
+        // SPINNER GLOBAL
+        // ========================================
+        let spinnerTimeout = null;
+        let activeRequests = 0;
+        
+        function mostrarSpinner(texto = 'Carregando...') {
+            activeRequests++;
+            const spinnerText = document.getElementById('spinnerText');
+            if (spinnerText) spinnerText.textContent = texto;
+            
+            if (spinnerTimeout === null) {
+                spinnerTimeout = setTimeout(() => {
+                    document.getElementById('spinnerBackdrop').classList.add('active');
+                    document.getElementById('spinnerGlobal').classList.add('active');
+                }, 500);
+            }
+        }
+        
+        function esconderSpinner() {
+            activeRequests = Math.max(0, activeRequests - 1);
+            
+            if (activeRequests === 0) {
+                if (spinnerTimeout) {
+                    clearTimeout(spinnerTimeout);
+                    spinnerTimeout = null;
+                }
+                document.getElementById('spinnerBackdrop').classList.remove('active');
+                document.getElementById('spinnerGlobal').classList.remove('active');
+            }
+        }
+        
+        // Interceptar fetch para mostrar spinner automaticamente
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            mostrarSpinner();
+            
+            return originalFetch.apply(this, args)
+                .then(response => {
+                    esconderSpinner();
+                    return response;
+                })
+                .catch(error => {
+                    esconderSpinner();
+                    throw error;
+                });
+        };
+        
+        // Mostrar spinner para submissões de formulário
+        document.addEventListener('submit', function(e) {
+            if (e.target.tagName === 'FORM') {
+                mostrarSpinner('Aplicando filtros...');
+            }
+        });
     </script>
 </body>
 </html>

@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Performance - Lead Time</title>
+    <title>OTD & Performance</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/css/bootstrap-select.min.css">
+    <!-- Estilos customizados para dropdowns mensais -->
     
     <style>
         /* ========================================
@@ -105,29 +106,47 @@
         .content.expanded { margin-left: 0; }
 
         /* ========================================
-           BOTÃO TOGGLE SIDEBAR
+           BOTÃO TOGGLE SIDEBAR (Ultra Discreto)
         ======================================== */
         .sidebar-toggle {
             position: fixed;
-            top: 18px;
-            left: 262px;
-            z-index: 1001;
-            background: var(--primary-blue);
-            color: white;
+            top: 72px;
+            left: 254px;
+            z-index: 998;
+            background: transparent;
+            color: rgba(108, 117, 125, 0.4);
             border: none;
-            border-radius: 50%;
-            width: 38px;
-            height: 38px;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
             cursor: pointer;
-            box-shadow: var(--shadow-md);
-            transition: var(--transition);
+            box-shadow: none;
+            transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 0.7rem;
+            opacity: 0.5;
         }
         
-        .sidebar-toggle:hover { background: #0b5ed7; transform: scale(1.08); }
-        .sidebar-toggle.collapsed { left: 12px; }
+        .sidebar-toggle:hover { 
+            background: rgba(108, 117, 125, 0.15);
+            color: var(--text-secondary);
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        .sidebar-toggle.collapsed { 
+            left: 8px; 
+            top: 12px;
+            opacity: 0.7;
+            background: rgba(108, 117, 125, 0.1);
+        }
+        
+        .sidebar-toggle.collapsed:hover {
+            opacity: 1;
+            background: rgba(108, 117, 125, 0.2);
+        }
 
         /* ========================================
            HEADER DA PÁGINA
@@ -287,6 +306,13 @@
         .table-modern tbody tr:hover { background-color: rgba(13, 110, 253, 0.04); }
         .table-modern tbody tr.fornecedor-row { cursor: pointer; transition: var(--transition); }
         .table-modern tbody tr.fornecedor-row:hover { background-color: rgba(13, 110, 253, 0.08) !important; }
+        
+        /* Ordenação de Tabelas */
+        .sortable { cursor: pointer; user-select: none; position: relative; }
+        .sortable:hover { background-color: rgba(13, 110, 253, 0.1); }
+        .sortable i { margin-left: 5px; font-size: 0.8rem; opacity: 0.6; }
+        .sortable.asc i::before { content: "\f0de"; }
+        .sortable.desc i::before { content: "\f0dd"; }
 
         /* ========================================
            BADGES
@@ -310,7 +336,12 @@
             .sidebar { margin-left: -250px; }
             .sidebar.show { margin-left: 0; }
             .content { margin-left: 0; padding: 16px; }
-            .sidebar-toggle { left: 12px; }
+            .sidebar-toggle { 
+                left: 8px; 
+                top: 12px;
+                opacity: 0.7;
+                background: rgba(108, 117, 125, 0.1);
+            }
             .kpi-card { margin-bottom: 12px; }
         }
 
@@ -325,9 +356,97 @@
         ======================================== */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fadeIn 0.4s ease-out; }
+
+        /* ========================================
+           SPINNER GLOBAL
+        ======================================== */
+        .spinner-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.6);
+            z-index: 9997;
+            display: none;
+        }
+        .spinner-backdrop.active { display: block; }
+        
+        .spinner-global {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9998;
+            display: none;
+        }
+        .spinner-global.active { display: block; }
+        
+        .spinner-global .spinner-box {
+            background: white;
+            padding: 24px 32px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .spinner-global .spinner-circle {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e9ecef;
+            border-top-color: var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .spinner-global .spinner-text {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        
+        /* ========================================
+           BOTÃO DE ANOTAÇÃO OTD
+        ======================================== */
+        .btn-anotacao-otd {
+            background: transparent;
+            border: none;
+            color: #6c757d;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .btn-anotacao-otd:hover {
+            background: rgba(108, 117, 125, 0.1);
+            color: #495057;
+        }
+        
+        .btn-anotacao-otd.com-anotacao {
+            color: #ffc107;
+        }
+        
+        .btn-anotacao-otd.com-anotacao:hover {
+            color: #ff9800;
+            background: rgba(255, 193, 7, 0.1);
+        }
     </style>
 </head>
 <body>
+
+<!-- Spinner Global de Carregamento -->
+<div class="spinner-backdrop" id="spinnerBackdrop"></div>
+<div class="spinner-global" id="spinnerGlobal">
+    <div class="spinner-box">
+        <div class="spinner-circle"></div>
+        <span class="spinner-text" id="spinnerText">Carregando...</span>
+    </div>
+</div>
 
 <!-- Botão de Toggle da Sidebar -->
 <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
@@ -343,8 +462,12 @@
         <ul class="list-unstyled components">
             <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-chart-line"></i> Dashboard Financeiro</a></li>
             <li><a href="{{ url_for('status_pedidos') }}"><i class="fas fa-tasks"></i> Status de Pedidos</a></li>
-            <li class="active"><a href="{{ url_for('performance') }}"><i class="fas fa-tachometer-alt"></i> Performance</a></li>
+            <li class="active"><a href="{{ url_for('performance') }}"><i class="fas fa-tachometer-alt"></i> OTD & Performance</a></li>
             <li><a href="{{ url_for('variacao_preco') }}"><i class="fas fa-balance-scale"></i> Variação de Preço</a></li>
+            <li><a href="{{ url_for('terceiros') }}"><i class="fas fa-industry"></i> Terceiros</a></li>
+            <li><a href="{{ url_for('solicitacoes') }}"><i class="fas fa-file-alt"></i> Solicitações em Aberto</a></li>
+            <li><a href="{{ url_for('cotacoes') }}"><i class="fas fa-file-invoice-dollar"></i> Cotações e Orçamentos</a></li>
+            <li><a href="{{ url_for('avaliacao_iso') }}"><i class="fas fa-certificate"></i> Avaliação ISO (PQ021)</a></li>
         </ul>
     </nav>
 
@@ -352,7 +475,7 @@
         <!-- HEADER -->
         <div class="page-header d-flex justify-content-between align-items-center">
             <div>
-                <h4><i class="fas fa-chart-area me-2 text-primary"></i>Análise de Performance</h4>
+                <h4><i class="fas fa-chart-area me-2 text-primary"></i>OTD & Performance</h4>
                 <small>Métricas de Lead Time, OTD e eficiência de entregas</small>
             </div>
             <div>
@@ -371,32 +494,34 @@
         <!-- FILTROS -->
         <div class="filter-card fade-in">
             <form method="POST">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-2">
-                        <label class="form-label-sm">Data Início</label>
-                        <input type="date" class="form-control form-control-sm" name="data_inicio" value="{{ filtros.data_inicio }}">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-1">
+                        <label class="form-label-sm">PERÍODO - DE:</label>
+                        <select name="data_inicio" class="form-control form-control-sm" id="selectDataInicio">
+                        </select>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label-sm">Data Fim</label>
-                        <input type="date" class="form-control form-control-sm" name="data_fim" value="{{ filtros.data_fim }}">
+                    <div class="col-md-1">
+                        <label class="form-label-sm">ATÉ:</label>
+                        <select name="data_fim" class="form-control form-control-sm" id="selectDataFim">
+                        </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label-sm">Fornecedores</label>
+                        <label class="form-label-sm">FORNECEDORES</label>
                         <select class="selectpicker form-control" name="fornecedores" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 2" title="Selecione...">
                             {% for forn in fornecedores %}
                             <option value="{{ forn }}" {% if forn in filtros.fornecedores %}selected{% endif %}>{{ forn }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label-sm">Busca Geral</label>
+                    <div class="col-md-3">
+                        <label class="form-label-sm">BUSCA</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="fas fa-search"></i></span>
-                            <input type="text" class="form-control" name="busca_geral" placeholder="Pedido, Produto..." value="{{ filtros.busca_geral }}">
+                            <input type="text" class="form-control" name="busca_geral" placeholder="Pedido, Produto" value="{{ filtros.busca_geral }}">
                         </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label-sm">Comprador</label>
+                    <div class="col-md-3">
+                        <label class="form-label-sm">COMPRADOR</label>
                         <select class="form-select form-select-sm" name="comprador">
                             <option value="">Todos</option>
                             {% for comp in compradores %}
@@ -405,9 +530,10 @@
                         </select>
                     </div>
                     <div class="col-md-1">
+                        <label class="form-label-sm">&nbsp;</label>
                         <div class="d-flex gap-1">
-                            <button type="submit" class="btn btn-primary btn-sm flex-grow-1" title="Filtrar"><i class="fas fa-filter"></i></button>
-                            <a href="{{ url_for('limpar_filtros') }}" class="btn btn-outline-secondary btn-sm" title="Limpar"><i class="fas fa-eraser"></i></a>
+                            <button type="submit" class="btn btn-primary btn-sm" title="Filtrar"><i class="fas fa-filter"></i></button>
+                            <a href="{{ url_for('limpar_filtros') }}" class="btn btn-outline-secondary btn-sm" title="Limpar Filtros"><i class="fas fa-eraser"></i></a>
                         </div>
                     </div>
                 </div>
@@ -428,7 +554,7 @@
                 <div class="kpi-card border-green" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Origem: {{ sql_meta.otd if sql_meta else 'N/A' }}">
                     <div class="kpi-value text-success">{{ kpis.percentual_otd }}%</div>
                     <div class="kpi-label">OTD (On-Time Delivery)</div>
-                    <div class="kpi-subtitle">Entregas no Prazo</div>
+                    <div class="kpi-subtitle">Entregas no Prazo <small class="text-muted">(+7 dias tolerância)</small></div>
                 </div>
             </div>
             <div class="col-md-4">
@@ -460,13 +586,31 @@
         <!-- GRÁFICO MENSAL -->
         <div class="row g-4 mb-4 fade-in">
             <div class="col-12">
-                <div class="chart-card" style="min-height: 450px;">
-                    <div class="chart-header">
-                        <i class="fas fa-chart-bar me-2"></i>
-                        Índice de Atendimento - Pedidos de Compra (Evolução Mensal)
-                        <small class="text-muted ms-2" style="font-size: 0.75rem;"><i class="fas fa-mouse-pointer"></i> Clique nas barras para detalhes</small>
+                <div class="chart-card" style="min-height: 450px; position: relative;">
+                    {% if filtros.filtro_mes_ativo %}
+                    <button type="button" id="btnLimparFiltroMes" class="btn btn-outline-secondary btn-sm" 
+                            style="position: absolute; top: 12px; right: 12px; z-index: 10; border-radius: 50%; width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center;"
+                            onclick="limparFiltroMes()" title="Limpar filtro de mês">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    {% endif %}
+                    <div class="chart-header d-flex align-items-center flex-wrap">
+                        <span><i class="fas fa-chart-line me-2"></i>Índice de Atendimento - Pedidos de Compra (Evolução Mensal)</span>
+                        <span id="badgeMediaMensal" class="badge bg-danger ms-3" style="font-size: 0.85rem; padding: 8px 14px;">
+                            <i class="fas fa-chart-line me-1"></i> Média: <span id="valorMediaMensal">--</span>%
+                        </span>
+                        {% if filtros.filtro_mes_ativo %}
+                        <span class="badge bg-primary ms-2" style="font-size: 0.85rem; padding: 8px 14px;">
+                            <i class="fas fa-filter me-1"></i> Filtrado: {{ filtros.filtro_mes_label }}
+                        </span>
+                        {% endif %}
+                        <small class="text-muted ms-auto me-4" style="font-size: 0.75rem;"><i class="fas fa-mouse-pointer"></i> Clique nos pontos para filtrar período</small>
                     </div>
-                    <div class="chart-canvas-container" style="height: 360px;"><canvas id="chartMensal"></canvas></div>
+                    <div class="d-flex justify-content-center mb-2">
+                        <span class="me-4"><span style="display: inline-block; width: 12px; height: 12px; background: rgba(23, 162, 184, 1); border-radius: 50%; margin-right: 6px;"></span>No Prazo</span>
+                        <span><span style="display: inline-block; width: 20px; height: 2px; background: rgba(220, 53, 69, 0.8); border-radius: 2px; margin-right: 6px; vertical-align: middle; border-style: dashed;"></span>Média</span>
+                    </div>
+                    <div class="chart-canvas-container" style="height: 340px;"><canvas id="chartMensal"></canvas></div>
                 </div>
             </div>
         </div>
@@ -485,11 +629,11 @@
                         <table class="table table-modern" id="tabelaFornecedores">
                             <thead>
                                 <tr>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Código <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Fornecedor <i class="fas fa-database"></i></span></th>
-                                    <th class="text-center sortable-header" data-column="qtd" data-bs-toggle="tooltip" title="📊 Clique para ordenar"><span class="sql-origin" style="cursor: pointer;">Qtd. <i class="fas fa-sort"></i></span></th>
-                                    <th class="text-center sortable-header" data-column="dias" data-bs-toggle="tooltip" title="📊 Clique para ordenar"><span class="sql-origin" style="cursor: pointer;">Dias <i class="fas fa-sort"></i></span></th>
-                                    <th class="text-center sortable-header" data-column="leadtime" data-bs-toggle="tooltip" title="📊 Clique para ordenar"><span class="sql-origin" style="cursor: pointer;">Lead Time <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaFornecedores', 0, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Código <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaFornecedores', 1, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Fornecedor <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center sortable" onclick="sortTable('tabelaFornecedores', 2, 'number')" data-bs-toggle="tooltip" title="📊 Clique para ordenar"><span class="sql-origin">Qtd. <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center sortable" onclick="sortTable('tabelaFornecedores', 3, 'number')" data-bs-toggle="tooltip" title="📊 Clique para ordenar"><span class="sql-origin">Dias <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center sortable" onclick="sortTable('tabelaFornecedores', 4, 'number')" data-bs-toggle="tooltip" title="📊 Clique para ordenar"><span class="sql-origin">Lead Time <i class="fas fa-sort"></i></span></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -548,19 +692,22 @@
         <div class="row g-4 fade-in">
             <div class="col-12">
                 <div class="card-modern">
-                    <div class="card-title text-danger"><i class="fas fa-list-alt"></i>Lista de Pendências - Pedidos Atrasados (Top 50 Piores)</div>
+                    <div class="card-title text-danger"><i class="fas fa-list-alt"></i>Lista de Pendências - Pedidos Atrasados</div>
                     <div class="table-container" style="max-height: 500px;">
-                        <table class="table table-modern">
+                        <table class="table table-modern" id="tabelaPedidosAtrasados">
                             <thead>
                                 <tr>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.num_pedido if sql_meta else 'N/A' }}"><span class="sql-origin">Pedido <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Cód. Forn. <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Fornecedor <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_produto if sql_meta else 'N/A' }}"><span class="sql-origin">Cód. Produto <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.desc_produto if sql_meta else 'N/A' }}"><span class="sql-origin">Produto <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_necessidade if sql_meta else 'N/A' }}"><span class="sql-origin">Dt. Necessidade <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_recebimento if sql_meta else 'N/A' }}"><span class="sql-origin">Dt. Recebimento <i class="fas fa-database"></i></span></th>
-                                    <th class="text-center" data-bs-toggle="tooltip" title="📊 {{ sql_meta.dias_atraso if sql_meta else 'N/A' }}"><span class="sql-origin">Dias Atraso <i class="fas fa-database"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaPedidosAtrasados', 0, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.num_pedido if sql_meta else 'N/A' }}"><span class="sql-origin">Pedido <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaPedidosAtrasados', 1, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Cód. Forn. <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaPedidosAtrasados', 2, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Fornecedor <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaPedidosAtrasados', 3, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_produto if sql_meta else 'N/A' }}"><span class="sql-origin">Cód. Produto <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaPedidosAtrasados', 4, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.desc_produto if sql_meta else 'N/A' }}"><span class="sql-origin">Produto <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaPedidosAtrasados', 5, 'date')" data-bs-toggle="tooltip" title="📊 SC1010.C1_EMISSAO - Data de emissão da solicitação"><span class="sql-origin">Dt. Emissão <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaPedidosAtrasados', 6, 'date')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_necessidade if sql_meta else 'N/A' }}"><span class="sql-origin">Dt. Necessidade <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaPedidosAtrasados', 7, 'date')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_recebimento if sql_meta else 'N/A' }}"><span class="sql-origin">Dt. Recebimento <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center sortable" onclick="sortTable('tabelaPedidosAtrasados', 8, 'number')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.dias_atraso if sql_meta else 'N/A' }}"><span class="sql-origin">Dias Atraso <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center sortable" onclick="sortTable('tabelaPedidosAtrasados', 9, 'text')" data-bs-toggle="tooltip" title="Status da Solicitação original: Normal = prazo compatível | Prazo Incompatível = solicitação já nasceu inviável"><span class="sql-origin">Status Solicit. <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center" style="width: 50px;">Anotação</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -571,12 +718,32 @@
                                     <td class="text-truncate" style="max-width: 160px;" title="{{ pedido.NomeFornecedor }}">{{ pedido.NomeFornecedor }}</td>
                                     <td><small class="text-muted">{{ pedido.CodProduto }}</small></td>
                                     <td class="text-truncate" style="max-width: 200px;" title="{{ pedido.DescricaoProduto }}">{{ pedido.DescricaoProduto }}</td>
+                                    <td>{{ pedido.DataSolicitacao.strftime('%d/%m/%Y') if pedido.DataSolicitacao else '-' }}</td>
                                     <td>{{ pedido.DataNecessidade.strftime('%d/%m/%Y') if pedido.DataNecessidade else '-' }}</td>
                                     <td>{{ pedido.DataRecebimento.strftime('%d/%m/%Y') if pedido.DataRecebimento else '-' }}</td>
                                     <td class="text-center"><span class="badge bg-danger">{{ pedido.DiasAtraso }} dias</span></td>
+                                    <td class="text-center">
+                                        {% if pedido.StatusSolicitacao == 'PRAZO INCOMPATÍVEL' %}
+                                            <span class="badge bg-warning text-dark" title="Solicitação feita com prazo menor que o lead time do produto"><i class="fas fa-exclamation-triangle me-1"></i>Prazo Incompatível</span>
+                                        {% else %}
+                                            <span class="badge bg-success" title="Solicitação feita com prazo compatível"><i class="fas fa-check me-1"></i>Normal</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn-anotacao-otd" 
+                                                data-pedido="{{ pedido.NumeroPedido }}"
+                                                data-produto="{{ pedido.CodProduto }}"
+                                                data-desc-produto="{{ pedido.DescricaoProduto }}"
+                                                data-fornecedor="{{ pedido.NomeFornecedor }}"
+                                                onclick="abrirModalAnotacaoOTD(this)"
+                                                id="btn-otd-{{ pedido.NumeroPedido }}-{{ pedido.CodProduto }}"
+                                                title="Adicionar/Editar Anotação">
+                                            <i class="far fa-sticky-note"></i>
+                                        </button>
+                                    </td>
                                 </tr>
                                 {% else %}
-                                <tr><td colspan="8" class="text-center text-success py-4"><i class="fas fa-check-circle fa-2x mb-2 d-block"></i>Nenhum pedido atrasado! 🎉</td></tr>
+                                <tr><td colspan="11" class="text-center text-success py-4"><i class="fas fa-check-circle fa-2x mb-2 d-block"></i>Nenhum pedido atrasado! 🎉</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -587,22 +754,45 @@
     </div>
 </div>
 
-<!-- MODAL DE DRILL-DOWN MENSAL -->
-<div class="modal fade" id="modalDetalhesMes" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+<!-- MODAL DE ANOTAÇÃO OTD -->
+<div class="modal fade" id="modalAnotacaoOTD" tabindex="-1" aria-labelledby="modalAnotacaoOTDLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title"><i class="fas fa-exclamation-circle me-2"></i>Fornecedores Atrasados - <span id="mesDetalhado"></span></h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAnotacaoOTDLabel">
+                    <i class="fas fa-sticky-note me-2"></i>Anotação / Justificativa - Pedido Atrasado
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <div class="modal-body">
-                <div id="conteudoDetalhes">
-                    <div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div></div>
+                <div class="alert alert-info" style="font-size: 0.85rem;">
+                    <div><strong>Pedido:</strong> <span id="infoPedidoOTD"></span></div>
+                    <div><strong>Produto:</strong> <span id="infoProdutoOTD"></span></div>
+                    <div><strong>Fornecedor:</strong> <span id="infoFornecedorOTD"></span></div>
                 </div>
+                <div class="mb-3">
+                    <label for="textoAnotacaoOTD" class="form-label">Anotação:</label>
+                    <textarea class="form-control" id="textoAnotacaoOTD" rows="4" 
+                              placeholder="Digite sua justificativa ou anotação sobre este atraso..."></textarea>
+                    <small class="text-muted">Visível para todos os usuários</small>
+                </div>
+                <input type="hidden" id="anotacaoPedidoOTD">
+                <input type="hidden" id="anotacaoProdutoOTD">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="apagarAnotacaoOTD()" title="Apagar anotação">
+                    <i class="fas fa-trash me-1"></i> Apagar
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="salvarAnotacaoOTD()">
+                    <i class="fas fa-save me-1"></i> Salvar
+                </button>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Modal removido: Filtro de mês agora é aplicado via formulário de filtros -->
 
 <!-- Scripts -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -611,8 +801,75 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/js/bootstrap-select.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-
 <script>
+    // ========================================
+    // INICIALIZAÇÃO DOS DROPDOWNS MENSAIS
+    // ========================================
+    (function() {
+        const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const dataAtual = new Date();
+        const anoAtual = dataAtual.getFullYear();
+        
+        function ultimoDiaMes(ano, mes) {
+            return new Date(ano, mes + 1, 0).getDate();
+        }
+        
+        const opcoesInicio = [];
+        const opcoesFim = [];
+        for (let ano = anoAtual - 2; ano <= anoAtual + 1; ano++) {
+            for (let mes = 0; mes < 12; mes++) {
+                const valorInicio = `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
+                const ultimoDia = ultimoDiaMes(ano, mes);
+                const valorFim = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+                const texto = `${meses[mes]}/${ano}`;
+                opcoesInicio.push({ valor: valorInicio, texto });
+                opcoesFim.push({ valor: valorFim, texto });
+            }
+        }
+        
+        function preencherSelectInicio(selectId, valorInicial) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            select.innerHTML = '';
+            opcoesInicio.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.valor;
+                option.textContent = opt.texto;
+                select.appendChild(option);
+            });
+            if (valorInicial) {
+                const partes = valorInicial.split('-');
+                select.value = `${partes[0]}-${partes[1]}-01`;
+            } else {
+                select.value = `${anoAtual}-01-01`;
+            }
+        }
+        
+        function preencherSelectFim(selectId, valorInicial) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            select.innerHTML = '';
+            opcoesFim.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.valor;
+                option.textContent = opt.texto;
+                select.appendChild(option);
+            });
+            if (valorInicial) {
+                const partes = valorInicial.split('-');
+                const ano = parseInt(partes[0]);
+                const mes = parseInt(partes[1]) - 1;
+                const ultimoDia = ultimoDiaMes(ano, mes);
+                select.value = `${partes[0]}-${partes[1]}-${String(ultimoDia).padStart(2, '0')}`;
+            } else {
+                select.value = `${anoAtual}-12-31`;
+            }
+        }
+        
+        preencherSelectInicio('selectDataInicio', '{{ filtros.data_inicio }}');
+        preencherSelectFim('selectDataFim', '{{ filtros.data_fim }}');
+    })();
+    
     // ========================================
     // INICIALIZAÇÃO
     // ========================================
@@ -660,29 +917,80 @@
     Chart.register(ChartDataLabels);
 
     // ========================================
-    // GRÁFICO MENSAL (Stacked 100%)
+    // GRÁFICO MENSAL (Linha com Média)
     // ========================================
+    const mediaNoPrazo = mensalNoPrazo.length > 0 ? (mensalNoPrazo.reduce((a, b) => a + b, 0) / mensalNoPrazo.length) : 0;
+    const linhaMedia = mensalNoPrazo.map(() => mediaNoPrazo);
+    
+    // Atualizar o badge da média no header
+    document.getElementById('valorMediaMensal').textContent = mediaNoPrazo.toFixed(2);
+    
     new Chart(document.getElementById('chartMensal'), {
-        type: 'bar',
+        type: 'line',
         data: {
             labels: mensalLabels,
             datasets: [
-                { label: 'No Prazo', data: mensalNoPrazo, backgroundColor: 'rgba(40, 167, 69, 0.85)', borderColor: 'rgba(40, 167, 69, 1)', borderWidth: 1 },
-                { label: 'Atrasado', data: mensalAtrasado, backgroundColor: 'rgba(220, 53, 69, 0.85)', borderColor: 'rgba(220, 53, 69, 1)', borderWidth: 1 }
+                { 
+                    label: 'No Prazo', 
+                    data: mensalNoPrazo, 
+                    borderColor: 'rgba(23, 162, 184, 1)', 
+                    backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: 'rgba(23, 162, 184, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                },
+                { 
+                    label: 'Média', 
+                    data: linhaMedia, 
+                    borderColor: 'rgba(220, 53, 69, 0.8)', 
+                    borderWidth: 2,
+                    borderDash: [8, 4],
+                    fill: false,
+                    pointRadius: 0,
+                    pointHoverRadius: 0
+                }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            onClick: (event, elements) => { if (elements.length > 0) mostrarDetalhesMes(mensalLabels[elements[0].index]); },
+            onClick: (event, elements) => { if (elements.length > 0 && elements[0].datasetIndex === 0) aplicarFiltroPorMes(mensalLabels[elements[0].index]); },
             plugins: {
-                legend: { display: true, position: 'bottom' },
-                tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%' } },
-                datalabels: { color: '#ffffff', font: { weight: 'bold', size: 11 }, anchor: 'center', align: 'center', formatter: v => v > 5 ? v.toFixed(1) + '%' : '' }
+                legend: { 
+                    display: false
+                },
+                tooltip: { 
+                    callbacks: { 
+                        label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%',
+                        title: ctx => ctx[0].label
+                    }
+                },
+                datalabels: { 
+                    color: '#333', 
+                    font: { weight: 'bold', size: 10 }, 
+                    anchor: 'top', 
+                    align: 'top',
+                    offset: 4,
+                    formatter: (v, ctx) => ctx.datasetIndex === 0 ? v.toFixed(1) + '%' : ''
+                }
             },
             scales: {
-                x: { stacked: true, grid: { display: false } },
-                y: { stacked: true, beginAtZero: true, max: 100, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Percentual (%)', font: { weight: 'bold' } } }
+                x: { 
+                    grid: { display: false },
+                    ticks: { font: { size: 11 } }
+                },
+                y: { 
+                    beginAtZero: true, 
+                    max: 100, 
+                    ticks: { callback: v => v + '%', stepSize: 20 }, 
+                    title: { display: true, text: 'Percentual (%)', font: { weight: 'bold' } },
+                    grid: { color: 'rgba(0,0,0,0.05)' }
+                }
             }
         }
     });
@@ -742,28 +1050,90 @@
     // ========================================
     // FUNÇÕES AUXILIARES
     // ========================================
-    function mostrarDetalhesMes(mes) {
-        document.getElementById('mesDetalhado').textContent = mes;
-        const modal = new bootstrap.Modal(document.getElementById('modalDetalhesMes'));
-        modal.show();
+    /**
+     * Aplica filtro de período ao clicar em um mês no gráfico
+     * Funciona exatamente como se o usuário tivesse preenchido manualmente os campos de data
+     * Salva os filtros originais para poder restaurar depois
+     * @param {string} mes - Mês no formato 'YYYY-MM' (ex: '2024-01')
+     */
+    function aplicarFiltroPorMes(mes) {
+        // Salva os filtros atuais antes de aplicar o filtro de mês
+        const selectInicio = document.getElementById('selectDataInicio');
+        const selectFim = document.getElementById('selectDataFim');
         
-        fetch(`/performance/detalhes_mes/${mes}`)
-            .then(r => r.json())
-            .then(data => {
-                let html = '';
-                if (data.success) {
-                    if (data.fornecedores.length === 0) {
-                        html = `<div class="alert alert-success text-center"><i class="fas fa-check-circle fa-2x mb-2"></i><p class="mb-0">${data.message || 'Nenhum atraso neste mês!'}</p></div>`;
-                    } else {
-                        html = `<div class="alert alert-info mb-3"><strong>Total entregas:</strong> ${data.total_entregas} | <strong>Atrasadas:</strong> ${data.total_atrasados}</div>
-                                <table class="table table-striped table-hover"><thead class="table-danger"><tr><th>Fornecedor</th><th class="text-center">Qtd</th><th class="text-center">Média Dias</th></tr></thead><tbody>`;
-                        data.fornecedores.forEach(f => { html += `<tr><td>${f.Fornecedor}</td><td class="text-center"><span class="badge bg-danger">${f.QtdAtrasos}</span></td><td class="text-center"><span class="badge bg-warning text-dark">${f.MediaDias}d</span></td></tr>`; });
-                        html += '</tbody></table>';
-                    }
-                } else { html = `<div class="alert alert-warning">${data.message}</div>`; }
-                document.getElementById('conteudoDetalhes').innerHTML = html;
-            })
-            .catch(err => { document.getElementById('conteudoDetalhes').innerHTML = `<div class="alert alert-danger">Erro: ${err}</div>`; });
+        if (selectInicio && selectFim) {
+            // Guarda os valores originais no sessionStorage
+            sessionStorage.setItem('filtrosOriginais_dataInicio', selectInicio.value);
+            sessionStorage.setItem('filtrosOriginais_dataFim', selectFim.value);
+        }
+        
+        // Extrai ano e mês
+        let ano, mesNum;
+        if (mes.includes('-')) {
+            // Formato: 2024-01
+            const partes = mes.split('-');
+            ano = parseInt(partes[0]);
+            mesNum = parseInt(partes[1]);
+        } else {
+            // Formato desconhecido, tenta extrair do label
+            console.warn('Formato de mês inesperado:', mes);
+            return;
+        }
+        
+        // Calcula primeiro e último dia do mês
+        const ultimoDia = new Date(ano, mesNum, 0); // Dia 0 do próximo mês = último dia do mês atual
+        
+        // Formata as datas no formato esperado pelos selects (YYYY-MM-DD)
+        const dataInicio = `${ano}-${String(mesNum).padStart(2, '0')}-01`;
+        const dataFim = `${ano}-${String(mesNum).padStart(2, '0')}-${String(ultimoDia.getDate()).padStart(2, '0')}`;
+        
+        if (selectInicio && selectFim) {
+            selectInicio.value = dataInicio;
+            selectFim.value = dataFim;
+            
+            // Submete o formulário para aplicar o filtro
+            const form = document.querySelector('form[method="POST"]');
+            if (form) {
+                form.submit();
+            }
+        }
+    }
+    
+    /**
+     * Limpa o filtro de mês aplicado pelo gráfico
+     * Restaura os filtros originais que estavam antes do clique no mês
+     * NÃO afeta outros filtros (fornecedores, comprador, busca)
+     */
+    function limparFiltroMes() {
+        const selectInicio = document.getElementById('selectDataInicio');
+        const selectFim = document.getElementById('selectDataFim');
+        
+        // Recupera os filtros originais do sessionStorage
+        const dataInicioOriginal = sessionStorage.getItem('filtrosOriginais_dataInicio');
+        const dataFimOriginal = sessionStorage.getItem('filtrosOriginais_dataFim');
+        
+        if (selectInicio && selectFim) {
+            if (dataInicioOriginal && dataFimOriginal) {
+                // Restaura os valores originais
+                selectInicio.value = dataInicioOriginal;
+                selectFim.value = dataFimOriginal;
+                
+                // Limpa do sessionStorage após usar
+                sessionStorage.removeItem('filtrosOriginais_dataInicio');
+                sessionStorage.removeItem('filtrosOriginais_dataFim');
+            } else {
+                // Se não tem valores salvos, usa o período padrão (ano completo)
+                const anoAtual = new Date().getFullYear();
+                selectInicio.value = `${anoAtual}-01-01`;
+                selectFim.value = `${anoAtual}-12-31`;
+            }
+            
+            // Submete o formulário para aplicar
+            const form = document.querySelector('form[method="POST"]');
+            if (form) {
+                form.submit();
+            }
+        }
     }
 
     function filtrarPorFornecedor(nome) {
@@ -890,6 +1260,252 @@
     
     // Inicializar ordenação quando o documento estiver pronto
     setupTableSorting();
+
+    // ========================================
+    // FUNÇÃO GENÉRICA DE ORDENAÇÃO DE TABELAS
+    // ========================================
+    function sortTable(tableId, columnIndex, dataType) {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr')).filter(row => row.cells.length > 1);
+        const header = table.querySelectorAll('thead th')[columnIndex];
+        
+        // Determina direção atual
+        let direction = header.getAttribute('data-sort-dir') || 'none';
+        if (direction === 'none' || direction === 'desc') {
+            direction = 'asc';
+        } else {
+            direction = 'desc';
+        }
+        
+        // Remove indicadores de outros headers
+        table.querySelectorAll('thead th').forEach(th => {
+            th.setAttribute('data-sort-dir', 'none');
+            const icon = th.querySelector('.fa-sort, .fa-sort-up, .fa-sort-down');
+            if (icon) icon.className = 'fas fa-sort';
+        });
+        
+        // Atualiza header atual
+        header.setAttribute('data-sort-dir', direction);
+        const icon = header.querySelector('.fa-sort');
+        if (icon) {
+            icon.className = direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+        }
+        
+        // Ordena as linhas
+        rows.sort((a, b) => {
+            let aValue = a.cells[columnIndex].textContent.trim();
+            let bValue = b.cells[columnIndex].textContent.trim();
+            
+            // Remove caracteres não numéricos para ordenação numérica
+            if (dataType === 'number') {
+                aValue = parseFloat(aValue.replace(/[^\d.-]/g, '')) || 0;
+                bValue = parseFloat(bValue.replace(/[^\d.-]/g, '')) || 0;
+            } else if (dataType === 'date') {
+                // Converte DD/MM/YYYY para timestamp
+                const parseDate = (str) => {
+                    const parts = str.split('/');
+                    if (parts.length === 3) {
+                        return new Date(parts[2], parts[1] - 1, parts[0]).getTime();
+                    }
+                    return 0;
+                };
+                aValue = parseDate(aValue);
+                bValue = parseDate(bValue);
+            } else {
+                // Texto - ordenação alfabética
+                aValue = aValue.toLowerCase();
+                bValue = bValue.toLowerCase();
+            }
+            
+            if (direction === 'asc') {
+                return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+            } else {
+                return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+            }
+        });
+        
+        // Reinsere as linhas ordenadas
+        rows.forEach(row => tbody.appendChild(row));
+    }
+
+    // ========================================
+    // SPINNER GLOBAL
+    // ========================================
+    let spinnerTimeout = null;
+    let activeRequests = 0;
+    
+    function mostrarSpinner(texto = 'Carregando...') {
+        activeRequests++;
+        const spinnerText = document.getElementById('spinnerText');
+        if (spinnerText) spinnerText.textContent = texto;
+        
+        if (spinnerTimeout === null) {
+            spinnerTimeout = setTimeout(() => {
+                document.getElementById('spinnerBackdrop').classList.add('active');
+                document.getElementById('spinnerGlobal').classList.add('active');
+            }, 500);
+        }
+    }
+    
+    function esconderSpinner() {
+        activeRequests = Math.max(0, activeRequests - 1);
+        
+        if (activeRequests === 0) {
+            if (spinnerTimeout) {
+                clearTimeout(spinnerTimeout);
+                spinnerTimeout = null;
+            }
+            document.getElementById('spinnerBackdrop').classList.remove('active');
+            document.getElementById('spinnerGlobal').classList.remove('active');
+        }
+    }
+    
+    // Interceptar fetch para mostrar spinner automaticamente
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+        mostrarSpinner();
+        
+        return originalFetch.apply(this, args)
+            .then(response => {
+                esconderSpinner();
+                return response;
+            })
+            .catch(error => {
+                esconderSpinner();
+                throw error;
+            });
+    };
+    
+    // Mostrar spinner para submissões de formulário
+    document.addEventListener('submit', function(e) {
+        if (e.target.tagName === 'FORM') {
+            mostrarSpinner('Aplicando filtros...');
+        }
+    });
+    
+    /* ========================================
+       SISTEMA DE ANOTAÇÕES OTD
+    ======================================== */
+    async function getAnotacoesOTD() {
+        try {
+            const response = await fetch('/api/anotacoes_otd');
+            const data = await response.json();
+            return data.success ? data.anotacoes : {};
+        } catch (error) {
+            console.error('Erro ao carregar anotações OTD:', error);
+            return {};
+        }
+    }
+    
+    async function saveAnotacaoOTD(chave, texto) {
+        try {
+            const response = await fetch('/api/anotacoes_otd', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chave, texto })
+            });
+            const data = await response.json();
+            return data.success;
+        } catch (error) {
+            console.error('Erro ao salvar anotação OTD:', error);
+            return false;
+        }
+    }
+    
+    function getChaveAnotacaoOTD(pedido, produto) {
+        return `${pedido}_${produto}`;
+    }
+    
+    async function abrirModalAnotacaoOTD(btn) {
+        const pedido = btn.dataset.pedido;
+        const produto = btn.dataset.produto;
+        const descProduto = btn.dataset.descProduto;
+        const fornecedor = btn.dataset.fornecedor;
+        
+        document.getElementById('infoPedidoOTD').textContent = pedido;
+        document.getElementById('infoProdutoOTD').textContent = `${produto} - ${descProduto}`;
+        document.getElementById('infoFornecedorOTD').textContent = fornecedor;
+        
+        document.getElementById('anotacaoPedidoOTD').value = pedido;
+        document.getElementById('anotacaoProdutoOTD').value = produto;
+        
+        const anotacoes = await getAnotacoesOTD();
+        const chave = getChaveAnotacaoOTD(pedido, produto);
+        const anotacaoExistente = anotacoes[chave]?.texto || '';
+        document.getElementById('textoAnotacaoOTD').value = anotacaoExistente;
+        
+        const modal = new bootstrap.Modal(document.getElementById('modalAnotacaoOTD'));
+        modal.show();
+    }
+    
+    async function salvarAnotacaoOTD() {
+        const pedido = document.getElementById('anotacaoPedidoOTD').value;
+        const produto = document.getElementById('anotacaoProdutoOTD').value;
+        const texto = document.getElementById('textoAnotacaoOTD').value.trim();
+        
+        const chave = getChaveAnotacaoOTD(pedido, produto);
+        const sucesso = await saveAnotacaoOTD(chave, texto);
+        
+        if (sucesso) {
+            atualizarVisualAnotacaoOTD(pedido, produto, texto);
+            bootstrap.Modal.getInstance(document.getElementById('modalAnotacaoOTD')).hide();
+            alert(texto ? 'Anotação salva com sucesso!' : 'Anotação removida.');
+        } else {
+            alert('Erro ao salvar anotação!');
+        }
+    }
+    
+    async function apagarAnotacaoOTD() {
+        const pedido = document.getElementById('anotacaoPedidoOTD').value;
+        const produto = document.getElementById('anotacaoProdutoOTD').value;
+        
+        if (confirm('Tem certeza que deseja apagar esta anotação?')) {
+            const chave = getChaveAnotacaoOTD(pedido, produto);
+            const sucesso = await saveAnotacaoOTD(chave, '');
+            
+            if (sucesso) {
+                atualizarVisualAnotacaoOTD(pedido, produto, '');
+                bootstrap.Modal.getInstance(document.getElementById('modalAnotacaoOTD')).hide();
+                alert('Anotação apagada.');
+            } else {
+                alert('Erro ao apagar anotação!');
+            }
+        }
+    }
+    
+    function atualizarVisualAnotacaoOTD(pedido, produto, texto) {
+        const btn = document.getElementById(`btn-otd-${pedido}-${produto}`);
+        
+        if (btn) {
+            if (texto) {
+                btn.classList.add('com-anotacao');
+                btn.title = 'Editar Anotação - ' + texto.substring(0, 50) + (texto.length > 50 ? '...' : '');
+            } else {
+                btn.classList.remove('com-anotacao');
+                btn.title = 'Adicionar Anotação';
+            }
+        }
+    }
+    
+    // Carregar anotações existentes ao carregar a página
+    (async function() {
+        const anotacoes = await getAnotacoesOTD();
+        
+        document.querySelectorAll('.btn-anotacao-otd').forEach(btn => {
+            const pedido = btn.dataset.pedido;
+            const produto = btn.dataset.produto;
+            const chave = getChaveAnotacaoOTD(pedido, produto);
+            
+            if (anotacoes[chave]?.texto) {
+                const texto = anotacoes[chave].texto;
+                btn.classList.add('com-anotacao');
+                btn.title = 'Editar Anotação - ' + texto.substring(0, 50) + (texto.length > 50 ? '...' : '');
+            }
+        });
+    })();
 </script>
 </body>
 </html>

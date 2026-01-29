@@ -8,6 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/css/bootstrap-select.min.css">
+    <!-- Estilos customizados para dropdowns mensais -->
     
     <style>
         /* ========================================
@@ -105,29 +106,47 @@
         .content.expanded { margin-left: 0; }
 
         /* ========================================
-           BOTÃO TOGGLE SIDEBAR
+           BOTÃO TOGGLE SIDEBAR (Ultra Discreto)
         ======================================== */
         .sidebar-toggle {
             position: fixed;
-            top: 18px;
-            left: 262px;
-            z-index: 1001;
-            background: var(--primary-blue);
-            color: white;
+            top: 72px;
+            left: 254px;
+            z-index: 998;
+            background: transparent;
+            color: rgba(108, 117, 125, 0.4);
             border: none;
-            border-radius: 50%;
-            width: 38px;
-            height: 38px;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
             cursor: pointer;
-            box-shadow: var(--shadow-md);
-            transition: var(--transition);
+            box-shadow: none;
+            transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 0.7rem;
+            opacity: 0.5;
         }
         
-        .sidebar-toggle:hover { background: #0b5ed7; transform: scale(1.08); }
-        .sidebar-toggle.collapsed { left: 12px; }
+        .sidebar-toggle:hover { 
+            background: rgba(108, 117, 125, 0.15);
+            color: var(--text-secondary);
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        .sidebar-toggle.collapsed { 
+            left: 8px; 
+            top: 12px;
+            opacity: 0.7;
+            background: rgba(108, 117, 125, 0.1);
+        }
+        
+        .sidebar-toggle.collapsed:hover {
+            opacity: 1;
+            background: rgba(108, 117, 125, 0.2);
+        }
 
         /* ========================================
            HEADER DA PÁGINA
@@ -286,6 +305,13 @@
         .table-modern tbody tr:hover { background-color: rgba(13, 110, 253, 0.04); }
         .table-modern tbody tr.clickable-row { cursor: pointer; transition: var(--transition); }
         .table-modern tbody tr.clickable-row:hover { background-color: rgba(13, 110, 253, 0.08) !important; transform: scale(1.005); box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15); }
+        
+        /* Ordenação de Tabelas */
+        .sortable { cursor: pointer; user-select: none; position: relative; }
+        .sortable:hover { background-color: rgba(13, 110, 253, 0.1); }
+        .sortable i { margin-left: 5px; font-size: 0.8rem; opacity: 0.6; }
+        .sortable.asc i::before { content: "\f0de"; }
+        .sortable.desc i::before { content: "\f0dd"; }
 
         /* ========================================
            BADGES
@@ -309,7 +335,12 @@
             .sidebar { margin-left: -250px; }
             .sidebar.show { margin-left: 0; }
             .content { margin-left: 0; padding: 16px; }
-            .sidebar-toggle { left: 12px; }
+            .sidebar-toggle { 
+                left: 8px; 
+                top: 12px;
+                opacity: 0.7;
+                background: rgba(108, 117, 125, 0.1);
+            }
             .kpi-card { margin-bottom: 12px; }
         }
 
@@ -324,9 +355,72 @@
         ======================================== */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fadeIn 0.4s ease-out; }
+        
+        /* ========================================
+           SPINNER GLOBAL PARA CARREGAMENTOS
+        ======================================== */
+        .spinner-global {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9998;
+            display: none;
+        }
+        
+        .spinner-global.active { display: block; }
+        
+        .spinner-global .spinner-box {
+            background: white;
+            padding: 24px 32px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .spinner-global .spinner-circle {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e9ecef;
+            border-top-color: var(--primary-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .spinner-global .spinner-text {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        
+        .spinner-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.5);
+            z-index: 9997;
+            display: none;
+        }
+        
+        .spinner-backdrop.active { display: block; }
     </style>
 </head>
 <body>
+
+<!-- Spinner Global para Carregamentos -->
+<div class="spinner-backdrop" id="spinnerBackdrop"></div>
+<div class="spinner-global" id="spinnerGlobal">
+    <div class="spinner-box">
+        <div class="spinner-circle"></div>
+        <span class="spinner-text" id="spinnerText">Carregando...</span>
+    </div>
+</div>
 
 <!-- Botão de Toggle da Sidebar -->
 <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
@@ -342,8 +436,12 @@
         <ul class="list-unstyled components">
             <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-chart-line"></i> Dashboard Financeiro</a></li>
             <li class="active"><a href="{{ url_for('status_pedidos') }}"><i class="fas fa-tasks"></i> Status de Pedidos</a></li>
-            <li><a href="{{ url_for('performance') }}"><i class="fas fa-tachometer-alt"></i> Performance</a></li>
+            <li><a href="{{ url_for('performance') }}"><i class="fas fa-tachometer-alt"></i> OTD & Performance</a></li>
             <li><a href="{{ url_for('variacao_preco') }}"><i class="fas fa-balance-scale"></i> Variação de Preço</a></li>
+            <li><a href="{{ url_for('terceiros') }}"><i class="fas fa-industry"></i> Terceiros</a></li>
+            <li><a href="{{ url_for('solicitacoes') }}"><i class="fas fa-file-alt"></i> Solicitações em Aberto</a></li>
+            <li><a href="{{ url_for('cotacoes') }}"><i class="fas fa-file-invoice-dollar"></i> Cotações e Orçamentos</a></li>
+            <li><a href="{{ url_for('avaliacao_iso') }}"><i class="fas fa-certificate"></i> Avaliação ISO (PQ021)</a></li>
         </ul>
     </nav>
 
@@ -365,32 +463,34 @@
         <div class="filter-card fade-in">
             <form id="filterForm" action="{{ url_for('status_pedidos') }}" method="POST">
                 <input type="hidden" name="status_grafico" id="status_grafico" value="{{ filtros.status_grafico }}">
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-2">
-                        <label class="form-label-sm">Data Início</label>
-                        <input type="date" class="form-control form-control-sm" name="data_inicio" value="{{ filtros.data_inicio }}">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-1">
+                        <label class="form-label-sm">PERÍODO - DE:</label>
+                        <select name="data_inicio" class="form-control form-control-sm" id="selectDataInicio">
+                        </select>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label-sm">Data Fim</label>
-                        <input type="date" class="form-control form-control-sm" name="data_fim" value="{{ filtros.data_fim }}">
+                    <div class="col-md-1">
+                        <label class="form-label-sm">ATÉ:</label>
+                        <select name="data_fim" class="form-control form-control-sm" id="selectDataFim">
+                        </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label-sm">Fornecedores</label>
+                        <label class="form-label-sm">FORNECEDORES</label>
                         <select class="selectpicker form-control" name="fornecedores" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 2" title="Selecione..." id="fornecedores_select">
                             {% for f in dados.opcoes_fornecedores %}
                             <option value="{{ f }}" {% if f in filtros.fornecedores %}selected{% endif %}>{{ f }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label-sm">Busca Geral</label>
+                    <div class="col-md-3">
+                        <label class="form-label-sm">BUSCA</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="fas fa-search"></i></span>
-                            <input type="text" class="form-control" name="busca_geral" id="busca_geral" placeholder="Pedido, Produto..." value="{{ filtros.busca_geral }}">
+                            <input type="text" class="form-control" name="busca_geral" id="busca_geral" placeholder="Pedido, Produto" value="{{ filtros.busca_geral }}">
                         </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label-sm">Comprador</label>
+                    <div class="col-md-3">
+                        <label class="form-label-sm">COMPRADOR</label>
                         <select class="form-select form-select-sm" name="comprador" id="comprador_select">
                             <option value="Todos">Todos</option>
                             {% for c in dados.opcoes_compradores %}
@@ -399,8 +499,9 @@
                         </select>
                     </div>
                     <div class="col-md-1">
+                        <label class="form-label-sm">&nbsp;</label>
                         <div class="d-flex gap-1">
-                            <button type="submit" class="btn btn-primary btn-sm flex-grow-1" title="Filtrar"><i class="fas fa-filter"></i></button>
+                            <button type="submit" class="btn btn-primary btn-sm" title="Filtrar"><i class="fas fa-filter"></i></button>
                             <a href="{{ url_for('limpar_filtros') }}" class="btn btn-outline-secondary btn-sm" title="Limpar"><i class="fas fa-eraser"></i></a>
                         </div>
                     </div>
@@ -464,16 +565,16 @@
                         <small class="text-muted fw-normal ms-auto" style="font-size: 0.7rem;"><i class="fas fa-hand-pointer"></i> clique na linha para ver detalhes</small>
                     </div>
                     <div class="table-container">
-                        <table class="table table-modern table-striped table-hover">
+                        <table class="table table-modern table-striped table-hover" id="tabelaPendencias">
                             <thead>
                                 <tr>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.num_pedido if sql_meta else 'N/A' }}"><span class="sql-origin">Pedido <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_emissao if sql_meta else 'N/A' }}"><span class="sql-origin">Emissão <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_entrega_prevista if sql_meta else 'N/A' }}"><span class="sql-origin">Entrega Prev. <i class="fas fa-database"></i></span></th>
-                                    <th class="text-center" data-bs-toggle="tooltip" title="📊 {{ sql_meta.dias_atraso if sql_meta else 'N/A' }}"><span class="sql-origin">Dias Atraso <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.status_detalhado if sql_meta else 'N/A' }}"><span class="sql-origin">Status <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Fornecedor <i class="fas fa-database"></i></span></th>
-                                    <th data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_comprador if sql_meta else 'N/A' }}"><span class="sql-origin">Comprador <i class="fas fa-database"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaPendencias', 0, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.num_pedido if sql_meta else 'N/A' }}"><span class="sql-origin">Pedido <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaPendencias', 1, 'date')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_emissao if sql_meta else 'N/A' }}"><span class="sql-origin">Emissão <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaPendencias', 2, 'date')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.data_entrega_prevista if sql_meta else 'N/A' }}"><span class="sql-origin">Entrega Prev. <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center sortable" onclick="sortTable('tabelaPendencias', 3, 'number')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.dias_atraso if sql_meta else 'N/A' }}"><span class="sql-origin">Dias Atraso <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaPendencias', 4, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.status_detalhado if sql_meta else 'N/A' }}"><span class="sql-origin">Status <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaPendencias', 5, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_fornecedor if sql_meta else 'N/A' }}"><span class="sql-origin">Fornecedor <i class="fas fa-sort"></i></span></th>
+                                    <th class="sortable" onclick="sortTable('tabelaPendencias', 6, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.nome_comprador if sql_meta else 'N/A' }}"><span class="sql-origin">Comprador <i class="fas fa-sort"></i></span></th>
                                     <th>Contato</th>
                                 </tr>
                             </thead>
@@ -578,8 +679,75 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.14.0-beta2/js/bootstrap-select.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-
 <script>
+    // ========================================
+    // INICIALIZAÇÃO DOS DROPDOWNS MENSAIS
+    // ========================================
+    (function() {
+        const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const dataAtual = new Date();
+        const anoAtual = dataAtual.getFullYear();
+        
+        function ultimoDiaMes(ano, mes) {
+            return new Date(ano, mes + 1, 0).getDate();
+        }
+        
+        const opcoesInicio = [];
+        const opcoesFim = [];
+        for (let ano = anoAtual - 2; ano <= anoAtual + 1; ano++) {
+            for (let mes = 0; mes < 12; mes++) {
+                const valorInicio = `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
+                const ultimoDia = ultimoDiaMes(ano, mes);
+                const valorFim = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+                const texto = `${meses[mes]}/${ano}`;
+                opcoesInicio.push({ valor: valorInicio, texto });
+                opcoesFim.push({ valor: valorFim, texto });
+            }
+        }
+        
+        function preencherSelectInicio(selectId, valorInicial) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            select.innerHTML = '';
+            opcoesInicio.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.valor;
+                option.textContent = opt.texto;
+                select.appendChild(option);
+            });
+            if (valorInicial) {
+                const partes = valorInicial.split('-');
+                select.value = `${partes[0]}-${partes[1]}-01`;
+            } else {
+                select.value = `${anoAtual}-01-01`;
+            }
+        }
+        
+        function preencherSelectFim(selectId, valorInicial) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            select.innerHTML = '';
+            opcoesFim.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.valor;
+                option.textContent = opt.texto;
+                select.appendChild(option);
+            });
+            if (valorInicial) {
+                const partes = valorInicial.split('-');
+                const ano = parseInt(partes[0]);
+                const mes = parseInt(partes[1]) - 1;
+                const ultimoDia = ultimoDiaMes(ano, mes);
+                select.value = `${partes[0]}-${partes[1]}-${String(ultimoDia).padStart(2, '0')}`;
+            } else {
+                select.value = `${anoAtual}-12-31`;
+            }
+        }
+        
+        preencherSelectInicio('selectDataInicio', '{{ filtros.data_inicio }}');
+        preencherSelectFim('selectDataFim', '{{ filtros.data_fim }}');
+    })();
+    
     // ========================================
     // INICIALIZAÇÃO
     // ========================================
@@ -672,24 +840,50 @@
     // ========================================
     // GRÁFICO COMPRADORES (Barras Empilhadas)
     // ========================================
+    const compAtrasadoData = {{ dados.graf_comp_atrasado | default([]) | tojson }};
+    const compPrazoData = {{ dados.graf_comp_prazo | default([]) | tojson }};
+    const compLabels = {{ dados.graf_comp_labels | default([]) | tojson }};
+    
+    // Calcula totais por comprador para porcentagem no tooltip
+    const compTotais = compAtrasadoData.map((val, idx) => val + compPrazoData[idx]);
+    
     new Chart(document.getElementById('chartCompradores'), {
         type: 'bar',
         data: {
-            labels: {{ dados.graf_comp_labels | default([]) | tojson }},
+            labels: compLabels,
             datasets: [
-                { label: 'Atrasado', data: {{ dados.graf_comp_atrasado | default([]) | tojson }}, backgroundColor: colors.red, borderRadius: 4 },
-                { label: 'No Prazo', data: {{ dados.graf_comp_prazo | default([]) | tojson }}, backgroundColor: colors.green, borderRadius: 4 }
+                { label: 'Fora do prazo', data: compAtrasadoData, backgroundColor: colors.red, borderRadius: 4 },
+                { label: 'Dentro do prazo', data: compPrazoData, backgroundColor: colors.green, borderRadius: 4 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: { padding: { top: 20 } },
             scales: { x: { stacked: true }, y: { stacked: true, grid: { display: false } } },
             onClick: (e, elements, chart) => { if (elements.length > 0) { filtrarComprador(chart.data.labels[elements[0].index]); } },
             onHover: (event, chartElement) => { event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default'; },
             plugins: {
                 legend: { position: 'top' },
-                datalabels: { color: 'white', font: { weight: 'bold', size: 10 }, display: ctx => ctx.dataset.data[ctx.dataIndex] > 0 }
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw;
+                            const total = compTotais[context.dataIndex];
+                            const percent = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            const label = context.dataset.label;
+                            return `${label}: ${value} itens (${percent}%)`;
+                        }
+                    }
+                },
+                datalabels: { 
+                    color: 'white', 
+                    font: { weight: 'bold', size: 10 }, 
+                    display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
+                    formatter: value => value,
+                    anchor: 'center',
+                    align: 'center'
+                }
             }
         }
     });
@@ -768,6 +962,53 @@
         .then(data => { alert(data.success ? '✅ E-mail enviado com sucesso!' : '❌ Erro ao enviar: ' + data.message); })
         .catch(error => { console.error('Erro:', error); alert('❌ Erro ao enviar e-mail.'); });
     }
+    
+    // ========================================
+    // SPINNER GLOBAL PARA CARREGAMENTOS
+    // ========================================
+    let spinnerTimeout = null;
+    let activeRequests = 0;
+    
+    function mostrarSpinner(texto = 'Carregando...') {
+        activeRequests++;
+        document.getElementById('spinnerText').textContent = texto;
+        
+        if (spinnerTimeout === null) {
+            spinnerTimeout = setTimeout(() => {
+                document.getElementById('spinnerBackdrop').classList.add('active');
+                document.getElementById('spinnerGlobal').classList.add('active');
+            }, 500);
+        }
+    }
+    
+    function esconderSpinner() {
+        activeRequests = Math.max(0, activeRequests - 1);
+        
+        if (activeRequests === 0) {
+            if (spinnerTimeout) {
+                clearTimeout(spinnerTimeout);
+                spinnerTimeout = null;
+            }
+            document.getElementById('spinnerBackdrop').classList.remove('active');
+            document.getElementById('spinnerGlobal').classList.remove('active');
+        }
+    }
+    
+    // Intercepta fetch para mostrar spinner automaticamente
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+        mostrarSpinner();
+        return originalFetch.apply(this, args)
+            .then(response => { esconderSpinner(); return response; })
+            .catch(error => { esconderSpinner(); throw error; });
+    };
+    
+    // Intercepta submissão de formulários
+    document.addEventListener('submit', function(e) {
+        if (e.target.tagName === 'FORM') {
+            mostrarSpinner('Aplicando filtros...');
+        }
+    });
 </script>
 </body>
 </html>

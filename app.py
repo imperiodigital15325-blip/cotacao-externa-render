@@ -153,6 +153,12 @@ def preparar_tabela_json(df):
     """
     Converte um DataFrame para lista de dicionários, 
     tratando valores NaT (Not a Time) que não podem ser serializados para JSON.
+    
+    CORREÇÃO V2: 
+    - Tratamento robusto de todos os tipos de valores problemáticos
+    - Normalização de valores numéricos (NaN -> 0)
+    - Tratamento de strings vazias e None
+    - Proteção contra erros de conversão
     """
     if df is None or df.empty:
         return []
@@ -162,27 +168,82 @@ def preparar_tabela_json(df):
                     'DataSolicitacao', 'DataNecessidade',
                     'Data de Emissão', 'Data Entrega Prevista', 'Data de Emissao']
     
+    # Colunas numéricas que devem ter valor padrão 0
+    colunas_numericas = ['ValorTotal', 'QtdPedida', 'QtdEntregue', 'PrecoUnitario', 'ValorUnitario']
+    
+    # Colunas de texto que devem ter valor padrão
+    colunas_texto = ['CodProduto', 'DescricaoProduto', 'NomeFornecedor', 'CodFornecedor',
+                     'NumeroPedido', 'NumeroNota', 'CondicaoPagamento', 'NomeComprador']
+    
+    # Cria cópia para não alterar o original
+    df_copy = df.copy()
+    
     # Converte para dicionário
-    registros = df.to_dict(orient='records')
+    registros = df_copy.to_dict(orient='records')
     
     # Trata cada registro
     for registro in registros:
+        # Tratamento de datas
         for col in colunas_data:
             if col in registro:
                 valor = registro[col]
-                # Se for NaT ou NaN, converte para None
-                if pd.isna(valor):
+                try:
+                    # Se for NaT, NaN ou None, converte para None
+                    if valor is None or pd.isna(valor):
+                        registro[col] = None
+                    elif hasattr(valor, 'strftime'):
+                        # Converte datetime para string formatada (DD/MM/AAAA)
+                        registro[col] = valor.strftime('%d/%m/%Y')
+                    elif hasattr(valor, 'isoformat'):
+                        # Converte datetime para string ISO e formata para DD/MM/AAAA
+                        data_obj = pd.to_datetime(valor, errors='coerce')
+                        if pd.notnull(data_obj):
+                            registro[col] = data_obj.strftime('%d/%m/%Y')
+                        else:
+                            registro[col] = None
+                    elif isinstance(valor, str) and valor.strip():
+                        # Tenta converter string para data
+                        try:
+                            data_obj = pd.to_datetime(valor, errors='coerce')
+                            if pd.notnull(data_obj):
+                                registro[col] = data_obj.strftime('%d/%m/%Y')
+                            else:
+                                registro[col] = None
+                        except:
+                            registro[col] = None
+                    else:
+                        registro[col] = None
+                except Exception:
                     registro[col] = None
-                elif hasattr(valor, 'strftime'):
-                    # Converte datetime para string formatada (DD/MM/AAAA)
-                    registro[col] = valor.strftime('%d/%m/%Y')
-                elif hasattr(valor, 'isoformat'):
-                    # Converte datetime para string ISO e formata para DD/MM/AAAA
-                    try:
-                        data_obj = pd.to_datetime(valor)
-                        registro[col] = data_obj.strftime('%d/%m/%Y')
-                    except:
-                        registro[col] = valor.isoformat()[:10]
+        
+        # Tratamento de valores numéricos
+        for col in colunas_numericas:
+            if col in registro:
+                valor = registro[col]
+                try:
+                    if valor is None or pd.isna(valor):
+                        registro[col] = 0
+                    else:
+                        registro[col] = float(valor)
+                except (ValueError, TypeError):
+                    registro[col] = 0
+        
+        # Tratamento de valores de texto
+        for col in colunas_texto:
+            if col in registro:
+                valor = registro[col]
+                try:
+                    if valor is None or pd.isna(valor):
+                        registro[col] = ''
+                    else:
+                        registro[col] = str(valor).strip()
+                except Exception:
+                    registro[col] = ''
+        
+        # Tratamento especial para NumeroNota (deve mostrar 'Pendente' quando vazio)
+        if 'NumeroNota' in registro:
+            if not registro['NumeroNota'] or registro['NumeroNota'].strip() == '':
+                registro['NumeroNota'] = 'Pendente'
     
     return registros
 
@@ -621,53 +682,117 @@ def get_variacao_preco_data():
 
 
 # --- PROCESSAMENTO DOS FILTROS ---
+# CORREÇÃO V2: Filtros mais robustos e consistentes
 def aplicar_filtros_comuns(df, filtros):
-    if df is None or df.empty: return pd.DataFrame()
+    """
+    Aplica filtros comuns ao DataFrame.
     
-    # 1. Fornecedores
-    fornecedores_sel = filtros.get('fornecedores')
-    if fornecedores_sel and isinstance(fornecedores_sel, list) and len(fornecedores_sel) > 0:
-        df = df[df['NomeFornecedor'].isin(fornecedores_sel)]
-
-    # 2. Busca Geral
-    if filtros.get('busca_geral'):
-        texto_busca = filtros['busca_geral']
-        termos = list(dict.fromkeys([t.strip() for t in texto_busca.split(',') if t.strip()]))
-        
-        if termos:
-            mascara_final = pd.Series([False] * len(df), index=df.index)
-            for termo in termos:
-                condicoes = (
-                    df['DescricaoProduto'].str.contains(termo, case=False, na=False, regex=False) |
-                    df['NumeroPedido'].astype(str).str.contains(termo, case=False, na=False, regex=False) |
-                    df['CondicaoPagamento'].str.contains(termo, case=False, na=False, regex=False)
-                )
-                if 'CodProduto' in df.columns:
-                    condicoes = condicoes | df['CodProduto'].str.contains(termo, case=False, na=False, regex=False)
-                if 'NumeroNota' in df.columns:
-                    condicoes = condicoes | df['NumeroNota'].astype(str).str.contains(termo, case=False, na=False, regex=False)
-                
-                mascara_final = mascara_final | condicoes
-            df = df[mascara_final]
-
-    # 3. Comprador
-    comprador_filtro = filtros.get('comprador')
-    if comprador_filtro and comprador_filtro not in ['Todos', 'Todos os Compradores', 'None']:
-        if isinstance(comprador_filtro, list):
-             df = df[df['NomeComprador'].isin(comprador_filtro)]
-        else:
-             df = df[df['NomeComprador'].str.lower() == comprador_filtro.strip().lower()]
+    CORREÇÕES APLICADAS (V2):
+    - Normalização consistente de strings (strip + upper)
+    - Tratamento de valores nulos antes de comparação
+    - Filtros aplicados em ordem correta (datas primeiro para reduzir dataset)
+    - Proteção contra DataFrames vazios em cada etapa
+    """
+    if df is None or df.empty: 
+        return pd.DataFrame()
     
-    # 4. Datas
+    # Cria cópia para evitar SettingWithCopyWarning
+    df = df.copy()
+    
+    # 1. DATAS (aplicar primeiro para reduzir dataset)
     if filtros.get('data_inicio'):
         dt_inicio = pd.to_datetime(filtros['data_inicio'], errors='coerce')
         if pd.notnull(dt_inicio):
             df = df[df['DataEmissao'] >= dt_inicio]
+            if df.empty:
+                return pd.DataFrame()
 
     if filtros.get('data_fim'):
         dt_fim = pd.to_datetime(filtros['data_fim'], errors='coerce')
         if pd.notnull(dt_fim):
             df = df[df['DataEmissao'] <= dt_fim]
+            if df.empty:
+                return pd.DataFrame()
+    
+    # 2. FORNECEDORES
+    fornecedores_sel = filtros.get('fornecedores')
+    if fornecedores_sel and isinstance(fornecedores_sel, list) and len(fornecedores_sel) > 0:
+        df = df[df['NomeFornecedor'].isin(fornecedores_sel)]
+        if df.empty:
+            return pd.DataFrame()
+
+    # 3. BUSCA GERAL - CORREÇÃO PRINCIPAL
+    if filtros.get('busca_geral'):
+        texto_busca = filtros['busca_geral'].strip()
+        # Remove espaços extras e separa por vírgula
+        termos = list(dict.fromkeys([t.strip().upper() for t in texto_busca.split(',') if t.strip()]))
+        
+        if termos:
+            # Pré-processa colunas de busca para normalização consistente
+            # Converte para string e normaliza ANTES da busca
+            col_descricao = df['DescricaoProduto'].fillna('').astype(str).str.upper().str.strip()
+            col_pedido = df['NumeroPedido'].fillna('').astype(str).str.upper().str.strip()
+            col_condicao = df['CondicaoPagamento'].fillna('').astype(str).str.upper().str.strip()
+            
+            # CodProduto - normalização especial (pode ter espaços)
+            col_codproduto = pd.Series([''] * len(df), index=df.index)
+            if 'CodProduto' in df.columns:
+                col_codproduto = df['CodProduto'].fillna('').astype(str).str.upper().str.strip()
+            
+            # NumeroNota - trata 'Pendente' como valor especial
+            col_nota = pd.Series([''] * len(df), index=df.index)
+            if 'NumeroNota' in df.columns:
+                col_nota = df['NumeroNota'].fillna('').astype(str).str.upper().str.strip()
+            
+            mascara_final = pd.Series([False] * len(df), index=df.index)
+            
+            for termo in termos:
+                termo_limpo = termo.strip()
+                if not termo_limpo:
+                    continue
+                    
+                # Busca por correspondência exata ou parcial (contains)
+                # IMPORTANTE: Verifica correspondência EXATA para códigos curtos
+                if len(termo_limpo) <= 6:
+                    # Para termos curtos, prioriza correspondência exata no código
+                    condicao_codigo_exato = (col_codproduto == termo_limpo)
+                    condicao_pedido_exato = (col_pedido == termo_limpo)
+                    condicao_nota_exato = (col_nota == termo_limpo)
+                    
+                    # Se não encontrar exato, usa contains
+                    condicoes = (
+                        condicao_codigo_exato |
+                        condicao_pedido_exato |
+                        condicao_nota_exato |
+                        col_descricao.str.contains(termo_limpo, na=False, regex=False) |
+                        col_codproduto.str.contains(termo_limpo, na=False, regex=False) |
+                        col_pedido.str.contains(termo_limpo, na=False, regex=False)
+                    )
+                else:
+                    # Para termos longos, usa contains em todos os campos
+                    condicoes = (
+                        col_descricao.str.contains(termo_limpo, na=False, regex=False) |
+                        col_pedido.str.contains(termo_limpo, na=False, regex=False) |
+                        col_condicao.str.contains(termo_limpo, na=False, regex=False) |
+                        col_codproduto.str.contains(termo_limpo, na=False, regex=False) |
+                        col_nota.str.contains(termo_limpo, na=False, regex=False)
+                    )
+                
+                mascara_final = mascara_final | condicoes
+            
+            df = df[mascara_final]
+            if df.empty:
+                return pd.DataFrame()
+
+    # 4. COMPRADOR
+    comprador_filtro = filtros.get('comprador')
+    if comprador_filtro and comprador_filtro not in ['Todos', 'Todos os Compradores', 'None', '']:
+        if isinstance(comprador_filtro, list):
+            df = df[df['NomeComprador'].isin(comprador_filtro)]
+        else:
+            # Normaliza para comparação case-insensitive
+            comprador_normalizado = comprador_filtro.strip().lower()
+            df = df[df['NomeComprador'].fillna('').astype(str).str.strip().str.lower() == comprador_normalizado]
         
     return df
 
@@ -1097,12 +1222,15 @@ def dashboard():
             'Entregue' if pd.notnull(row['DataRecebimento']) else 
             ('Atrasado' if pd.notnull(row['DataEntregaPrevista']) and hoje > row['DataEntregaPrevista'] else 'No Prazo'), axis=1)
     
-    total_compras = df_unique['ValorTotal'].sum() if not df_unique.empty else 0
-    qtd_pedidos = df_unique['NumeroPedido'].nunique() if not df_unique.empty else 0
+    total_compras = df_unique['ValorTotal'].sum() if not df_unique.empty and 'ValorTotal' in df_unique.columns else 0
+    qtd_pedidos = df_unique['NumeroPedido'].nunique() if not df_unique.empty and 'NumeroPedido' in df_unique.columns else 0
     ticket_medio = total_compras / qtd_pedidos if qtd_pedidos > 0 else 0
     
     # Cria df_pendente e AQUI aplica o BLOQUEIO_FINANCEIRO (só afeta Backlog e Previsão de Pagamentos)
-    df_pendente = df_unique[(df_unique['NumeroNota'] == 'Pendente') | (df_unique['QtdEntregue'] < df_unique['QtdPedida'])].copy()
+    if not df_unique.empty and 'NumeroNota' in df_unique.columns and 'QtdEntregue' in df_unique.columns and 'QtdPedida' in df_unique.columns:
+        df_pendente = df_unique[(df_unique['NumeroNota'] == 'Pendente') | (df_unique['QtdEntregue'] < df_unique['QtdPedida'])].copy()
+    else:
+        df_pendente = pd.DataFrame()
     if not df_pendente.empty:
         # Remove fornecedores bloqueados
         for termo_excluir in BLOQUEIO_FINANCEIRO:
@@ -1160,14 +1288,14 @@ def dashboard():
     previsao_labels = [item[0] for item in previsao_ordenada]
     previsao_values = [round(item[1]['valor'], 2) for item in previsao_ordenada]
 
-    top_fornecedores = df_unique.groupby('NomeFornecedor')['ValorTotal'].sum().nlargest(10).reset_index() if not df_unique.empty else pd.DataFrame()
+    top_fornecedores = df_unique.groupby('NomeFornecedor')['ValorTotal'].sum().nlargest(10).reset_index() if not df_unique.empty and 'NomeFornecedor' in df_unique.columns else pd.DataFrame()
     
     # === LÓGICA CONTEXTUAL DO TOP 10 ===
     # Detecta se há fornecedor(es) selecionado(s)
     fornecedores_selecionados = filtros.get('fornecedores') or []
     tem_fornecedor_selecionado = len(fornecedores_selecionados) > 0
     
-    if tem_fornecedor_selecionado and not df_unique.empty:
+    if tem_fornecedor_selecionado and not df_unique.empty and 'CodProduto' in df_unique.columns:
         # MODO: Top 10 Produtos do(s) Fornecedor(es) selecionado(s)
         # Agrupa por produto somando VALOR e QUANTIDADE
         top_produtos = df_unique.groupby(['CodProduto', 'DescricaoProduto']).agg({
@@ -1201,10 +1329,15 @@ def dashboard():
         top10_titulo = "Top 10 Fornecedores (Valor)"
         top10_modo = 'fornecedores'
     
-    df_unique = df_unique.copy()
-    df_unique['MesAno'] = df_unique['DataEmissao'].dt.strftime('%m/%Y')
-    vendas_mes = df_unique.groupby(['MesAno', df_unique['DataEmissao'].dt.to_period('M')])['ValorTotal'].sum().reset_index().sort_values(by='DataEmissao') if not df_unique.empty else pd.DataFrame()
-    top_cond = df_unique.groupby('CondicaoPagamento')['ValorTotal'].sum().nlargest(5).reset_index() if not df_unique.empty else pd.DataFrame()
+    # Verifica se df_unique tem dados e as colunas necessárias
+    if not df_unique.empty and 'DataEmissao' in df_unique.columns:
+        df_unique = df_unique.copy()
+        df_unique['MesAno'] = df_unique['DataEmissao'].dt.strftime('%m/%Y')
+        vendas_mes = df_unique.groupby(['MesAno', df_unique['DataEmissao'].dt.to_period('M')])['ValorTotal'].sum().reset_index().sort_values(by='DataEmissao')
+        top_cond = df_unique.groupby('CondicaoPagamento')['ValorTotal'].sum().nlargest(5).reset_index() if 'CondicaoPagamento' in df_unique.columns else pd.DataFrame()
+    else:
+        vendas_mes = pd.DataFrame()
+        top_cond = pd.DataFrame()
 
     dados = {
         'kpi_total': f"R$ {total_compras:,.2f}",
@@ -1347,6 +1480,13 @@ def api_frequencia_compras():
     """
     API para análise de frequência de compras por item.
     
+    CORREÇÕES V2 APLICADAS:
+    - Tratamento robusto de valores nulos e NaN
+    - Proteção contra divisão por zero
+    - Tratamento de listas vazias
+    - Resposta consistente mesmo sem dados suficientes
+    - Tratamento de erros de conversão de data
+    
     Parâmetros:
         - item: código ou descrição do item (obrigatório)
         - data_inicio: data inicial no formato YYYY-MM-DD (opcional)
@@ -1376,85 +1516,150 @@ def api_frequencia_compras():
         if df is None or df.empty:
             return jsonify({
                 'success': False,
-                'message': 'Erro ao carregar dados do banco'
+                'message': 'Erro ao carregar dados do banco ou sem dados disponíveis'
             })
         
-        # Converte datas de filtro
-        dt_inicio = datetime.strptime(data_inicio, '%Y-%m-%d')
-        dt_fim = datetime.strptime(data_fim, '%Y-%m-%d')
+        # Converte datas de filtro com tratamento de erro
+        try:
+            dt_inicio = datetime.strptime(data_inicio, '%Y-%m-%d')
+            dt_fim = datetime.strptime(data_fim, '%Y-%m-%d')
+        except ValueError as e:
+            return jsonify({
+                'success': False,
+                'message': f'Formato de data inválido: {str(e)}. Use YYYY-MM-DD.'
+            })
         
-        # Filtra por período
-        df_periodo = df[(df['DataEmissao'] >= dt_inicio) & (df['DataEmissao'] <= dt_fim)].copy()
+        # Valida ordem das datas
+        if dt_inicio > dt_fim:
+            return jsonify({
+                'success': False,
+                'message': 'Data inicial não pode ser maior que data final'
+            })
         
-        # Separa múltiplos itens por vírgula
+        # Filtra por período - trata valores nulos na coluna de data
+        df_com_data = df[df['DataEmissao'].notna()].copy()
+        if df_com_data.empty:
+            return jsonify({
+                'success': False,
+                'message': 'Sem dados com datas válidas no período especificado'
+            })
+        
+        df_periodo = df_com_data[
+            (df_com_data['DataEmissao'] >= dt_inicio) & 
+            (df_com_data['DataEmissao'] <= dt_fim)
+        ].copy()
+        
+        if df_periodo.empty:
+            return jsonify({
+                'success': False,
+                'message': f'Nenhum dado encontrado no período de {data_inicio} a {data_fim}'
+            })
+        
+        # Separa múltiplos itens por vírgula e normaliza
         termos_busca = [t.strip().upper() for t in item_busca.split(',') if t.strip()]
         
-        # Filtra pelos itens
-        def item_match(row):
-            cod = str(row['CodProduto']).upper()
-            desc = str(row['DescricaoProduto']).upper()
-            return any(termo in cod or termo in desc for termo in termos_busca)
+        if not termos_busca:
+            return jsonify({
+                'success': False,
+                'message': 'Nenhum termo de busca válido informado'
+            })
         
-        df_filtrado = df_periodo[df_periodo.apply(item_match, axis=1)]
+        # Pré-processa colunas para busca eficiente (evita apply row-by-row)
+        df_periodo['CodProduto_Upper'] = df_periodo['CodProduto'].fillna('').astype(str).str.upper().str.strip()
+        df_periodo['DescricaoProduto_Upper'] = df_periodo['DescricaoProduto'].fillna('').astype(str).str.upper().str.strip()
+        
+        # Filtra pelos itens usando vetorização (mais eficiente)
+        mascara = pd.Series([False] * len(df_periodo), index=df_periodo.index)
+        for termo in termos_busca:
+            mascara = mascara | (
+                df_periodo['CodProduto_Upper'].str.contains(termo, na=False, regex=False) |
+                df_periodo['DescricaoProduto_Upper'].str.contains(termo, na=False, regex=False)
+            )
+        
+        df_filtrado = df_periodo[mascara].copy()
         
         if df_filtrado.empty:
             return jsonify({
                 'success': False,
-                'message': f'Nenhum item encontrado para: {item_busca}'
+                'message': f'Nenhum item encontrado para: "{item_busca}" no período selecionado',
+                'sugestao': 'Verifique a ortografia ou tente um termo mais genérico'
             })
         
         # Agrupa por CodProduto para análise
         resultados = []
         
         for cod_produto in df_filtrado['CodProduto'].unique():
-            df_item = df_filtrado[df_filtrado['CodProduto'] == cod_produto]
-            
-            # Calcula métricas
-            qtd_total = df_item['QtdPedida'].sum()
-            valor_total = df_item['ValorTotal'].sum()
-            freq_pedidos = df_item['NumeroPedido'].nunique()
-            
-            # Calcula número de meses distintos
-            df_item_copy = df_item.copy()
-            df_item_copy['MesAno'] = df_item_copy['DataEmissao'].dt.to_period('M')
-            num_meses = df_item_copy['MesAno'].nunique()
-            
-            # Médias mensais
-            media_qtd_mes = qtd_total / num_meses if num_meses > 0 else qtd_total
-            media_valor_mes = valor_total / num_meses if num_meses > 0 else valor_total
-            
-            # Datas primeiro e último pedido
-            primeiro_pedido = df_item['DataEmissao'].min()
-            ultimo_pedido = df_item['DataEmissao'].max()
-            
-            # Detalhamento por pedido
-            detalhes_pedidos = df_item.groupby('NumeroPedido').agg({
-                'DataEmissao': 'first',
-                'QtdPedida': 'sum',
-                'ValorTotal': 'sum',
-                'NomeFornecedor': 'first'
-            }).reset_index().to_dict(orient='records')
-            
-            # Formata datas
-            for det in detalhes_pedidos:
-                if pd.notnull(det['DataEmissao']):
-                    det['DataEmissao'] = det['DataEmissao'].strftime('%d/%m/%Y')
-            
-            resultados.append({
-                'CodProduto': cod_produto,
-                'DescricaoProduto': df_item['DescricaoProduto'].iloc[0],
-                'QtdTotalComprada': float(qtd_total),
-                'ValorTotalComprado': float(valor_total),
-                'FrequenciaPedidos': int(freq_pedidos),
-                'NumMesesComCompra': int(num_meses),
-                'MediaQtdPorMes': round(media_qtd_mes, 2),
-                'MediaValorPorMes': round(media_valor_mes, 2),
-                'PrimeiroPedido': primeiro_pedido.strftime('%d/%m/%Y') if pd.notnull(primeiro_pedido) else None,
-                'UltimoPedido': ultimo_pedido.strftime('%d/%m/%Y') if pd.notnull(ultimo_pedido) else None,
-                'DetalhesPedidos': detalhes_pedidos
+            try:
+                df_item = df_filtrado[df_filtrado['CodProduto'] == cod_produto]
+                
+                if df_item.empty:
+                    continue
+                
+                # Calcula métricas com proteção contra valores nulos
+                qtd_total = df_item['QtdPedida'].fillna(0).sum()
+                valor_total = df_item['ValorTotal'].fillna(0).sum()
+                freq_pedidos = df_item['NumeroPedido'].nunique()
+                
+                # Calcula número de meses distintos
+                df_item_copy = df_item.copy()
+                df_item_copy['MesAno'] = df_item_copy['DataEmissao'].dt.to_period('M')
+                num_meses = df_item_copy['MesAno'].nunique()
+                
+                # Médias mensais com proteção contra divisão por zero
+                media_qtd_mes = qtd_total / max(num_meses, 1)
+                media_valor_mes = valor_total / max(num_meses, 1)
+                
+                # Datas primeiro e último pedido com tratamento de nulos
+                datas_validas = df_item['DataEmissao'].dropna()
+                primeiro_pedido = datas_validas.min() if len(datas_validas) > 0 else None
+                ultimo_pedido = datas_validas.max() if len(datas_validas) > 0 else None
+                
+                # Detalhamento por pedido
+                detalhes_pedidos = df_item.groupby('NumeroPedido').agg({
+                    'DataEmissao': 'first',
+                    'QtdPedida': 'sum',
+                    'ValorTotal': 'sum',
+                    'NomeFornecedor': 'first'
+                }).reset_index().to_dict(orient='records')
+                
+                # Formata datas nos detalhes
+                for det in detalhes_pedidos:
+                    if pd.notnull(det.get('DataEmissao')):
+                        det['DataEmissao'] = det['DataEmissao'].strftime('%d/%m/%Y')
+                    else:
+                        det['DataEmissao'] = '-'
+                    # Trata valores None nos outros campos
+                    det['QtdPedida'] = det.get('QtdPedida') or 0
+                    det['ValorTotal'] = det.get('ValorTotal') or 0
+                    det['NomeFornecedor'] = det.get('NomeFornecedor') or 'N/A'
+                
+                # Obtém descrição do produto (primeiro registro não-nulo)
+                descricao = df_item['DescricaoProduto'].dropna().iloc[0] if len(df_item['DescricaoProduto'].dropna()) > 0 else 'Sem descrição'
+                
+                resultados.append({
+                    'CodProduto': str(cod_produto) if cod_produto else 'N/A',
+                    'DescricaoProduto': str(descricao),
+                    'QtdTotalComprada': float(qtd_total),
+                    'ValorTotalComprado': float(valor_total),
+                    'FrequenciaPedidos': int(freq_pedidos),
+                    'NumMesesComCompra': int(num_meses),
+                    'MediaQtdPorMes': round(float(media_qtd_mes), 2),
+                    'MediaValorPorMes': round(float(media_valor_mes), 2),
+                    'PrimeiroPedido': primeiro_pedido.strftime('%d/%m/%Y') if pd.notnull(primeiro_pedido) else '-',
+                    'UltimoPedido': ultimo_pedido.strftime('%d/%m/%Y') if pd.notnull(ultimo_pedido) else '-',
+                    'DetalhesPedidos': detalhes_pedidos
+                })
+            except Exception as item_error:
+                print(f"[FREQUENCIA] Erro ao processar item {cod_produto}: {item_error}")
+                continue
+        
+        if not resultados:
+            return jsonify({
+                'success': False,
+                'message': f'Dados encontrados, mas não foi possível processar análise para: "{item_busca}"'
             })
         
-        # Estatísticas globais
+        # Estatísticas globais com proteção
         total_geral_qtd = sum(r['QtdTotalComprada'] for r in resultados)
         total_geral_valor = sum(r['ValorTotalComprado'] for r in resultados)
         total_geral_pedidos = sum(r['FrequenciaPedidos'] for r in resultados)
@@ -1463,7 +1668,7 @@ def api_frequencia_compras():
         df_filtrado_copy = df_filtrado.copy()
         df_filtrado_copy['MesAno'] = df_filtrado_copy['DataEmissao'].dt.to_period('M')
         num_meses_global = df_filtrado_copy['MesAno'].nunique()
-        media_mensal_global = total_geral_qtd / num_meses_global if num_meses_global > 0 else total_geral_qtd
+        media_mensal_global = total_geral_qtd / max(num_meses_global, 1)
         
         return jsonify({
             'success': True,
@@ -1476,16 +1681,267 @@ def api_frequencia_compras():
                 'TotalGeralQtd': float(total_geral_qtd),
                 'TotalGeralValor': float(total_geral_valor),
                 'TotalGeralPedidos': int(total_geral_pedidos),
-                'MediaMensalGlobal': round(media_mensal_global, 2),
+                'MediaMensalGlobal': round(float(media_mensal_global), 2),
                 'NumMesesGlobal': int(num_meses_global)
             }
         })
         
     except Exception as e:
-        print(f"Erro na API frequencia_compras: {e}")
+        import traceback
+        print(f"[FREQUENCIA] Erro na API frequencia_compras: {e}")
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': f'Erro ao processar: {str(e)}'
+            'message': f'Erro interno ao processar análise: {str(e)}'
+        })
+
+
+# =============================================================================
+# API: ANÁLISE COMPARATIVA TEMPORAL (Ano vs Ano)
+# =============================================================================
+@app.route('/api/analise_comparativa', methods=['GET'])
+def api_analise_comparativa():
+    """
+    API para análise comparativa temporal entre dois períodos.
+    
+    Parâmetros:
+        - periodo1_inicio: data inicial do período base (YYYY-MM-DD)
+        - periodo1_fim: data final do período base (YYYY-MM-DD)
+        - periodo2_inicio: data inicial do período de comparação (YYYY-MM-DD)
+        - periodo2_fim: data final do período de comparação (YYYY-MM-DD)
+        - comprador: filtro por comprador (opcional)
+        - fornecedores: lista de fornecedores para filtrar (multi-select, igual ao dashboard)
+        - busca_produto: busca por código ou descrição de produto (igual ao dashboard)
+        - tipo: filtro por tipo de produto (opcional)
+    
+    Retorna:
+        - Métricas comparativas (valor total, quantidade, variação %)
+        - Dados agrupados por mês para ambos os períodos
+        - Top variações positivas e negativas
+    
+    IMPORTANTE: Usa a mesma lógica de cálculo do dashboard principal para garantir
+    valores consistentes (remove duplicatas de NumeroPedido+ItemPedido).
+    """
+    try:
+        # Parâmetros de período
+        periodo1_inicio = request.args.get('periodo1_inicio', '')
+        periodo1_fim = request.args.get('periodo1_fim', '')
+        periodo2_inicio = request.args.get('periodo2_inicio', '')
+        periodo2_fim = request.args.get('periodo2_fim', '')
+        
+        # Filtros PADRONIZADOS (idênticos ao dashboard)
+        comprador = request.args.get('comprador', 'Todos')
+        fornecedores = request.args.getlist('fornecedores')  # Multi-select igual ao dashboard
+        busca_produto = request.args.get('busca_produto', '')  # Busca igual ao dashboard
+        tipo = request.args.get('tipo', '')
+        
+        # Validação básica
+        if not all([periodo1_inicio, periodo1_fim, periodo2_inicio, periodo2_fim]):
+            return jsonify({
+                'success': False,
+                'message': 'Todos os períodos devem ser informados'
+            }), 400
+        
+        # Converte datas
+        try:
+            dt_p1_inicio = datetime.strptime(periodo1_inicio, '%Y-%m-%d')
+            dt_p1_fim = datetime.strptime(periodo1_fim, '%Y-%m-%d')
+            dt_p2_inicio = datetime.strptime(periodo2_inicio, '%Y-%m-%d')
+            dt_p2_fim = datetime.strptime(periodo2_fim, '%Y-%m-%d')
+        except ValueError as e:
+            return jsonify({
+                'success': False,
+                'message': f'Formato de data inválido. Use YYYY-MM-DD. Erro: {str(e)}'
+            }), 400
+        
+        # Carrega dados
+        df = get_database_data()
+        if df is None or df.empty:
+            return jsonify({
+                'success': False,
+                'message': 'Erro ao carregar dados do banco'
+            })
+        
+        # =====================================================================
+        # APLICAÇÃO DE FILTROS - IDÊNTICO AO DASHBOARD PRINCIPAL
+        # =====================================================================
+        
+        # 1. Filtro de comprador
+        if comprador and comprador != 'Todos':
+            df = df[df['NomeComprador'] == comprador]
+        
+        # 2. Filtro de fornecedores (MULTI-SELECT - igual ao dashboard)
+        if fornecedores and isinstance(fornecedores, list) and len(fornecedores) > 0:
+            df = df[df['NomeFornecedor'].isin(fornecedores)]
+        
+        # 3. Filtro de produto/busca (IGUAL ao campo "Busca" do dashboard)
+        if busca_produto and busca_produto.strip():
+            texto_busca = busca_produto.strip()
+            termos = list(dict.fromkeys([t.strip().upper() for t in texto_busca.split(',') if t.strip()]))
+            
+            if termos:
+                col_descricao = df['DescricaoProduto'].fillna('').astype(str).str.upper().str.strip()
+                col_codproduto = df['CodProduto'].fillna('').astype(str).str.upper().str.strip() if 'CodProduto' in df.columns else pd.Series([''] * len(df), index=df.index)
+                
+                mascara_final = pd.Series([False] * len(df), index=df.index)
+                
+                for termo in termos:
+                    termo_limpo = termo.strip()
+                    if not termo_limpo:
+                        continue
+                    condicoes = (
+                        col_descricao.str.contains(termo_limpo, na=False, regex=False) |
+                        col_codproduto.str.contains(termo_limpo, na=False, regex=False)
+                    )
+                    mascara_final = mascara_final | condicoes
+                
+                df = df[mascara_final]
+        
+        # 4. Filtro de tipo de produto
+        if tipo and tipo.strip() and 'TipoProduto' in df.columns:
+            df = df[df['TipoProduto'] == tipo.strip()]
+        
+        # 5. Remove fornecedores bloqueados (IGUAL ao dashboard)
+        for termo_excluir in BLOQUEIO_FINANCEIRO:
+            df = df[~df['NomeFornecedor'].str.contains(termo_excluir, case=False, na=False, regex=False)]
+        
+        # =====================================================================
+        # REMOÇÃO DE DUPLICATAS - CRÍTICO PARA VALORES CONSISTENTES
+        # Mesma lógica do dashboard: df.drop_duplicates(subset=['NumeroPedido', 'ItemPedido'])
+        # =====================================================================
+        if not df.empty:
+            df = df.drop_duplicates(subset=['NumeroPedido', 'ItemPedido'], keep='first')
+        
+        # Filtra por período 1
+        df_p1 = df[(df['DataEmissao'] >= dt_p1_inicio) & (df['DataEmissao'] <= dt_p1_fim)].copy()
+        
+        # Filtra por período 2
+        df_p2 = df[(df['DataEmissao'] >= dt_p2_inicio) & (df['DataEmissao'] <= dt_p2_fim)].copy()
+        
+        # Métricas totais
+        total_p1 = df_p1['ValorTotal'].sum() if not df_p1.empty else 0
+        total_p2 = df_p2['ValorTotal'].sum() if not df_p2.empty else 0
+        qtd_pedidos_p1 = df_p1['NumeroPedido'].nunique() if not df_p1.empty else 0
+        qtd_pedidos_p2 = df_p2['NumeroPedido'].nunique() if not df_p2.empty else 0
+        qtd_itens_p1 = len(df_p1) if not df_p1.empty else 0
+        qtd_itens_p2 = len(df_p2) if not df_p2.empty else 0
+        
+        # Cálculo de variação
+        variacao_valor = ((total_p1 - total_p2) / total_p2 * 100) if total_p2 > 0 else (100 if total_p1 > 0 else 0)
+        variacao_pedidos = ((qtd_pedidos_p1 - qtd_pedidos_p2) / qtd_pedidos_p2 * 100) if qtd_pedidos_p2 > 0 else (100 if qtd_pedidos_p1 > 0 else 0)
+        
+        # Dados agrupados sempre por mês (único agrupamento)
+        dados_comparativos = []
+        
+        # Agrupa por mês para gráfico de linhas
+        if not df_p1.empty:
+            df_p1['MesNum'] = df_p1['DataEmissao'].dt.month
+        if not df_p2.empty:
+            df_p2['MesNum'] = df_p2['DataEmissao'].dt.month
+        
+        meses_nomes = {1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
+                     7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'}
+        
+        agg_p1 = df_p1.groupby('MesNum').agg({'ValorTotal': 'sum', 'NumeroPedido': 'nunique'}).reset_index() if not df_p1.empty else pd.DataFrame()
+        agg_p2 = df_p2.groupby('MesNum').agg({'ValorTotal': 'sum', 'NumeroPedido': 'nunique'}).reset_index() if not df_p2.empty else pd.DataFrame()
+        
+        # Cria série de meses do período
+        meses_p1 = set(df_p1['MesNum'].unique()) if not df_p1.empty else set()
+        meses_p2 = set(df_p2['MesNum'].unique()) if not df_p2.empty else set()
+        todos_meses = sorted(meses_p1.union(meses_p2))
+        
+        for mes in todos_meses:
+            val_p1 = agg_p1[agg_p1['MesNum'] == mes]['ValorTotal'].sum() if not agg_p1.empty else 0
+            val_p2 = agg_p2[agg_p2['MesNum'] == mes]['ValorTotal'].sum() if not agg_p2.empty else 0
+            ped_p1 = agg_p1[agg_p1['MesNum'] == mes]['NumeroPedido'].sum() if not agg_p1.empty else 0
+            ped_p2 = agg_p2[agg_p2['MesNum'] == mes]['NumeroPedido'].sum() if not agg_p2.empty else 0
+            
+            var_pct = ((val_p1 - val_p2) / val_p2 * 100) if val_p2 > 0 else (100 if val_p1 > 0 else 0)
+            
+            dados_comparativos.append({
+                'label': meses_nomes.get(mes, str(mes)),
+                'mes_num': mes,
+                'valor_periodo1': round(val_p1, 2),
+                'valor_periodo2': round(val_p2, 2),
+                'pedidos_periodo1': int(ped_p1),
+                'pedidos_periodo2': int(ped_p2),
+                'variacao_pct': round(var_pct, 1),
+                'diferenca': round(val_p1 - val_p2, 2)
+            })
+        
+        # Prepara labels de período para exibição
+        label_p1 = f"{dt_p1_inicio.strftime('%d/%m/%Y')} a {dt_p1_fim.strftime('%d/%m/%Y')}"
+        label_p2 = f"{dt_p2_inicio.strftime('%d/%m/%Y')} a {dt_p2_fim.strftime('%d/%m/%Y')}"
+        
+        # Descrição dos filtros aplicados
+        filtros_aplicados = []
+        if comprador and comprador != 'Todos':
+            filtros_aplicados.append(f"Comprador: {comprador}")
+        if fornecedores and len(fornecedores) > 0:
+            filtros_aplicados.append(f"Fornecedores: {', '.join(fornecedores[:3])}{'...' if len(fornecedores) > 3 else ''}")
+        if busca_produto:
+            filtros_aplicados.append(f"Produto: {busca_produto}")
+        if tipo:
+            filtros_aplicados.append(f"Tipo: {tipo}")
+        
+        # Top variações (positivas e negativas)
+        items_com_ambos = [d for d in dados_comparativos if d['valor_periodo1'] > 0 and d['valor_periodo2'] > 0]
+        top_aumentos = sorted(items_com_ambos, key=lambda x: x['variacao_pct'], reverse=True)[:5]
+        top_reducoes = sorted(items_com_ambos, key=lambda x: x['variacao_pct'])[:5]
+        
+        # Converte valores numpy para tipos nativos Python (evita erro JSON serialization)
+        def converter_para_python_nativo(obj):
+            if isinstance(obj, dict):
+                return {k: converter_para_python_nativo(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [converter_para_python_nativo(i) for i in obj]
+            elif hasattr(obj, 'item'):  # numpy types (int32, int64, float64, etc)
+                return obj.item()
+            else:
+                return obj
+        
+        dados_comparativos = converter_para_python_nativo(dados_comparativos)
+        top_aumentos = converter_para_python_nativo(top_aumentos)
+        top_reducoes = converter_para_python_nativo(top_reducoes)
+        
+        return jsonify({
+            'success': True,
+            'periodos': {
+                'periodo1': {
+                    'inicio': periodo1_inicio,
+                    'fim': periodo1_fim,
+                    'label': label_p1
+                },
+                'periodo2': {
+                    'inicio': periodo2_inicio,
+                    'fim': periodo2_fim,
+                    'label': label_p2
+                }
+            },
+            'resumo': {
+                'total_periodo1': float(total_p1),
+                'total_periodo2': float(total_p2),
+                'diferenca': float(total_p1 - total_p2),
+                'variacao_pct': float(round(variacao_valor, 1)),
+                'pedidos_periodo1': int(qtd_pedidos_p1),
+                'pedidos_periodo2': int(qtd_pedidos_p2),
+                'variacao_pedidos_pct': float(round(variacao_pedidos, 1)),
+                'itens_periodo1': int(qtd_itens_p1),
+                'itens_periodo2': int(qtd_itens_p2)
+            },
+            'filtros_aplicados': filtros_aplicados,
+            'dados': dados_comparativos,
+            'top_aumentos': top_aumentos,
+            'top_reducoes': top_reducoes
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"[COMPARATIVA] Erro na API analise_comparativa: {e}")
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f'Erro interno ao processar análise: {str(e)}'
         })
 
 
@@ -1573,8 +2029,37 @@ def status_pedidos():
              df_aberto = df_aberto[df_aberto['StatusDetalhado'] == status_grafico]
 
         def limpar_telefone(tel):
+            """Normaliza telefone para formato WhatsApp Brasil: apenas DDD + 9 dígitos (sem 55)"""
             if not tel: return ''
-            return ''.join(filter(str.isdigit, str(tel)))
+            # Remove tudo que não é dígito
+            numero = ''.join(filter(str.isdigit, str(tel)))
+            original = numero
+            if not numero: return ''
+            
+            # Remove zeros à esquerda (formato antigo de discagem interurbana)
+            numero = numero.lstrip('0')
+            
+            # Remove código do país se existir (55 no início)
+            if numero.startswith('55') and len(numero) >= 12:
+                numero = numero[2:]
+            
+            # Se tiver 10 dígitos (DDD + 8 dígitos antigo celular), adiciona o 9
+            if len(numero) == 10:
+                terceiro_digito = numero[2] if len(numero) > 2 else ''
+                if terceiro_digito in ['9', '8', '7', '6']:
+                    numero = numero[:2] + '9' + numero[2:]
+                    return numero
+                else:
+                    return ''  # telefone fixo
+            
+            # Se tiver 11 dígitos, verifica se é celular válido
+            if len(numero) == 11:
+                if numero[2] == '9':
+                    return numero
+                else:
+                    return ''  # telefone fixo
+            
+            return ''
 
         df_aberto['TelefoneLimpo'] = df_aberto['TelefoneFornecedor'].apply(limpar_telefone)
 
@@ -3268,6 +3753,48 @@ def get_dados_terceiros():
         df = pd.read_sql(query_terceiros, conn)
         conn.close()
         
+        # Função para normalizar telefone para WhatsApp Brasil
+        def normalizar_telefone_whatsapp(tel):
+            """Normaliza telefone para formato WhatsApp Brasil: apenas DDD + 9 dígitos (sem 55)"""
+            if not tel or pd.isna(tel): return ''
+            # Remove tudo que não é dígito
+            numero = ''.join(filter(str.isdigit, str(tel)))
+            original = numero  # guardar para debug
+            if not numero: return ''
+            
+            # Remove zeros à esquerda (formato antigo de discagem interurbana)
+            numero = numero.lstrip('0')
+            
+            # Remove código do país se existir (55 no início)
+            if numero.startswith('55') and len(numero) >= 12:
+                numero = numero[2:]
+            
+            # Se tiver 10 dígitos (DDD + 8 dígitos antigo celular), adiciona o 9
+            if len(numero) == 10:
+                terceiro_digito = numero[2] if len(numero) > 2 else ''
+                if terceiro_digito in ['9', '8', '7', '6']:
+                    numero = numero[:2] + '9' + numero[2:]
+                    print(f"[WHATSAPP DEBUG] OK (add 9): '{tel}' -> '{numero}'")
+                    return numero
+                else:
+                    print(f"[WHATSAPP DEBUG] FIXO: '{tel}' -> telefone fixo, sem WhatsApp")
+                    return ''
+            
+            # Se tiver 11 dígitos (DDD + 9 dígitos), verifica se é celular válido
+            if len(numero) == 11:
+                if numero[2] == '9':
+                    print(f"[WHATSAPP DEBUG] OK: '{tel}' -> '{numero}'")
+                    return numero
+                else:
+                    print(f"[WHATSAPP DEBUG] FIXO 11dig: '{tel}' -> telefone fixo")
+                    return ''
+            
+            print(f"[WHATSAPP DEBUG] INVALIDO: '{tel}' -> {len(original)} digitos")
+            return ''
+        
+        # Aplicar normalização no telefone
+        df['FaxWhatsAppLimpo'] = df['FaxWhatsAppLimpo'].apply(normalizar_telefone_whatsapp)
+        
         # Converter colunas de data
         colunas_data = ['Data de Emissão', 'Data Entrega Prevista']
         for col in colunas_data:
@@ -3996,28 +4523,120 @@ def cotacoes():
     status_filtro = request.args.get('status', '')
     comprador_filtro = request.args.get('comprador', '')
     busca_filtro = request.args.get('busca', '')
+    tipo_filtro = request.args.get('tipo', '')  # 'Solicitacao', 'Manual' ou '' (todos)
     
     # Buscar cotações
     cotacoes_lista = db.listar_cotacoes(
         status=status_filtro if status_filtro else None,
         comprador=comprador_filtro if comprador_filtro else None,
-        busca=busca_filtro if busca_filtro else None
+        busca=busca_filtro if busca_filtro else None,
+        tipo_origem=tipo_filtro if tipo_filtro else None
     )
     
-    # Estatísticas
+    # Estatísticas (inclui contagem por tipo)
     todas = db.listar_cotacoes(limit=1000)
     stats = {
         'total': len(todas),
         'abertas': len([c for c in todas if c['status'] == 'Aberta']),
         'respondidas': len([c for c in todas if c['status'] == 'Respondida']),
-        'encerradas': len([c for c in todas if c['status'] == 'Encerrada'])
+        'encerradas': len([c for c in todas if c['status'] == 'Encerrada']),
+        'manuais': len([c for c in todas if c.get('tipo_origem') == 'Manual']),
+        'solicitacoes': len([c for c in todas if c.get('tipo_origem', 'Solicitacao') == 'Solicitacao'])
     }
     
     return render_template('cotacoes.html', 
                           user="Admin", 
                           cotacoes=cotacoes_lista,
                           stats=stats,
-                          filtros={'status': status_filtro, 'comprador': comprador_filtro, 'busca': busca_filtro})
+                          filtros={'status': status_filtro, 'comprador': comprador_filtro, 'busca': busca_filtro, 'tipo': tipo_filtro})
+
+
+def buscar_ultimo_preco_pago(codigos_produtos):
+    """
+    Busca o último preço pago para uma lista de códigos de produtos.
+    Retorna um dicionário {codigo_produto: {'preco': valor, 'data': data, 'fornecedor': nome}}
+    
+    Fonte: SD1010 (Notas Fiscais de Entrada) - considera apenas NFs válidas com pedido associado
+    """
+    if not codigos_produtos:
+        return {}
+    
+    resultado = {}
+    
+    try:
+        server = '172.16.45.117\\TOTVS'
+        database = 'TOTVSDB'
+        username = 'excel'
+        password = 'Db_Polimaquinas'
+        
+        conn_str = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
+        conn = pyodbc.connect(conn_str, timeout=30)
+        
+        # Limpa e formata os códigos para a query
+        codigos_limpos = []
+        for cod in codigos_produtos:
+            if cod:
+                cod_limpo = str(cod).strip()
+                if cod_limpo:
+                    codigos_limpos.append(cod_limpo.replace("'", "''"))
+        
+        if not codigos_limpos:
+            conn.close()
+            return {}
+        
+        # Cria lista para IN clause
+        codigos_str = "'" + "','".join(codigos_limpos) + "'"
+        
+        # Query para buscar o último preço pago por produto
+        # Usa ROW_NUMBER para pegar apenas o registro mais recente por produto
+        query = f"""
+        WITH UltimoPreco AS (
+            SELECT 
+                LTRIM(RTRIM(NF.D1_COD)) AS CodProduto,
+                NF.D1_VUNIT AS PrecoUnitario,
+                NF.D1_DTDIGIT AS DataNota,
+                NF.D1_DOC AS NumeroNota,
+                LTRIM(RTRIM(A2.A2_NOME)) AS NomeFornecedor,
+                ROW_NUMBER() OVER (
+                    PARTITION BY LTRIM(RTRIM(NF.D1_COD)) 
+                    ORDER BY NF.D1_DTDIGIT DESC, NF.D1_DOC DESC
+                ) AS rn
+            FROM SD1010 NF WITH (NOLOCK)
+            LEFT JOIN SA2010 A2 WITH (NOLOCK) 
+                ON NF.D1_FORNECE = A2.A2_COD AND A2.D_E_L_E_T_ = ''
+            WHERE NF.D_E_L_E_T_ <> '*'
+              AND NF.D1_VUNIT > 0
+              AND NF.D1_QUANT > 0
+              AND NF.D1_TIPO = 'N'
+              AND LTRIM(RTRIM(ISNULL(NF.D1_PEDIDO, ''))) <> ''
+              AND LTRIM(RTRIM(NF.D1_COD)) IN ({codigos_str})
+        )
+        SELECT CodProduto, PrecoUnitario, DataNota, NumeroNota, NomeFornecedor
+        FROM UltimoPreco
+        WHERE rn = 1
+        """
+        
+        cursor = conn.cursor()
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        
+        for row in rows:
+            cod_produto = row.CodProduto.strip() if row.CodProduto else ''
+            if cod_produto:
+                resultado[cod_produto] = {
+                    'preco': float(row.PrecoUnitario) if row.PrecoUnitario else 0,
+                    'data': row.DataNota if row.DataNota else '',
+                    'nota': row.NumeroNota.strip() if row.NumeroNota else '',
+                    'fornecedor': row.NomeFornecedor.strip() if row.NomeFornecedor else ''
+                }
+        
+        conn.close()
+        print(f"[ULTIMO_PRECO] Encontrado histórico para {len(resultado)} de {len(codigos_limpos)} produtos")
+        
+    except Exception as e:
+        print(f"[ULTIMO_PRECO] Erro ao buscar último preço: {e}")
+    
+    return resultado
 
 
 @app.route('/cotacao/<int:cotacao_id>')
@@ -4028,6 +4647,22 @@ def cotacao_detalhe(cotacao_id):
     if not cotacao:
         flash('Cotação não encontrada!', 'danger')
         return redirect(url_for('cotacoes'))
+    
+    # Busca último preço pago para os itens da cotação
+    codigos_produtos = [item.get('cod_produto', '').strip() for item in cotacao.get('itens', []) if item.get('cod_produto')]
+    ultimos_precos = buscar_ultimo_preco_pago(codigos_produtos)
+    
+    # Adiciona o último preço a cada item
+    for item in cotacao.get('itens', []):
+        cod_produto = item.get('cod_produto', '').strip()
+        if cod_produto and cod_produto in ultimos_precos:
+            item['ultimo_preco_pago'] = ultimos_precos[cod_produto]['preco']
+            item['ultimo_preco_data'] = ultimos_precos[cod_produto]['data']
+            item['ultimo_preco_fornecedor'] = ultimos_precos[cod_produto]['fornecedor']
+        else:
+            item['ultimo_preco_pago'] = None
+            item['ultimo_preco_data'] = None
+            item['ultimo_preco_fornecedor'] = None
     
     # Obter IP do servidor para gerar links funcionais em qualquer dispositivo
     server_ip = obter_ip_servidor()
@@ -4182,6 +4817,219 @@ def api_testar_conexao_fornecedores():
         
     except Exception as e:
         print(f"[ERRO] api_testar_conexao_fornecedores: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# =============================================================================
+# API: BUSCAR PRODUTOS PARA ORÇAMENTO MANUAL
+# =============================================================================
+@app.route('/api/produtos/buscar')
+def api_buscar_produtos():
+    """
+    Busca produtos cadastrados no SB1010 (TOTVS) com último preço de compra.
+    Permite filtrar por código ou descrição.
+    
+    Retorna:
+        - codigo: Código do produto
+        - descricao: Descrição do produto
+        - unidade: Unidade de medida
+        - ultimo_preco: Último preço unitário pago (da última NF)
+        - ultimo_fornecedor: Nome do último fornecedor
+        - data_ultima_compra: Data da última compra
+    """
+    try:
+        termo = request.args.get('termo', '').strip()
+        
+        print(f"[BUSCA PRODUTO] Termo recebido: '{termo}'")
+        
+        if not termo or len(termo) < 2:
+            return jsonify({
+                'success': False,
+                'message': 'Digite pelo menos 2 caracteres para buscar'
+            })
+        
+        server = '172.16.45.117\\TOTVS'
+        database = 'TOTVSDB'
+        username = 'excel'
+        password = 'Db_Polimaquinas'
+        
+        conn_str = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
+        conn = pyodbc.connect(conn_str, timeout=30)
+        cursor = conn.cursor()
+        
+        # Query para buscar produtos com último preço de compra
+        # Usa subquery para pegar a NF mais recente de cada produto
+        query = """
+        SELECT TOP 50
+            RTRIM(P.B1_COD) AS codigo,
+            RTRIM(P.B1_DESC) AS descricao,
+            RTRIM(ISNULL(P.B1_UM, 'UN')) AS unidade,
+            RTRIM(ISNULL(P.B1_TIPO, '')) AS tipo,
+            RTRIM(ISNULL(P.B1_GRUPO, '')) AS grupo,
+            ISNULL(ULT.ultimo_preco, 0) AS ultimo_preco,
+            ISNULL(ULT.ultimo_fornecedor, '') AS ultimo_fornecedor,
+            ULT.data_ultima_compra
+        FROM SB1010 P
+        LEFT JOIN (
+            SELECT 
+                D1.D1_COD,
+                D1.D1_VUNIT AS ultimo_preco,
+                A2.A2_NOME AS ultimo_fornecedor,
+                D1.D1_DTDIGIT AS data_ultima_compra,
+                ROW_NUMBER() OVER (PARTITION BY D1.D1_COD ORDER BY D1.D1_DTDIGIT DESC, D1.D1_DOC DESC) AS rn
+            FROM SD1010 D1
+            INNER JOIN SA2010 A2 ON D1.D1_FORNECE = A2.A2_COD AND A2.D_E_L_E_T_ = ''
+            WHERE D1.D_E_L_E_T_ <> '*'
+              AND D1.D1_TIPO = 'N'
+              AND D1.D1_VUNIT > 0
+              AND D1.D1_QUANT > 0
+        ) ULT ON P.B1_COD = ULT.D1_COD AND ULT.rn = 1
+        WHERE P.D_E_L_E_T_ = ''
+          AND P.B1_MSBLQL <> '1'
+          AND (
+              UPPER(P.B1_COD) LIKE UPPER(?)
+              OR UPPER(P.B1_DESC) LIKE UPPER(?)
+          )
+        ORDER BY 
+            CASE WHEN UPPER(P.B1_COD) = UPPER(?) THEN 0 ELSE 1 END,
+            P.B1_DESC
+        """
+        
+        termo_busca = f'%{termo}%'
+        termo_exato = termo.strip()
+        cursor.execute(query, (termo_busca, termo_busca, termo_exato))
+        
+        columns = [column[0] for column in cursor.description]
+        produtos = []
+        
+        for row in cursor.fetchall():
+            produto = dict(zip(columns, row))
+            # Formata data se existir
+            if produto.get('data_ultima_compra'):
+                try:
+                    data_str = str(produto['data_ultima_compra'])
+                    if len(data_str) == 8:  # Formato YYYYMMDD
+                        produto['data_ultima_compra'] = f"{data_str[6:8]}/{data_str[4:6]}/{data_str[0:4]}"
+                except:
+                    pass
+            produtos.append(produto)
+        
+        conn.close()
+        
+        print(f"[BUSCA PRODUTO] Encontrados: {len(produtos)} produtos")
+        
+        return jsonify({
+            'success': True,
+            'produtos': produtos,
+            'total': len(produtos)
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_buscar_produtos: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': 'Erro ao buscar produtos no banco de dados'
+        })
+
+
+# =============================================================================
+# API: CRIAR ORÇAMENTO MANUAL (Sem Solicitação de Compra)
+# =============================================================================
+@app.route('/api/cotacao/criar-manual', methods=['POST'])
+def api_criar_cotacao_manual():
+    """
+    API para criar orçamento manual (sem vinculação com Solicitação de Compra).
+    
+    Payload esperado:
+    {
+        "itens": [
+            {
+                "cod_produto": "001234",
+                "descricao": "PRODUTO EXEMPLO",
+                "quantidade": 10,
+                "unidade": "UN",
+                "preco_referencia": 150.00,
+                "fornecedor_referencia": "FORNECEDOR XYZ"
+            }
+        ],
+        "comprador": "Daniel Amaral",
+        "nome_customizado": "Orçamento Exploratório",  // opcional
+        "observacoes": "Cotação para benchmark de preços"  // opcional
+    }
+    """
+    try:
+        dados = request.get_json()
+        
+        itens = dados.get('itens', [])
+        comprador = dados.get('comprador', 'Admin')
+        observacoes = dados.get('observacoes', '')
+        nome_customizado = dados.get('nome_customizado')
+        
+        if not itens:
+            return jsonify({
+                'success': False,
+                'error': 'Nenhum item selecionado para o orçamento'
+            }), 400
+        
+        # Valida itens
+        for i, item in enumerate(itens):
+            if not item.get('cod_produto'):
+                return jsonify({
+                    'success': False,
+                    'error': f'Item {i+1} não possui código de produto'
+                }), 400
+            if not item.get('quantidade') or float(item.get('quantidade', 0)) <= 0:
+                return jsonify({
+                    'success': False,
+                    'error': f'Item {i+1} ({item.get("cod_produto")}) deve ter quantidade maior que zero'
+                }), 400
+        
+        # Cria a cotação com tipo_origem = 'Manual'
+        cotacao_id, codigo = db.criar_cotacao(
+            comprador=comprador,
+            observacoes=observacoes,
+            nome_customizado=nome_customizado,
+            tipo_origem='Manual'
+        )
+        
+        # Prepara itens para inserção
+        itens_formatados = []
+        for idx, item in enumerate(itens):
+            itens_formatados.append({
+                'numero_sc': 'MANUAL',
+                'item_sc': f'{idx + 1:03d}',
+                'cod_produto': item.get('cod_produto', ''),
+                'descricao': item.get('descricao', ''),
+                'quantidade': float(item.get('quantidade', 0)),
+                'unidade': item.get('unidade', 'UN'),
+                'data_necessidade': item.get('data_necessidade'),
+                'preco_referencia': item.get('preco_referencia'),
+                'fornecedor_referencia': item.get('fornecedor_referencia')
+            })
+        
+        # Adiciona os itens
+        db.adicionar_itens_cotacao(cotacao_id, itens_formatados)
+        
+        print(f"[ORÇAMENTO MANUAL] Criado: {codigo} com {len(itens)} item(ns)")
+        
+        return jsonify({
+            'success': True,
+            'cotacao_id': cotacao_id,
+            'codigo': codigo,
+            'message': f'Orçamento Manual {codigo} criado com {len(itens)} item(ns)',
+            'tipo': 'Manual'
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_criar_cotacao_manual: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
@@ -4423,6 +5271,9 @@ def api_editar_resposta_fornecedor(resposta_id):
     - observacao
     
     REGRA: Edição sobrescreve resposta original, não depende do status da cotação.
+    
+    CORREÇÃO V2: Suporte a valores NULL/vazios para remover cotação do comparativo.
+    Se allow_null=true, valores vazios são salvos como NULL no banco.
     """
     try:
         dados = request.get_json()
@@ -4435,23 +5286,26 @@ def api_editar_resposta_fornecedor(resposta_id):
         condicao = dados.get('condicao_pagamento')
         frete = dados.get('frete_total')
         observacao = dados.get('observacao')
+        allow_null = dados.get('allow_null', False)  # Flag para permitir limpeza de valores
         
-        # Valida que ao menos um campo foi enviado
-        if all(v is None for v in [preco, prazo, condicao, frete, observacao]):
+        # CORREÇÃO: Se allow_null, aceita campos vazios/null para limpeza
+        # Valida que ao menos um campo foi enviado (exceto quando é limpeza intencional)
+        if not allow_null and all(v is None for v in [preco, prazo, condicao, frete, observacao]):
             return jsonify({'success': False, 'error': 'Nenhum campo para atualizar'}), 400
         
         # Converte tipos se necessário
+        # CORREÇÃO: Permite None para limpar campos
         if preco is not None:
             try:
                 preco = float(preco)
             except (ValueError, TypeError):
-                return jsonify({'success': False, 'error': 'Preço unitário inválido'}), 400
+                preco = None  # Se não converte, trata como null (limpeza)
         
         if prazo is not None:
             try:
                 prazo = int(prazo)
             except (ValueError, TypeError):
-                return jsonify({'success': False, 'error': 'Prazo inválido'}), 400
+                prazo = None  # Se não converte, trata como null (limpeza)
         
         if frete is not None:
             try:
@@ -4459,14 +5313,15 @@ def api_editar_resposta_fornecedor(resposta_id):
             except (ValueError, TypeError):
                 frete = 0
         
-        # Atualiza no banco
+        # Atualiza no banco - CORREÇÃO: passa allow_null para função
         resultado = db.atualizar_resposta_fornecedor(
             resposta_id=resposta_id,
             preco=preco,
             prazo=prazo,
             condicao=condicao,
             frete=frete,
-            observacao=observacao
+            observacao=observacao,
+            allow_null=allow_null  # Nova flag
         )
         
         if resultado:
@@ -4483,6 +5338,40 @@ def api_editar_resposta_fornecedor(resposta_id):
         
     except Exception as e:
         print(f"[ERRO] api_editar_resposta_fornecedor: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/resposta/<int:resposta_id>/excluir', methods=['POST'])
+def api_excluir_resposta_fornecedor(resposta_id):
+    """
+    API para excluir/remover completamente uma resposta de fornecedor.
+    
+    Use quando o usuário quer remover um fornecedor do comparativo para um item específico.
+    Diferente de limpar campos (que mantém o registro com NULL), isso REMOVE o registro.
+    """
+    try:
+        print(f"[EXCLUIR RESPOSTA] ID: {resposta_id}")
+        
+        # Verifica se existe
+        resposta = db.obter_resposta_por_id(resposta_id)
+        if not resposta:
+            return jsonify({'success': False, 'error': 'Resposta não encontrada'}), 404
+        
+        # Exclui
+        resultado = db.excluir_resposta_fornecedor(resposta_id)
+        
+        if resultado:
+            return jsonify({
+                'success': True, 
+                'message': 'Resposta excluída com sucesso. O fornecedor não aparecerá mais no comparativo para este item.'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Erro ao excluir resposta'}), 500
+        
+    except Exception as e:
+        print(f"[ERRO] api_excluir_resposta_fornecedor: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -4582,6 +5471,8 @@ def api_salvar_respostas_fornecedor(fornecedor_id):
     """
     API para salvar/atualizar múltiplas respostas de fornecedor via modal.
     ATUALIZADO: Frete e condição de pagamento são salvos a nível de fornecedor (não por item).
+    
+    CORREÇÃO V2: Agora persiste corretamente valores zerados/nulos para remover do comparativo.
     """
     try:
         dados = request.get_json()
@@ -4617,32 +5508,71 @@ def api_salvar_respostas_fornecedor(fornecedor_id):
         
         # Processar cada resposta de item
         respostas_salvas = 0
+        respostas_zeradas = 0
+        
         for resp in respostas:
             item_id = resp.get('item_id')
-            preco = float(resp.get('preco', 0) or 0)
-            prazo = int(resp.get('prazo', 0) or 0)
+            preco_raw = resp.get('preco')
+            prazo_raw = resp.get('prazo')
             
-            # Pula itens sem preço
-            if preco <= 0:
-                continue
+            # Converte valores - trata string vazia e None como zero
+            preco = float(preco_raw) if preco_raw not in [None, '', 0, '0'] else 0
+            prazo = int(prazo_raw) if prazo_raw not in [None, '', 0, '0'] else 0
             
-            # Salva resposta por item (sem frete/condição)
-            db.registrar_resposta_fornecedor(
-                cotacao_id=cotacao_id,
-                fornecedor_id=fornecedor_id,
-                item_id=item_id,
-                preco=preco,
-                prazo=prazo,
-                condicao='',  # Não mais por item
-                observacao='',  # Não mais por item
-                frete=0  # Não mais por item
-            )
-            respostas_salvas += 1
+            # CORREÇÃO: Não pular mais itens com preço zero!
+            # Se o preço é zero, ainda assim salvamos para atualizar o banco
+            # Isso permite "limpar" uma cotação existente
+            
+            if preco > 0:
+                # Item com cotação válida - salva normalmente
+                db.registrar_resposta_fornecedor(
+                    cotacao_id=cotacao_id,
+                    fornecedor_id=fornecedor_id,
+                    item_id=item_id,
+                    preco=preco,
+                    prazo=prazo,
+                    condicao='',
+                    observacao='',
+                    frete=0
+                )
+                respostas_salvas += 1
+            else:
+                # CORREÇÃO: Item com preço zero - atualizar para zero se já existir resposta
+                # Isso permite remover/zerar uma cotação que já foi preenchida
+                conn2 = db.get_db_connection()
+                cursor2 = conn2.cursor()
+                
+                # Verifica se já existe resposta para este item
+                cursor2.execute('''
+                    SELECT id FROM cotacao_respostas 
+                    WHERE cotacao_id = ? AND fornecedor_id = ? AND item_id = ?
+                ''', (cotacao_id, fornecedor_id, item_id))
+                
+                existente = cursor2.fetchone()
+                
+                if existente:
+                    # Atualiza para zero (limpa a cotação)
+                    cursor2.execute('''
+                        UPDATE cotacao_respostas 
+                        SET preco_unitario = 0, prazo_entrega = 0, data_resposta = ?
+                        WHERE id = ?
+                    ''', (datetime.now(), existente['id']))
+                    conn2.commit()
+                    respostas_zeradas += 1
+                    print(f"[SALVAR RESPOSTAS] Item {item_id} zerado com sucesso (resposta ID: {existente['id']})")
+                
+                conn2.close()
+        
+        mensagem = f'{respostas_salvas} resposta(s) salva(s)'
+        if respostas_zeradas > 0:
+            mensagem += f', {respostas_zeradas} resposta(s) zerada(s)'
+        mensagem += ' com sucesso!'
         
         return jsonify({
             'success': True, 
-            'message': f'{respostas_salvas} resposta(s) salva(s) com sucesso!',
-            'respostas_salvas': respostas_salvas
+            'message': mensagem,
+            'respostas_salvas': respostas_salvas,
+            'respostas_zeradas': respostas_zeradas
         })
         
     except Exception as e:
@@ -5022,6 +5952,1053 @@ def download_anexo_fornecedor(fornecedor_id):
 
 
 # =============================================================================
+# COTAÇÃO EXTERNA VIA JSON
+# =============================================================================
+
+import hashlib
+import secrets
+
+def gerar_token_json():
+    """Gera um token único para identificar o envio de JSON"""
+    return secrets.token_urlsafe(32)
+
+def gerar_hash_validacao(dados_json):
+    """Gera hash SHA256 para validação de integridade do JSON"""
+    json_str = json.dumps(dados_json, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(json_str.encode('utf-8')).hexdigest()
+
+def validar_hash_json(dados_json, hash_esperado):
+    """Valida se o hash do JSON corresponde ao esperado"""
+    hash_calculado = gerar_hash_validacao(dados_json)
+    return hash_calculado == hash_esperado
+
+
+def gerar_html_cotacao_externa(dados_cotacao):
+    """
+    Gera um arquivo HTML standalone que o fornecedor pode abrir no navegador,
+    preencher os valores e baixar o JSON de resposta.
+    Visual idêntico ao modal de cotação do sistema.
+    """
+    itens_html = ""
+    for i, item in enumerate(dados_cotacao['itens']):
+        itens_html += f'''
+                <tr data-item-id="{item['id']}" data-index="{i}">
+                    <td class="ps-3"><small class="text-muted">{item['codigo_produto'].strip()}</small></td>
+                    <td><strong>{item['descricao']}</strong></td>
+                    <td class="text-center">{item['quantidade']} {item['unidade']}</td>
+                    <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="{i}"></td>
+                    <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="0" data-index="{i}"></td>
+                    <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação do item..." data-index="{i}"></td>
+                </tr>'''
+    
+    html_content = f'''<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotação - {dados_cotacao['fornecedor']['nome']}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {{ box-sizing: border-box; }}
+        body {{ 
+            background-color: #f0f0f0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+        }}
+        .cotacao-container {{
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }}
+        .cotacao-header {{
+            background: linear-gradient(135deg, #1a5a3c 0%, #2d7a5e 100%);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        .cotacao-header h5 {{
+            margin: 0;
+            font-weight: 600;
+        }}
+        .cotacao-header .btn-close {{
+            filter: brightness(0) invert(1);
+            opacity: 0.8;
+        }}
+        .cotacao-body {{
+            padding: 20px;
+        }}
+        .alert-instrucao {{
+            background-color: #e8f4fd;
+            border: 1px solid #b8daff;
+            border-radius: 6px;
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            color: #004085;
+            font-size: 14px;
+        }}
+        .alert-instrucao i {{
+            color: #0066cc;
+        }}
+        .section-title {{
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .section-title i {{
+            color: #1a5a3c;
+        }}
+        .table {{
+            font-size: 13px;
+            margin-bottom: 0;
+        }}
+        .table thead {{
+            background-color: #f8f9fa;
+        }}
+        .table thead th {{
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+            padding: 10px 8px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }}
+        .table tbody td {{
+            padding: 10px 8px;
+            vertical-align: middle;
+            border-bottom: 1px solid #eee;
+        }}
+        .table tbody tr:hover {{
+            background-color: #f8f9fa;
+        }}
+        .preco-input, .prazo-input {{
+            width: 90px;
+            text-align: right;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 6px 10px;
+        }}
+        .obs-input {{
+            width: 200px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 6px 10px;
+        }}
+        .preco-input:focus, .prazo-input:focus, .obs-input:focus {{
+            border-color: #1a5a3c;
+            box-shadow: 0 0 0 2px rgba(26,90,60,0.15);
+            outline: none;
+        }}
+        .info-gerais {{
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+        }}
+        .info-gerais .form-label {{
+            font-weight: 500;
+            font-size: 13px;
+            color: #495057;
+            margin-bottom: 5px;
+        }}
+        .info-gerais .form-control {{
+            font-size: 14px;
+        }}
+        .info-gerais small {{
+            color: #6c757d;
+            font-size: 11px;
+        }}
+        .cotacao-footer {{
+            padding: 15px 20px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }}
+        .btn-cancelar {{
+            background-color: #6c757d;
+            border: none;
+            color: white;
+            padding: 10px 25px;
+            border-radius: 5px;
+            font-weight: 500;
+        }}
+        .btn-salvar {{
+            background-color: #1a5a3c;
+            border: none;
+            color: white;
+            padding: 10px 25px;
+            border-radius: 5px;
+            font-weight: 500;
+        }}
+        .btn-salvar:hover {{
+            background-color: #2d7a5e;
+        }}
+        .btn-salvar i {{
+            margin-right: 5px;
+        }}
+        @media print {{
+            body {{ background: white; padding: 0; }}
+            .cotacao-container {{ box-shadow: none; }}
+            .cotacao-footer {{ display: none; }}
+            .preco-input, .prazo-input {{ border: 1px solid #ccc; }}
+            .instrucoes-box {{ display: none; }}
+        }}
+        .instrucoes-box {{
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border: 1px solid #81c784;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }}
+        .instrucoes-box h6 {{
+            color: #2e7d32;
+            margin-bottom: 10px;
+        }}
+        .instrucoes-box ol {{
+            margin-bottom: 0;
+            padding-left: 20px;
+        }}
+        .instrucoes-box li {{
+            margin-bottom: 5px;
+            font-size: 13px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="cotacao-container">
+        <!-- Header -->
+        <div class="cotacao-header">
+            <h5><i class="fas fa-file-invoice me-2"></i>Cotação - {dados_cotacao['fornecedor']['nome']}</h5>
+        </div>
+        
+        <!-- Body -->
+        <div class="cotacao-body">
+            <!-- Instruções detalhadas -->
+            <div class="instrucoes-box">
+                <h6><i class="fas fa-clipboard-list me-2"></i>Instruções para Preenchimento</h6>
+                <ol>
+                    <li><strong>Preencha</strong> o preço unitário (R$) e prazo de entrega (dias) para cada item</li>
+                    <li>Use o campo <strong>Observação</strong> para informações específicas de cada item</li>
+                    <li>Preencha as <strong>Informações Gerais</strong> (frete, condição de pagamento)</li>
+                    <li>Clique em <strong>"Salvar Respostas"</strong> - um arquivo JSON será baixado</li>
+                    <li><strong>Envie o arquivo JSON</strong> de volta por e-mail ao comprador</li>
+                </ol>
+            </div>
+            
+            <!-- Instrução resumida -->
+            <div class="alert-instrucao">
+                <i class="fas fa-info-circle me-2"></i>
+                Preencha os valores abaixo e clique em <strong>"Salvar Respostas"</strong> para gerar o arquivo de retorno.
+            </div>
+            
+            <!-- Tabela de Itens -->
+            <div class="section-title">
+                <i class="fas fa-list"></i>
+                Itens da Cotação
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">CÓDIGO</th>
+                            <th>DESCRIÇÃO</th>
+                            <th class="text-center" style="width: 80px;">QTD</th>
+                            <th class="text-center" style="width: 120px;">PREÇO UNIT. (R$)</th>
+                            <th class="text-center" style="width: 100px;">PRAZO (DIAS)</th>
+                            <th style="width: 220px;">OBSERVAÇÃO</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {itens_html}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Informações Gerais do Fornecedor -->
+            <div class="info-gerais">
+                <div class="section-title">
+                    <i class="fas fa-truck"></i>
+                    Informações Gerais do Fornecedor
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label">Frete (R$)</label>
+                        <input type="number" class="form-control" id="freteTotal" step="0.01" min="0" placeholder="0,00">
+                        <small>Valor único para todos os itens</small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Condição de Pagamento</label>
+                        <input type="text" class="form-control" id="condicaoPagamento" placeholder="Ex: 30 DDL, À vista, etc.">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Observação</label>
+                        <input type="text" class="form-control" id="observacaoGeral" placeholder="Observações gerais...">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="cotacao-footer">
+            <button class="btn-cancelar" onclick="window.print()">
+                Imprimir
+            </button>
+            <button class="btn-salvar" onclick="salvarRespostas()">
+                <i class="fas fa-save"></i> Salvar Respostas
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        // Dados originais da cotação
+        const dadosCotacao = {json.dumps(dados_cotacao, ensure_ascii=False)};
+        
+        function coletarDados() {{
+            // Coleta respostas dos itens
+            document.querySelectorAll('table tbody tr').forEach((row, index) => {{
+                const precoInput = row.querySelector('.preco-input');
+                const prazoInput = row.querySelector('.prazo-input');
+                const obsInput = row.querySelector('.obs-input');
+                
+                dadosCotacao.itens[index].resposta.preco_unitario = precoInput.value ? parseFloat(precoInput.value) : null;
+                dadosCotacao.itens[index].resposta.prazo_entrega_dias = prazoInput.value ? parseInt(prazoInput.value) : null;
+                dadosCotacao.itens[index].resposta.observacao = obsInput.value || null;
+            }});
+            
+            // Coleta informações gerais
+            dadosCotacao.resposta_geral.frete_total = document.getElementById('freteTotal').value ? parseFloat(document.getElementById('freteTotal').value) : null;
+            dadosCotacao.resposta_geral.condicao_pagamento = document.getElementById('condicaoPagamento').value || null;
+            dadosCotacao.resposta_geral.observacao_geral = document.getElementById('observacaoGeral').value || null;
+            dadosCotacao.resposta_geral.data_resposta = new Date().toISOString();
+            
+            // Muda o tipo para resposta
+            dadosCotacao.tipo = 'RESPOSTA_COTACAO';
+            
+            return dadosCotacao;
+        }}
+        
+        function salvarRespostas() {{
+            const dados = coletarDados();
+            
+            // Verifica se pelo menos um preço foi preenchido
+            const temPreco = dados.itens.some(item => item.resposta.preco_unitario !== null && item.resposta.preco_unitario > 0);
+            if (!temPreco) {{
+                if (!confirm('Nenhum preço foi preenchido. Deseja salvar mesmo assim?')) {{
+                    return;
+                }}
+            }}
+            
+            // Cria o arquivo para download
+            const jsonString = JSON.stringify(dados, null, 2);
+            const blob = new Blob([jsonString], {{ type: 'application/json' }});
+            const url = URL.createObjectURL(blob);
+            
+            // Nome do arquivo de resposta
+            const nomeArquivo = 'RESPOSTA_' + dadosCotacao.token.substring(0, 8) + '.json';
+            
+            // Cria link de download
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = nomeArquivo;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert('✅ Respostas salvas com sucesso!\\n\\nArquivo: ' + nomeArquivo + '\\n\\nEnvie este arquivo de volta ao comprador.');
+        }}
+        
+        // Formata inputs de preço ao sair do campo
+        document.querySelectorAll('.preco-input').forEach(input => {{
+            input.addEventListener('blur', function() {{
+                if (this.value) {{
+                    this.value = parseFloat(this.value).toFixed(2);
+                }}
+            }});
+        }});
+    </script>
+</body>
+</html>'''
+    
+    return html_content
+
+
+@app.route('/api/cotacao/fornecedor/<int:fornecedor_id>/gerar-json', methods=['POST'])
+def api_gerar_json_cotacao(fornecedor_id):
+    """
+    API para gerar JSON da cotação para envio externo ao fornecedor.
+    O JSON contém todos os dados necessários para o fornecedor responder sem acessar o sistema.
+    """
+    try:
+        # Busca dados do fornecedor
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT f.*, c.codigo as cotacao_codigo, c.id as cotacao_id,
+                   c.observacoes as cotacao_observacoes, c.informacao_fornecedor
+            FROM cotacao_fornecedores f
+            JOIN cotacoes c ON f.cotacao_id = c.id
+            WHERE f.id = ?
+        ''', (fornecedor_id,))
+        fornecedor = cursor.fetchone()
+        
+        if not fornecedor:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Fornecedor não encontrado'}), 404
+        
+        # Busca itens da cotação
+        cursor.execute('''
+            SELECT i.id, i.numero_sc, i.item_sc, i.cod_produto, i.descricao_produto, 
+                   i.quantidade, i.unidade, i.observacao
+            FROM cotacao_itens i
+            WHERE i.cotacao_id = ?
+            ORDER BY i.numero_sc, i.item_sc
+        ''', (fornecedor['cotacao_id'],))
+        itens = [dict(item) for item in cursor.fetchall()]
+        conn.close()
+        
+        # Gera token único e hash
+        token_envio = gerar_token_json()
+        
+        # Monta estrutura do JSON
+        dados_cotacao = {
+            'versao': '1.0',
+            'tipo': 'SOLICITACAO_COTACAO',
+            'token': token_envio,
+            'data_geracao': datetime.now().isoformat(),
+            
+            'cotacao': {
+                'codigo': fornecedor['cotacao_codigo'],
+                'observacoes': fornecedor['cotacao_observacoes'] or '',
+                'informacao_fornecedor': fornecedor['informacao_fornecedor'] or ''
+            },
+            
+            'fornecedor': {
+                'id_interno': fornecedor['id'],
+                'nome': fornecedor['nome_fornecedor'],
+                'email': fornecedor['email_fornecedor'] or '',
+                'telefone': fornecedor['telefone_fornecedor'] or ''
+            },
+            
+            'itens': [
+                {
+                    'id': item['id'],
+                    'numero_sc': item['numero_sc'],
+                    'item_sc': item['item_sc'],
+                    'codigo_produto': item['cod_produto'] or '',
+                    'descricao': item['descricao_produto'],
+                    'quantidade': item['quantidade'],
+                    'unidade': item['unidade'] or 'UN',
+                    'observacao': item['observacao'] or '',
+                    # Campos para preenchimento pelo fornecedor
+                    'resposta': {
+                        'preco_unitario': None,
+                        'prazo_entrega_dias': None,
+                        'observacao': None
+                    }
+                }
+                for item in itens
+            ],
+            
+            # Campos gerais da resposta
+            'resposta_geral': {
+                'frete_total': None,
+                'condicao_pagamento': None,
+                'observacao_geral': None,
+                'data_resposta': None
+            },
+            
+            'instrucoes': {
+                'preenchimento': [
+                    'Preencha o campo "preco_unitario" com o valor em reais (use ponto como separador decimal)',
+                    'Preencha "prazo_entrega_dias" com o número de dias para entrega',
+                    'Informe "frete_total" se houver custo de frete (valor total)',
+                    'Preencha "condicao_pagamento" com as condições (ex: "30 DDL")',
+                    'Use os campos de "observacao" para informações adicionais'
+                ],
+                'retorno': 'Após preencher, salve o arquivo e envie de volta ao comprador'
+            }
+        }
+        
+        # Gera hash de validação (excluindo campos de resposta)
+        dados_para_hash = {
+            'token': token_envio,
+            'cotacao_codigo': fornecedor['cotacao_codigo'],
+            'fornecedor_id': fornecedor['id'],
+            'itens_ids': [item['id'] for item in itens]
+        }
+        hash_validacao = gerar_hash_validacao(dados_para_hash)
+        dados_cotacao['hash_validacao'] = hash_validacao
+        
+        # Salva o diretório de JSONs
+        json_dir = os.path.join('uploads', 'json_cotacoes')
+        os.makedirs(json_dir, exist_ok=True)
+        
+        # Nome do arquivo - sanitiza caracteres inválidos para Windows
+        codigo_sanitizado = fornecedor['cotacao_codigo'].replace('/', '-').replace('\\', '-').replace(':', '-')
+        nome_sanitizado = fornecedor['nome_fornecedor'].replace(' ', '_').replace('/', '-').replace('\\', '-')
+        nome_base = f"cotacao_{codigo_sanitizado}_{nome_sanitizado}_{token_envio[:8]}"
+        
+        nome_arquivo_json = f"{nome_base}.json"
+        nome_arquivo_html = f"{nome_base}.html"
+        
+        caminho_arquivo_json = os.path.join(json_dir, nome_arquivo_json)
+        caminho_arquivo_html = os.path.join(json_dir, nome_arquivo_html)
+        
+        # Salva arquivo JSON (backup)
+        with open(caminho_arquivo_json, 'w', encoding='utf-8') as f:
+            json.dump(dados_cotacao, f, ensure_ascii=False, indent=2)
+        
+        # Gera e salva arquivo HTML (para o fornecedor)
+        html_content = gerar_html_cotacao_externa(dados_cotacao)
+        with open(caminho_arquivo_html, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        # Registra no banco
+        usuario = session.get('username', 'Admin')
+        db.criar_envio_json(
+            cotacao_id=fornecedor['cotacao_id'],
+            fornecedor_id=fornecedor_id,
+            token_envio=token_envio,
+            hash_validacao=hash_validacao,
+            arquivo_json=caminho_arquivo_json,
+            usuario=usuario
+        )
+        
+        print(f"[JSON] Gerado arquivos {nome_arquivo_json} e {nome_arquivo_html} para fornecedor {fornecedor['nome_fornecedor']}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Arquivos gerados com sucesso',
+            'arquivo': nome_arquivo_html,
+            'arquivo_json': nome_arquivo_json,
+            'token': token_envio,
+            'download_url': f'/api/cotacao/html/download/{token_envio}'
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_gerar_json_cotacao: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/json/download/<token>')
+def api_download_json_cotacao(token):
+    """Download do arquivo JSON gerado"""
+    try:
+        envio = db.obter_envio_json_por_token(token)
+        
+        if not envio:
+            return jsonify({'success': False, 'error': 'Token inválido'}), 404
+        
+        arquivo_path = envio['arquivo_json_gerado']
+        
+        if not arquivo_path or not os.path.exists(arquivo_path):
+            return jsonify({'success': False, 'error': 'Arquivo não encontrado'}), 404
+        
+        return send_file(arquivo_path, as_attachment=True)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/html/download/<token>')
+def api_download_html_cotacao(token):
+    """Download do arquivo HTML para o fornecedor preencher"""
+    try:
+        envio = db.obter_envio_json_por_token(token)
+        
+        if not envio:
+            return jsonify({'success': False, 'error': 'Token inválido'}), 404
+        
+        # O arquivo HTML tem o mesmo nome base do JSON, mas com extensão .html
+        arquivo_json_path = envio['arquivo_json_gerado']
+        arquivo_html_path = arquivo_json_path.replace('.json', '.html')
+        
+        if not arquivo_html_path or not os.path.exists(arquivo_html_path):
+            return jsonify({'success': False, 'error': 'Arquivo HTML não encontrado'}), 404
+        
+        return send_file(arquivo_html_path, as_attachment=True)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/fornecedor/<int:fornecedor_id>/importar-json', methods=['POST'])
+def api_importar_json_cotacao(fornecedor_id):
+    """
+    API para importar JSON de resposta do fornecedor.
+    Valida a estrutura, token e hash antes de registrar as respostas.
+    """
+    try:
+        if 'arquivo' not in request.files:
+            return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
+        
+        arquivo = request.files['arquivo']
+        
+        if arquivo.filename == '':
+            return jsonify({'success': False, 'error': 'Arquivo não selecionado'}), 400
+        
+        if not arquivo.filename.endswith('.json'):
+            return jsonify({'success': False, 'error': 'Arquivo deve ser JSON'}), 400
+        
+        # Lê e parseia o JSON
+        try:
+            conteudo = arquivo.read().decode('utf-8')
+            dados_json = json.loads(conteudo)
+        except json.JSONDecodeError as e:
+            return jsonify({'success': False, 'error': f'JSON inválido: {str(e)}'}), 400
+        
+        # Validações básicas de estrutura
+        campos_obrigatorios = ['versao', 'tipo', 'token', 'hash_validacao', 'fornecedor', 'itens']
+        for campo in campos_obrigatorios:
+            if campo not in dados_json:
+                return jsonify({'success': False, 'error': f'Campo obrigatório ausente: {campo}'}), 400
+        
+        if dados_json['tipo'] != 'SOLICITACAO_COTACAO':
+            return jsonify({'success': False, 'error': 'Tipo de documento inválido'}), 400
+        
+        # Valida token
+        token = dados_json['token']
+        envio = db.obter_envio_json_por_token(token)
+        
+        if not envio:
+            return jsonify({'success': False, 'error': 'Token não reconhecido. Este JSON não foi gerado pelo sistema.'}), 400
+        
+        if envio['fornecedor_id'] != fornecedor_id:
+            return jsonify({'success': False, 'error': 'Token não corresponde a este fornecedor'}), 400
+        
+        # Valida hash de integridade
+        hash_original = envio['hash_validacao']
+        dados_para_hash = {
+            'token': token,
+            'cotacao_codigo': dados_json['cotacao']['codigo'],
+            'fornecedor_id': dados_json['fornecedor']['id_interno'],
+            'itens_ids': [item['id'] for item in dados_json['itens']]
+        }
+        
+        if not validar_hash_json(dados_para_hash, hash_original):
+            return jsonify({'success': False, 'error': 'Integridade do JSON comprometida. Os dados foram alterados.'}), 400
+        
+        # Processa as respostas
+        cotacao_id = envio['cotacao_id']
+        itens_processados = 0
+        
+        for item in dados_json['itens']:
+            resposta = item.get('resposta', {})
+            preco = resposta.get('preco_unitario')
+            prazo = resposta.get('prazo_entrega_dias')
+            obs_item = resposta.get('observacao')
+            
+            # Só registra se tiver pelo menos preço
+            if preco is not None:
+                db.registrar_resposta_fornecedor(
+                    cotacao_id=cotacao_id,
+                    fornecedor_id=fornecedor_id,
+                    item_id=item['id'],
+                    preco=float(preco) if preco else None,
+                    prazo=int(prazo) if prazo else None,
+                    condicao='',  # Condição vem no nível do fornecedor, não do item
+                    observacao=obs_item or ''
+                )
+                itens_processados += 1
+        
+        # Processa resposta geral (frete, condição pagamento)
+        resposta_geral = dados_json.get('resposta_geral', {})
+        frete = resposta_geral.get('frete_total')
+        condicao = resposta_geral.get('condicao_pagamento')
+        obs_geral = resposta_geral.get('observacao_geral')
+        
+        if frete is not None or condicao or obs_geral:
+            db.editar_fornecedor_cotacao(
+                fornecedor_id,
+                frete_total=float(frete) if frete else None,
+                condicao_pagamento=condicao,
+                observacao_geral=obs_geral
+            )
+        
+        # Atualiza status do fornecedor
+        if itens_processados > 0:
+            db.atualizar_status_fornecedor(fornecedor_id, 'Respondido')
+        
+        # Salva arquivo de resposta
+        json_resp_dir = os.path.join('uploads', 'json_cotacoes', 'respostas')
+        os.makedirs(json_resp_dir, exist_ok=True)
+        nome_resp = f"resposta_{token[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        caminho_resp = os.path.join(json_resp_dir, nome_resp)
+        
+        with open(caminho_resp, 'w', encoding='utf-8') as f:
+            json.dump(dados_json, f, ensure_ascii=False, indent=2)
+        
+        # Atualiza registro de envio
+        usuario = session.get('username', 'Admin')
+        db.atualizar_importacao_json(envio['id'], caminho_resp, usuario)
+        
+        print(f"[JSON] Importado resposta do fornecedor {fornecedor_id}, {itens_processados} itens processados")
+        
+        return jsonify({
+            'success': True,
+            'message': f'JSON importado com sucesso! {itens_processados} item(ns) processado(s).',
+            'itens_processados': itens_processados
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_importar_json_cotacao: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/fornecedor/<int:fornecedor_id>/historico-json')
+def api_historico_json_fornecedor(fornecedor_id):
+    """API para obter histórico de envios/importações de JSON de um fornecedor"""
+    try:
+        envios = db.obter_envios_json_fornecedor(fornecedor_id)
+        return jsonify({'success': True, 'envios': envios})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================================================
+# COTAÇÃO EXTERNA - PÁGINA PÚBLICA PARA FORNECEDORES
+# =============================================================================
+
+@app.route('/cotacao/externa/<token>')
+def pagina_cotacao_externa(token):
+    """
+    Página pública de cotação externa para fornecedores.
+    Não requer login, acesso via token único.
+    
+    FLUXO:
+    1. Sistema interno gera JSON com token único
+    2. Link é enviado ao fornecedor (por email ou outro meio)
+    3. Fornecedor acessa esta página, preenche preços
+    4. Fornecedor envia resposta (online ou baixa JSON)
+    5. Sistema valida e importa a resposta
+    """
+    try:
+        # Busca envio pelo token
+        envio = db.obter_envio_json_por_token(token)
+        
+        if not envio:
+            return render_template('cotacao_erro.html', 
+                erro='Link de cotação inválido ou expirado.',
+                mensagem='Por favor, solicite um novo link ao comprador.')
+        
+        # Verifica se já foi respondido
+        if envio.get('status') == 'Importado':
+            return render_template('cotacao_erro.html', 
+                erro='Esta cotação já foi respondida.',
+                mensagem='Se precisar alterar sua resposta, entre em contato com o comprador.')
+        
+        # Carrega os dados do JSON gerado
+        arquivo_json = envio.get('arquivo_json_gerado')
+        
+        if not arquivo_json or not os.path.exists(arquivo_json):
+            return render_template('cotacao_erro.html', 
+                erro='Arquivo de cotação não encontrado.',
+                mensagem='Por favor, solicite um novo link ao comprador.')
+        
+        with open(arquivo_json, 'r', encoding='utf-8') as f:
+            dados_cotacao = json.load(f)
+        
+        return render_template('cotacao_externa.html', 
+            dados=dados_cotacao,
+            ano_atual=datetime.now().year)
+        
+    except Exception as e:
+        print(f"[ERRO] pagina_cotacao_externa: {e}")
+        import traceback
+        traceback.print_exc()
+        return render_template('cotacao_erro.html', 
+            erro='Erro ao carregar cotação.',
+            mensagem=str(e))
+
+
+@app.route('/api/cotacao/externa/responder/<token>', methods=['POST'])
+def api_responder_cotacao_externa(token):
+    """
+    API para receber resposta de cotação externa do fornecedor.
+    Valida token e hash antes de registrar as respostas.
+    
+    Esta rota pode ser chamada:
+    - Diretamente pela página de cotação externa (se fornecedor tiver acesso à rede)
+    - Futuramente por um servidor proxy externo
+    """
+    try:
+        # Valida token
+        envio = db.obter_envio_json_por_token(token)
+        
+        if not envio:
+            return jsonify({'success': False, 'error': 'Token inválido ou expirado'}), 400
+        
+        if envio.get('status') == 'Importado':
+            return jsonify({'success': False, 'error': 'Esta cotação já foi respondida'}), 400
+        
+        # Obtém dados do request
+        dados_json = request.get_json()
+        
+        if not dados_json:
+            return jsonify({'success': False, 'error': 'Dados não recebidos'}), 400
+        
+        # Valida estrutura básica
+        if dados_json.get('token') != token:
+            return jsonify({'success': False, 'error': 'Token não corresponde'}), 400
+        
+        # Valida hash de integridade
+        hash_original = envio['hash_validacao']
+        dados_para_hash = {
+            'token': token,
+            'cotacao_codigo': dados_json['cotacao']['codigo'],
+            'fornecedor_id': dados_json['fornecedor']['id_interno'],
+            'itens_ids': [item['id'] for item in dados_json['itens']]
+        }
+        
+        if not validar_hash_json(dados_para_hash, hash_original):
+            return jsonify({'success': False, 'error': 'Integridade comprometida - dados foram alterados'}), 400
+        
+        # Processa respostas dos itens
+        cotacao_id = envio['cotacao_id']
+        fornecedor_id = envio['fornecedor_id']
+        itens_processados = 0
+        
+        for item in dados_json.get('itens', []):
+            resposta = item.get('resposta', {})
+            preco = resposta.get('preco_unitario')
+            prazo = resposta.get('prazo_entrega_dias')
+            obs_item = resposta.get('observacao')
+            
+            # Só registra se tiver preço válido
+            if preco is not None and preco > 0:
+                db.registrar_resposta_fornecedor(
+                    cotacao_id=cotacao_id,
+                    fornecedor_id=fornecedor_id,
+                    item_id=item['id'],
+                    preco=float(preco),
+                    prazo=int(prazo) if prazo else 0,
+                    condicao='',
+                    observacao=obs_item or ''
+                )
+                itens_processados += 1
+        
+        # Processa resposta geral (frete, condição pagamento)
+        resposta_geral = dados_json.get('resposta_geral', {})
+        frete = resposta_geral.get('frete_total')
+        condicao = resposta_geral.get('condicao_pagamento')
+        obs_geral = resposta_geral.get('observacao_geral')
+        
+        if frete is not None or condicao or obs_geral:
+            conn = db.get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE cotacao_fornecedores 
+                SET frete_total = ?, condicao_pagamento = ?, observacao_geral = ?
+                WHERE id = ?
+            ''', (float(frete) if frete else 0, condicao or '', obs_geral or '', fornecedor_id))
+            conn.commit()
+            conn.close()
+        
+        # Atualiza status do fornecedor
+        if itens_processados > 0:
+            db.atualizar_status_fornecedor(fornecedor_id, 'Respondido')
+        
+        # Salva arquivo de resposta
+        json_resp_dir = os.path.join('uploads', 'json_cotacoes', 'respostas')
+        os.makedirs(json_resp_dir, exist_ok=True)
+        nome_resp = f"resposta_externa_{token[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        caminho_resp = os.path.join(json_resp_dir, nome_resp)
+        
+        with open(caminho_resp, 'w', encoding='utf-8') as f:
+            json.dump(dados_json, f, ensure_ascii=False, indent=2)
+        
+        # Atualiza registro de envio
+        db.atualizar_importacao_json(envio['id'], caminho_resp, 'Fornecedor (Externo)')
+        
+        print(f"[COTAÇÃO EXTERNA] Resposta recebida - Token: {token[:8]}..., {itens_processados} itens")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Cotação enviada com sucesso! {itens_processados} item(ns) processado(s).',
+            'itens_processados': itens_processados
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_responder_cotacao_externa: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/fornecedor/<int:fornecedor_id>/gerar-link-externo', methods=['POST'])
+def api_gerar_link_externo(fornecedor_id):
+    """
+    Gera JSON e link para cotação externa.
+    Retorna o link que pode ser enviado ao fornecedor por email.
+    """
+    try:
+        # Primeiro, gera o JSON
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT f.*, c.codigo as cotacao_codigo, c.id as cotacao_id,
+                   c.observacoes as cotacao_observacoes, c.informacao_fornecedor
+            FROM cotacao_fornecedores f
+            JOIN cotacoes c ON f.cotacao_id = c.id
+            WHERE f.id = ?
+        ''', (fornecedor_id,))
+        fornecedor = cursor.fetchone()
+        
+        if not fornecedor:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Fornecedor não encontrado'}), 404
+        
+        # Busca itens da cotação
+        cursor.execute('''
+            SELECT i.id, i.numero_sc, i.item_sc, i.cod_produto, i.descricao_produto as descricao, 
+                   i.quantidade, i.unidade, i.observacao
+            FROM cotacao_itens i
+            WHERE i.cotacao_id = ?
+            ORDER BY i.numero_sc, i.item_sc
+        ''', (fornecedor['cotacao_id'],))
+        itens = [dict(item) for item in cursor.fetchall()]
+        conn.close()
+        
+        # Gera token único
+        token_envio = gerar_token_json()
+        
+        # Monta estrutura do JSON
+        dados_cotacao = {
+            'versao': '1.0',
+            'tipo': 'SOLICITACAO_COTACAO',
+            'token': token_envio,
+            'data_geracao': datetime.now().isoformat(),
+            
+            'cotacao': {
+                'codigo': fornecedor['cotacao_codigo'],
+                'observacoes': fornecedor['cotacao_observacoes'] or '',
+                'informacao_fornecedor': fornecedor['informacao_fornecedor'] or ''
+            },
+            
+            'fornecedor': {
+                'id_interno': fornecedor['id'],
+                'nome': fornecedor['nome_fornecedor'],
+                'email': fornecedor['email_fornecedor'] or '',
+                'telefone': fornecedor['telefone_fornecedor'] or ''
+            },
+            
+            'itens': [
+                {
+                    'id': item['id'],
+                    'numero_sc': item['numero_sc'],
+                    'item_sc': item['item_sc'],
+                    'codigo_produto': item['cod_produto'] or '',
+                    'descricao': item['descricao'],
+                    'quantidade': item['quantidade'],
+                    'unidade': item['unidade'] or 'UN',
+                    'observacao': item['observacao'] or '',
+                    'resposta': {
+                        'preco_unitario': None,
+                        'prazo_entrega_dias': None,
+                        'observacao': None
+                    }
+                }
+                for item in itens
+            ],
+            
+            'resposta_geral': {
+                'frete_total': None,
+                'condicao_pagamento': None,
+                'observacao_geral': None,
+                'data_resposta': None
+            },
+            
+            'instrucoes': {
+                'preenchimento': [
+                    'Preencha o campo "preco_unitario" com o valor em reais (use ponto como separador decimal)',
+                    'Preencha "prazo_entrega_dias" com o número de dias para entrega',
+                    'Informe "frete_total" se houver custo de frete',
+                    'Use os campos de "observacao" para informações adicionais'
+                ],
+                'retorno': 'Após preencher, salve o arquivo e envie de volta ao comprador'
+            }
+        }
+        
+        # Gera hash de validação
+        dados_para_hash = {
+            'token': token_envio,
+            'cotacao_codigo': fornecedor['cotacao_codigo'],
+            'fornecedor_id': fornecedor['id'],
+            'itens_ids': [item['id'] for item in itens]
+        }
+        hash_validacao = gerar_hash_validacao(dados_para_hash)
+        dados_cotacao['hash_validacao'] = hash_validacao
+        
+        # Salva arquivo JSON
+        json_dir = os.path.join('uploads', 'json_cotacoes')
+        os.makedirs(json_dir, exist_ok=True)
+        
+        nome_arquivo = f"cotacao_{fornecedor['cotacao_codigo']}_{fornecedor['nome_fornecedor'].replace(' ', '_')}_{token_envio[:8]}.json"
+        # Sanitiza nome do arquivo
+        nome_arquivo = "".join(c for c in nome_arquivo if c.isalnum() or c in ['_', '-', '.'])
+        caminho_arquivo = os.path.join(json_dir, nome_arquivo)
+        
+        with open(caminho_arquivo, 'w', encoding='utf-8') as f:
+            json.dump(dados_cotacao, f, ensure_ascii=False, indent=2)
+        
+        # Registra no banco
+        usuario = session.get('username', 'Admin')
+        db.criar_envio_json(
+            cotacao_id=fornecedor['cotacao_id'],
+            fornecedor_id=fornecedor_id,
+            token_envio=token_envio,
+            hash_validacao=hash_validacao,
+            arquivo_json=caminho_arquivo,
+            usuario=usuario
+        )
+        
+        # Gera link externo
+        # Nota: Em produção, este link pode ser de um domínio externo
+        link_externo = url_for('pagina_cotacao_externa', token=token_envio, _external=True)
+        
+        # Também gera link para download do JSON
+        link_download_json = url_for('api_download_json_cotacao', token=token_envio, _external=True)
+        
+        print(f"[COTAÇÃO EXTERNA] Link gerado para {fornecedor['nome_fornecedor']}: {link_externo}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Link de cotação externa gerado com sucesso!',
+            'link_externo': link_externo,
+            'link_download_json': link_download_json,
+            'token': token_envio,
+            'arquivo_json': nome_arquivo,
+            'fornecedor': fornecedor['nome_fornecedor'],
+            'cotacao': fornecedor['cotacao_codigo']
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_gerar_link_externo: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================================================
 # ANOTAÇÕES DAS SOLICITAÇÕES (Cores e Observações)
 # =============================================================================
 
@@ -5108,25 +7085,8 @@ def api_atribuir_comprador():
         if not cod_comprador or not nome_comprador:
             return jsonify({'success': False, 'error': 'Comprador não informado'}), 400
         
-        # Se o código do comprador for "999" (Outros), remove a atribuição
-        if cod_comprador == "999":
-            for sol in solicitacoes:
-                numero_sc = sol.get('numero_sc', '')
-                item_sc = sol.get('item_sc', '')
-                
-                if numero_sc and item_sc:
-                    db.remover_atribuicao_comprador(numero_sc, item_sc)
-            
-            # Limpar cache para refletir mudanças imediatamente
-            cache.delete('solicitacoes_aberto_v3')
-            print(f"[ATRIBUIÇÃO] Cache limpo após remover atribuição de {len(solicitacoes)} item(ns)")
-            
-            return jsonify({
-                'success': True, 
-                'message': f'{len(solicitacoes)} solicitação(ões) voltou/voltaram para "Outros"'
-            })
-        
-        # Salva atribuição para cada solicitação
+        # Salva atribuição para cada solicitação (inclusive para "Outros")
+        # Antes removia quando era "Outros", mas isso fazia voltar para o comprador do TOTVS
         for sol in solicitacoes:
             numero_sc = sol.get('numero_sc', '')
             item_sc = sol.get('item_sc', '')
@@ -5304,6 +7264,829 @@ def api_excluir_rodada_negociacao(rodada_id):
         return jsonify({'success': True, 'message': 'Rodada excluída com sucesso'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================================================
+# MÓDULO: AVALIAÇÃO DE FORNECEDORES - ISO (PQ021)
+# =============================================================================
+# Este módulo é TOTALMENTE ISOLADO das demais funcionalidades.
+# Gerencia avaliações de fornecedores para auditoria ISO.
+# =============================================================================
+
+import uuid
+import hashlib
+from werkzeug.utils import secure_filename
+
+# Pasta para armazenar documentos ISO (PDFs)
+UPLOAD_FOLDER_ISO = os.path.join(os.path.dirname(__file__), 'uploads', 'avaliacao_iso')
+os.makedirs(UPLOAD_FOLDER_ISO, exist_ok=True)
+
+# Extensões permitidas para upload
+ALLOWED_EXTENSIONS_ISO = {'pdf'}
+
+def allowed_file_iso(filename):
+    """Verifica se a extensão do arquivo é permitida"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS_ISO
+
+
+def calcular_status_avaliacao(data_vencimento):
+    """
+    Calcula o status da avaliação baseado na data de vencimento.
+    
+    Retorna:
+        - 'valido': Data > 30 dias no futuro (verde)
+        - 'proximo': Data entre hoje e 30 dias no futuro (amarelo)
+        - 'vencido': Data no passado (vermelho)
+        - 'indefinido': Sem data de vencimento
+    """
+    if not data_vencimento:
+        return 'indefinido'
+    
+    try:
+        if isinstance(data_vencimento, str):
+            data_venc = datetime.strptime(data_vencimento, '%Y-%m-%d').date()
+        else:
+            data_venc = data_vencimento
+        
+        hoje = datetime.now().date()
+        dias_restantes = (data_venc - hoje).days
+        
+        if dias_restantes < 0:
+            return 'vencido'
+        elif dias_restantes <= 30:
+            return 'proximo'
+        else:
+            return 'valido'
+    except:
+        return 'indefinido'
+
+
+@app.route('/avaliacao-iso')
+def avaliacao_iso():
+    """Página principal da Avaliação de Fornecedores - ISO (PQ021)"""
+    user = session.get('user', 'Admin')
+    
+    try:
+        # Buscar todas as avaliações
+        avaliacoes = db.listar_avaliacoes_iso()
+        
+        # Calcular status e enriquecer dados
+        for av in avaliacoes:
+            av['status'] = calcular_status_avaliacao(av.get('data_vencimento'))
+            av['documentos'] = db.listar_documentos_avaliacao_iso(av['id'])
+            av['total_emails'] = db.contar_emails_enviados_avaliacao(av['id'])
+            ultimo_email = db.obter_ultimo_email_avaliacao(av['id'])
+            av['ultimo_email'] = ultimo_email['data_envio'] if ultimo_email else None
+        
+        # Contar KPIs
+        total = len(avaliacoes)
+        validos = sum(1 for a in avaliacoes if a['status'] == 'valido')
+        proximos = sum(1 for a in avaliacoes if a['status'] == 'proximo')
+        vencidos = sum(1 for a in avaliacoes if a['status'] == 'vencido')
+        
+        kpis = {
+            'total': total,
+            'validos': validos,
+            'proximos': proximos,
+            'vencidos': vencidos
+        }
+        
+        return render_template('avaliacao_iso.html', 
+                              user=user, 
+                              avaliacoes=avaliacoes,
+                              kpis=kpis)
+    
+    except Exception as e:
+        print(f"[ERRO] avaliacao_iso: {e}")
+        import traceback
+        traceback.print_exc()
+        return render_template('avaliacao_iso.html', 
+                              user=user, 
+                              avaliacoes=[],
+                              kpis={'total': 0, 'validos': 0, 'proximos': 0, 'vencidos': 0},
+                              erro=str(e))
+
+
+@app.route('/api/avaliacao-iso/criar', methods=['POST'])
+def api_criar_avaliacao_iso():
+    """API para criar uma nova avaliação ISO"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Não autenticado'}), 401
+    
+    try:
+        dados = request.get_json()
+        
+        cod_fornecedor = dados.get('cod_fornecedor', '').strip()
+        nome_fornecedor = dados.get('nome_fornecedor', '').strip()
+        
+        if not cod_fornecedor or not nome_fornecedor:
+            return jsonify({'success': False, 'error': 'Código e nome do fornecedor são obrigatórios'})
+        
+        # Verificar se já existe
+        existente = db.obter_avaliacao_iso_por_fornecedor(cod_fornecedor)
+        if existente:
+            return jsonify({'success': False, 'error': 'Fornecedor já cadastrado na avaliação ISO'})
+        
+        avaliacao_id = db.criar_avaliacao_iso(
+            cod_fornecedor=cod_fornecedor,
+            nome_fornecedor=nome_fornecedor,
+            email_fornecedor=dados.get('email_fornecedor', '').strip() or None,
+            data_ultima_avaliacao=dados.get('data_ultima_avaliacao') or None,
+            data_vencimento=dados.get('data_vencimento') or None,
+            possui_iso=dados.get('possui_iso', 'Nao'),
+            nota=float(dados.get('nota')) if dados.get('nota') else None,
+            observacao=dados.get('observacao', '').strip() or None,
+            usuario=session['user']
+        )
+        
+        if avaliacao_id:
+            return jsonify({'success': True, 'id': avaliacao_id, 'message': 'Avaliação criada com sucesso'})
+        else:
+            return jsonify({'success': False, 'error': 'Erro ao criar avaliação - fornecedor pode já existir'})
+    
+    except Exception as e:
+        print(f"[ERRO] api_criar_avaliacao_iso: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/avaliacao-iso/<int:avaliacao_id>/atualizar', methods=['POST'])
+def api_atualizar_avaliacao_iso(avaliacao_id):
+    """API para atualizar uma avaliação ISO"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Não autenticado'}), 401
+    
+    try:
+        dados = request.get_json()
+        
+        # Campos que podem ser atualizados
+        campos = {}
+        
+        if 'nome_fornecedor' in dados:
+            campos['nome_fornecedor'] = dados['nome_fornecedor'].strip()
+        if 'email_fornecedor' in dados:
+            campos['email_fornecedor'] = dados['email_fornecedor'].strip() or None
+        if 'data_ultima_avaliacao' in dados:
+            campos['data_ultima_avaliacao'] = dados['data_ultima_avaliacao'] or None
+        if 'data_vencimento' in dados:
+            campos['data_vencimento'] = dados['data_vencimento'] or None
+        if 'possui_iso' in dados:
+            campos['possui_iso'] = dados['possui_iso']
+        if 'nota' in dados:
+            campos['nota'] = float(dados['nota']) if dados['nota'] else None
+        if 'observacao' in dados:
+            campos['observacao'] = dados['observacao'].strip() or None
+        
+        campos['atualizado_por'] = session['user']
+        
+        db.atualizar_avaliacao_iso(avaliacao_id, **campos)
+        
+        return jsonify({'success': True, 'message': 'Avaliação atualizada com sucesso'})
+    
+    except Exception as e:
+        print(f"[ERRO] api_atualizar_avaliacao_iso: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/avaliacao-iso/<int:avaliacao_id>/excluir', methods=['POST'])
+def api_excluir_avaliacao_iso(avaliacao_id):
+    """API para excluir uma avaliação ISO"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Não autenticado'}), 401
+    
+    try:
+        # Excluir documentos físicos primeiro
+        documentos = db.listar_documentos_avaliacao_iso(avaliacao_id)
+        for doc in documentos:
+            caminho = doc.get('caminho_arquivo')
+            if caminho and os.path.exists(caminho):
+                try:
+                    os.remove(caminho)
+                except:
+                    pass
+        
+        # Excluir do banco (CASCADE cuida dos registros relacionados)
+        db.excluir_avaliacao_iso(avaliacao_id)
+        
+        return jsonify({'success': True, 'message': 'Avaliação excluída com sucesso'})
+    
+    except Exception as e:
+        print(f"[ERRO] api_excluir_avaliacao_iso: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/avaliacao-iso/<int:avaliacao_id>/upload', methods=['POST'])
+def api_upload_documento_iso(avaliacao_id):
+    """API para upload de documento (PDF) de avaliação ISO"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Não autenticado'}), 401
+    
+    try:
+        if 'arquivo' not in request.files:
+            return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'})
+        
+        arquivo = request.files['arquivo']
+        tipo_documento = request.form.get('tipo_documento', 'avaliacao')
+        
+        if arquivo.filename == '':
+            return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'})
+        
+        if not allowed_file_iso(arquivo.filename):
+            return jsonify({'success': False, 'error': 'Apenas arquivos PDF são permitidos'})
+        
+        # Verificar se avaliação existe
+        avaliacao = db.obter_avaliacao_iso(avaliacao_id)
+        if not avaliacao:
+            return jsonify({'success': False, 'error': 'Avaliação não encontrada'})
+        
+        # Criar pasta do fornecedor se não existir
+        pasta_fornecedor = os.path.join(UPLOAD_FOLDER_ISO, avaliacao['cod_fornecedor'])
+        os.makedirs(pasta_fornecedor, exist_ok=True)
+        
+        # Gerar nome único para o arquivo
+        nome_original = secure_filename(arquivo.filename)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        nome_arquivo = f"{tipo_documento}_{timestamp}_{nome_original}"
+        caminho_completo = os.path.join(pasta_fornecedor, nome_arquivo)
+        
+        # Salvar arquivo
+        arquivo.save(caminho_completo)
+        
+        # Registrar no banco
+        doc_id = db.criar_documento_avaliacao_iso(
+            avaliacao_id=avaliacao_id,
+            tipo_documento=tipo_documento,
+            nome_original=nome_original,
+            nome_arquivo=nome_arquivo,
+            caminho_arquivo=caminho_completo,
+            usuario=session['user']
+        )
+        
+        return jsonify({
+            'success': True, 
+            'id': doc_id,
+            'message': f'Documento "{nome_original}" enviado com sucesso'
+        })
+    
+    except Exception as e:
+        print(f"[ERRO] api_upload_documento_iso: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/avaliacao-iso/documento/<int:documento_id>/download')
+def api_download_documento_iso(documento_id):
+    """API para download de documento ISO"""
+    if 'user' not in session:
+        return redirect(url_for('dashboard'))
+    
+    try:
+        documento = db.obter_documento_avaliacao_iso(documento_id)
+        if not documento:
+            return jsonify({'success': False, 'error': 'Documento não encontrado'}), 404
+        
+        caminho = documento['caminho_arquivo']
+        if not os.path.exists(caminho):
+            return jsonify({'success': False, 'error': 'Arquivo não encontrado no servidor'}), 404
+        
+        return send_file(
+            caminho,
+            as_attachment=True,
+            download_name=documento['nome_original']
+        )
+    
+    except Exception as e:
+        print(f"[ERRO] api_download_documento_iso: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/avaliacao-iso/documento/<int:documento_id>/excluir', methods=['POST'])
+def api_excluir_documento_iso(documento_id):
+    """API para excluir documento ISO"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Não autenticado'}), 401
+    
+    try:
+        documento = db.obter_documento_avaliacao_iso(documento_id)
+        if not documento:
+            return jsonify({'success': False, 'error': 'Documento não encontrado'})
+        
+        # Excluir arquivo físico
+        caminho = documento['caminho_arquivo']
+        if os.path.exists(caminho):
+            os.remove(caminho)
+        
+        # Desativar no banco (soft delete)
+        db.desativar_documento_avaliacao_iso(documento_id)
+        
+        return jsonify({'success': True, 'message': 'Documento excluído com sucesso'})
+    
+    except Exception as e:
+        print(f"[ERRO] api_excluir_documento_iso: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/avaliacao-iso/<int:avaliacao_id>/enviar-email', methods=['POST'])
+def api_enviar_email_iso(avaliacao_id):
+    """
+    API para enviar e-mail de solicitação de atualização da avaliação ISO.
+    Envia um e-mail padrão solicitando atualização da avaliação e certificado ISO.
+    """
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Não autenticado'}), 401
+    
+    try:
+        # Buscar dados da avaliação
+        avaliacao = db.obter_avaliacao_iso(avaliacao_id)
+        if not avaliacao:
+            return jsonify({'success': False, 'error': 'Avaliação não encontrada'})
+        
+        email_destinatario = avaliacao.get('email_fornecedor', '').strip()
+        if not email_destinatario:
+            return jsonify({'success': False, 'error': 'Fornecedor não possui e-mail cadastrado'})
+        
+        nome_fornecedor = avaliacao.get('nome_fornecedor', 'Fornecedor')
+        
+        # Template do e-mail
+        assunto = f"Solicitação de Atualização - Avaliação de Fornecedor (PQ021) - {nome_fornecedor}"
+        
+        mensagem_html = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6;">
+            <p>Prezados,</p>
+            
+            <p>Conforme nosso procedimento de qualidade <strong>PQ021 - Avaliação de Fornecedores</strong>, 
+            solicitamos o envio dos seguintes documentos atualizados:</p>
+            
+            <ol>
+                <li><strong>Formulário de Avaliação de Fornecedor</strong> - devidamente preenchido</li>
+                <li><strong>Certificado ISO</strong> - caso sua empresa possua certificação vigente</li>
+            </ol>
+            
+            <p>Pedimos a gentileza de enviar os documentos em formato <strong>PDF</strong> 
+            para o e-mail do setor de compras.</p>
+            
+            <p>Esta solicitação faz parte do nosso processo de auditoria ISO e é fundamental 
+            para a manutenção do cadastro de fornecedores qualificados.</p>
+            
+            <p>Caso tenham dúvidas, estamos à disposição.</p>
+            
+            <br>
+            <p>Atenciosamente,</p>
+            <p><strong>Departamento de Compras</strong><br>
+            Polimáquinas</p>
+        </body>
+        </html>
+        """
+        
+        mensagem_texto = f"""
+Prezados,
+
+Conforme nosso procedimento de qualidade PQ021 - Avaliação de Fornecedores, 
+solicitamos o envio dos seguintes documentos atualizados:
+
+1. Formulário de Avaliação de Fornecedor - devidamente preenchido
+2. Certificado ISO - caso sua empresa possua certificação vigente
+
+Pedimos a gentileza de enviar os documentos em formato PDF 
+para o e-mail do setor de compras.
+
+Esta solicitação faz parte do nosso processo de auditoria ISO e é fundamental 
+para a manutenção do cadastro de fornecedores qualificados.
+
+Caso tenham dúvidas, estamos à disposição.
+
+Atenciosamente,
+Departamento de Compras
+Polimáquinas
+        """
+        
+        # Enviar e-mail
+        try:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = assunto
+            msg['From'] = EMAIL_REMETENTE
+            msg['To'] = email_destinatario
+            
+            # Adicionar versões texto e HTML
+            parte_texto = MIMEText(mensagem_texto, 'plain', 'utf-8')
+            parte_html = MIMEText(mensagem_html, 'html', 'utf-8')
+            
+            msg.attach(parte_texto)
+            msg.attach(parte_html)
+            
+            # Conectar e enviar
+            server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+            server.starttls()
+            server.login(EMAIL_REMETENTE, SENHA_EMAIL)
+            server.sendmail(EMAIL_REMETENTE, email_destinatario, msg.as_string())
+            server.quit()
+            
+            # Registrar envio no banco
+            db.registrar_email_avaliacao_iso(
+                avaliacao_id=avaliacao_id,
+                email_destinatario=email_destinatario,
+                assunto=assunto,
+                mensagem=mensagem_texto,
+                usuario=session['user'],
+                status='Enviado'
+            )
+            
+            return jsonify({
+                'success': True, 
+                'message': f'E-mail enviado com sucesso para {email_destinatario}'
+            })
+            
+        except Exception as e_email:
+            # Registrar falha no banco
+            db.registrar_email_avaliacao_iso(
+                avaliacao_id=avaliacao_id,
+                email_destinatario=email_destinatario,
+                assunto=assunto,
+                mensagem=mensagem_texto,
+                usuario=session['user'],
+                status='Erro',
+                erro_msg=str(e_email)
+            )
+            
+            print(f"[ERRO EMAIL] {e_email}")
+            return jsonify({'success': False, 'error': f'Erro ao enviar e-mail: {str(e_email)}'})
+    
+    except Exception as e:
+        print(f"[ERRO] api_enviar_email_iso: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/avaliacao-iso/<int:avaliacao_id>/historico-emails')
+def api_historico_emails_iso(avaliacao_id):
+    """API para listar histórico de e-mails de uma avaliação"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Não autenticado'}), 401
+    
+    try:
+        emails = db.listar_emails_avaliacao_iso(avaliacao_id)
+        return jsonify({'success': True, 'emails': emails})
+    
+    except Exception as e:
+        print(f"[ERRO] api_historico_emails_iso: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/avaliacao-iso/<int:avaliacao_id>')
+def api_obter_avaliacao_iso(avaliacao_id):
+    """API para obter dados de uma avaliação ISO"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Não autenticado'}), 401
+    
+    try:
+        avaliacao = db.obter_avaliacao_iso(avaliacao_id)
+        if not avaliacao:
+            return jsonify({'success': False, 'error': 'Avaliação não encontrada'}), 404
+        
+        avaliacao['status'] = calcular_status_avaliacao(avaliacao.get('data_vencimento'))
+        avaliacao['documentos'] = db.listar_documentos_avaliacao_iso(avaliacao_id)
+        
+        return jsonify({'success': True, 'avaliacao': avaliacao})
+    
+    except Exception as e:
+        print(f"[ERRO] api_obter_avaliacao_iso: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/avaliacao-iso/importar-excel', methods=['POST'])
+def api_importar_excel_iso():
+    """
+    API para importar fornecedores de um arquivo Excel.
+    Recebe uma lista de fornecedores processados pelo JavaScript.
+    """
+    user = session.get('user', 'Admin')
+    
+    try:
+        dados = request.get_json()
+        fornecedores = dados.get('fornecedores', [])
+        
+        if not fornecedores:
+            return jsonify({'success': False, 'error': 'Nenhum fornecedor para importar'})
+        
+        importados = 0
+        ignorados = 0
+        erros = 0
+        
+        for forn in fornecedores:
+            nome = forn.get('nome_fornecedor', '').strip()
+            if not nome:
+                erros += 1
+                continue
+            
+            # Gerar código único baseado no nome (simplificado)
+            # Usar primeiros caracteres do nome como código
+            cod_base = ''.join(c for c in nome.upper()[:6] if c.isalnum())
+            if not cod_base:
+                cod_base = 'FORN'
+            
+            # Verificar se já existe pelo nome
+            existente = None
+            avaliacoes_existentes = db.listar_avaliacoes_iso()
+            for av in avaliacoes_existentes:
+                if av['nome_fornecedor'].upper().strip() == nome.upper().strip():
+                    existente = av
+                    break
+            
+            if existente:
+                ignorados += 1
+                continue
+            
+            # Gerar código único
+            cod_fornecedor = cod_base
+            contador = 1
+            while True:
+                existe_cod = False
+                for av in avaliacoes_existentes:
+                    if av['cod_fornecedor'] == cod_fornecedor:
+                        existe_cod = True
+                        break
+                if not existe_cod:
+                    break
+                cod_fornecedor = f"{cod_base}{contador:03d}"
+                contador += 1
+            
+            try:
+                # Criar avaliação
+                db.criar_avaliacao_iso(
+                    cod_fornecedor=cod_fornecedor,
+                    nome_fornecedor=nome,
+                    email_fornecedor=forn.get('email_fornecedor'),
+                    data_ultima_avaliacao=forn.get('data_ultima_avaliacao') or None,
+                    data_vencimento=forn.get('data_vencimento') or None,
+                    possui_iso=forn.get('possui_iso', 'Nao'),
+                    nota=forn.get('nota'),
+                    observacao='Importado via Excel',
+                    usuario=user
+                )
+                importados += 1
+                
+            except Exception as e_insert:
+                print(f"[ERRO] Importar fornecedor {nome}: {e_insert}")
+                erros += 1
+        
+        return jsonify({
+            'success': True,
+            'importados': importados,
+            'ignorados': ignorados,
+            'erros': erros,
+            'message': f'Importação concluída: {importados} importados, {ignorados} ignorados, {erros} erros'
+        })
+    
+    except Exception as e:
+        print(f"[ERRO] api_importar_excel_iso: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/avaliacao-iso/limpar-todos', methods=['POST'])
+def api_limpar_todos_iso():
+    """
+    API para excluir TODOS os registros de avaliação ISO.
+    Usado para limpar importações incorretas.
+    """
+    user = session.get('user', 'Admin')
+    print(f"[AVISO] Usuário {user} solicitou exclusão de TODOS os registros ISO")
+    
+    try:
+        # Buscar todas as avaliações
+        avaliacoes = db.listar_avaliacoes_iso()
+        total = len(avaliacoes)
+        excluidos = 0
+        
+        for av in avaliacoes:
+            try:
+                db.excluir_avaliacao_iso(av['id'])
+                excluidos += 1
+            except Exception as e:
+                print(f"[ERRO] Excluir avaliação {av['id']}: {e}")
+        
+        print(f"[INFO] Exclusão em massa concluída: {excluidos}/{total} registros excluídos")
+        
+        return jsonify({
+            'success': True,
+            'excluidos': excluidos,
+            'total': total
+        })
+    
+    except Exception as e:
+        print(f"[ERRO] api_limpar_todos_iso: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================================================
+# COTAÇÃO EXTERNA ONLINE - INTEGRAÇÃO COM RENDER
+# =============================================================================
+
+# Configuração da aplicação externa (Render)
+COTACAO_EXTERNA_URL = os.environ.get('COTACAO_EXTERNA_URL', 'https://cotacao-externa.onrender.com')
+COTACAO_EXTERNA_API_KEY = os.environ.get('COTACAO_EXTERNA_API_KEY', 'chave-secreta-compartilhada-trocar-em-producao')
+
+# Import do cliente de integração (se disponível)
+try:
+    from integracao_cotacao_externa import CotacaoExternaClient, formatar_itens_para_externa, importar_resposta_externa
+    cotacao_externa_client = CotacaoExternaClient(COTACAO_EXTERNA_URL, COTACAO_EXTERNA_API_KEY)
+    print("[INFO] Módulo de cotação externa carregado com sucesso!")
+except ImportError:
+    cotacao_externa_client = None
+    print("[AVISO] Módulo de cotação externa não encontrado - funcionalidade desabilitada")
+
+
+@app.route('/api/cotacao/fornecedor/<int:fornecedor_id>/gerar-link-render', methods=['POST'])
+def api_gerar_link_render(fornecedor_id):
+    """
+    API para gerar link de cotação externa (Render/Internet).
+    Envia os dados da cotação para a aplicação externa e retorna o link.
+    """
+    if not cotacao_externa_client:
+        return jsonify({
+            'success': False, 
+            'error': 'Módulo de cotação externa não está configurado'
+        }), 500
+    
+    try:
+        # Buscar dados do fornecedor e cotação
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT f.*, c.id as cotacao_id, c.codigo, c.observacoes, c.informacao_fornecedor, c.data_validade
+            FROM cotacao_fornecedores f
+            JOIN cotacoes c ON f.cotacao_id = c.id
+            WHERE f.id = ?
+        ''', (fornecedor_id,))
+        
+        fornecedor = cursor.fetchone()
+        
+        if not fornecedor:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Fornecedor não encontrado'}), 404
+        
+        fornecedor = dict(fornecedor)
+        cotacao_id = fornecedor['cotacao_id']
+        
+        # Buscar itens da cotação
+        cursor.execute('SELECT * FROM cotacao_itens WHERE cotacao_id = ?', (cotacao_id,))
+        itens = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        if not itens:
+            return jsonify({'success': False, 'error': 'Cotação sem itens'}), 400
+        
+        # Formatar itens para a API externa
+        itens_formatados = []
+        for item in itens:
+            itens_formatados.append({
+                'id': item['id'],
+                'cod_produto': item.get('cod_produto', ''),
+                'descricao': item.get('descricao_produto', ''),
+                'quantidade': float(item.get('quantidade', 0)),
+                'unidade': item.get('unidade', 'UN'),
+                'observacao': item.get('observacao', '')
+            })
+        
+        # Registrar na aplicação externa
+        resultado = cotacao_externa_client.registrar_cotacao(
+            cotacao_id=cotacao_id,
+            codigo=fornecedor['codigo'],
+            fornecedor_id=fornecedor_id,
+            fornecedor_nome=fornecedor['nome_fornecedor'],
+            itens=itens_formatados,
+            fornecedor_codigo=fornecedor.get('cod_fornecedor'),
+            fornecedor_email=fornecedor.get('email_fornecedor'),
+            data_validade=fornecedor.get('data_validade'),
+            informacao_fornecedor=fornecedor.get('informacao_fornecedor'),
+            expiration_hours=72  # 3 dias
+        )
+        
+        if resultado.get('success'):
+            # Salvar o token externo no banco local (opcional, para rastreamento)
+            conn = db.get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE cotacao_fornecedores 
+                SET token_externo = ?, link_externo = ?, data_envio_externo = ?
+                WHERE id = ?
+            ''', (resultado['token'], resultado['link'], datetime.now(), fornecedor_id))
+            conn.commit()
+            conn.close()
+            
+            return jsonify({
+                'success': True,
+                'link': resultado['link'],
+                'token': resultado['token'],
+                'expires_at': resultado['expires_at'],
+                'message': 'Link externo gerado com sucesso!'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': resultado.get('error', 'Erro ao gerar link externo')
+            }), 500
+            
+    except Exception as e:
+        print(f"[ERRO] api_gerar_link_externo: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/externa/verificar-respostas', methods=['GET'])
+def api_verificar_respostas_externas():
+    """
+    API para verificar e importar respostas pendentes da aplicação externa.
+    """
+    if not cotacao_externa_client:
+        return jsonify({
+            'success': False, 
+            'error': 'Módulo de cotação externa não está configurado'
+        }), 500
+    
+    try:
+        # Buscar respostas pendentes
+        resultado = cotacao_externa_client.listar_respostas_pendentes()
+        
+        if not resultado.get('success'):
+            return jsonify(resultado), 500
+        
+        return jsonify({
+            'success': True,
+            'total': resultado.get('total', 0),
+            'respostas': resultado.get('respostas', [])
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_verificar_respostas_externas: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/externa/importar/<token>', methods=['POST'])
+def api_importar_resposta_externa(token):
+    """
+    API para importar uma resposta específica da aplicação externa.
+    """
+    if not cotacao_externa_client:
+        return jsonify({
+            'success': False, 
+            'error': 'Módulo de cotação externa não está configurado'
+        }), 500
+    
+    try:
+        # Buscar resposta da aplicação externa
+        resultado = cotacao_externa_client.obter_resposta(token)
+        
+        if not resultado.get('success'):
+            return jsonify(resultado), 404
+        
+        resposta = resultado['resposta']
+        
+        # Importar para o banco local
+        import_result = importar_resposta_externa(resposta, db)
+        
+        return jsonify(import_result)
+        
+    except Exception as e:
+        print(f"[ERRO] api_importar_resposta_externa: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/externa/status', methods=['GET'])
+def api_status_cotacao_externa():
+    """
+    API para verificar status da conexão com aplicação externa.
+    """
+    if not cotacao_externa_client:
+        return jsonify({
+            'success': False,
+            'online': False,
+            'message': 'Módulo de cotação externa não está configurado'
+        })
+    
+    try:
+        online = cotacao_externa_client.health_check()
+        return jsonify({
+            'success': True,
+            'online': online,
+            'url': COTACAO_EXTERNA_URL,
+            'message': 'Aplicação externa online' if online else 'Aplicação externa offline'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'online': False,
+            'error': str(e)
+        })
 
 
 if __name__ == '__main__':

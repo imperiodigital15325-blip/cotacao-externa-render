@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotação - COT- FERRAMENTAS - 27/01/2026 - Nº3</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f5f5f5; }
+        .header { background: linear-gradient(135deg, #1a5a3c 0%, #2d8a5e 100%); color: white; padding: 20px; margin-bottom: 20px; }
+        .card { box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .form-control:focus { border-color: #2d8a5e; box-shadow: 0 0 0 0.2rem rgba(45,138,94,0.25); }
+        .btn-success { background-color: #1a5a3c; border-color: #1a5a3c; }
+        .btn-success:hover { background-color: #2d8a5e; border-color: #2d8a5e; }
+        .table th { background-color: #f8f9fa; }
+        .preco-input, .prazo-input { width: 100px; }
+        .obs-input { width: 150px; }
+        @media print { .no-print { display: none !important; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h2><i class="bi bi-file-earmark-text"></i> Solicitação de Cotação</h2>
+            <p class="mb-0">Código: <strong>COT- FERRAMENTAS - 27/01/2026 - Nº3</strong></p>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Informações do Fornecedor -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">📋 Informações da Cotação</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Fornecedor:</strong> GUILHERME PEIXOTO BATISTA EPP</p>
+                        <p><strong>Email:</strong> vendas2@gruposaosebastiao.com.br; guilherme@widiamaq.com.br</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Data de Geração:</strong> 2026-01-29</p>
+                        <p><strong>Token:</strong> <code>I9bKWLa4FXXyWj88...</code></p>
+                    </div>
+                </div>
+                
+                
+            </div>
+        </div>
+        
+        <!-- Instruções -->
+        <div class="alert alert-success no-print">
+            <h6><strong>📝 Como preencher:</strong></h6>
+            <ol class="mb-0">
+                <li>Preencha o <strong>Preço Unitário</strong> (em R$) e o <strong>Prazo</strong> (em dias) para cada item</li>
+                <li>Informe o <strong>Frete Total</strong> e <strong>Condição de Pagamento</strong> abaixo da tabela</li>
+                <li>Clique em <strong>"Baixar JSON Preenchido"</strong> para salvar o arquivo</li>
+                <li>Envie o arquivo JSON de volta ao comprador</li>
+            </ol>
+        </div>
+        
+        <!-- Tabela de Itens -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">📦 Itens para Cotação (10 itens)</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0" id="tabelaItens">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="text-center" style="width: 80px;">SC</th>
+                                <th class="text-center" style="width: 60px;">Item</th>
+                                <th>Descrição do Produto</th>
+                                <th class="text-center" style="width: 70px;">Qtd</th>
+                                <th class="text-center" style="width: 50px;">UN</th>
+                                <th class="text-center" style="width: 120px;">Preço Unit. (R$)</th>
+                                <th class="text-center" style="width: 100px;">Prazo (dias)</th>
+                                <th style="width: 170px;">Observação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+        <tr data-item-id="29" data-index="0">
+            <td class="text-center">955735</td>
+            <td class="text-center">0001</td>
+            <td><small class="text-muted">MTG000386      </small><br><strong>MACHO PARA ROSCA POSTIÇA AR (HSS) M8 X 1,25 ROCAST 2560003</strong></td>
+            <td class="text-center">2.0</td>
+            <td class="text-center">PC</td>
+            <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="0"></td>
+            <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="dias" data-index="0"></td>
+            <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação" data-index="0"></td>
+        </tr>
+        <tr data-item-id="31" data-index="1">
+            <td class="text-center">955735</td>
+            <td class="text-center">0005</td>
+            <td><small class="text-muted">EF001211       </small><br><strong>SOQUETE SEXTAVADO DE IMPACTO ENCAIXE DE 1/2-REF.K19-8MM-GEDORE</strong></td>
+            <td class="text-center">1.0</td>
+            <td class="text-center">PC</td>
+            <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="1"></td>
+            <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="dias" data-index="1"></td>
+            <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação" data-index="1"></td>
+        </tr>
+        <tr data-item-id="37" data-index="2">
+            <td class="text-center">955735</td>
+            <td class="text-center">0006</td>
+            <td><small class="text-muted">EF000260       </small><br><strong>SOQUETE SEXTAVADO DE IMPACTO ENCAIXE DE 1/2-REF.K19-10MM-GEDORE</strong></td>
+            <td class="text-center">1.0</td>
+            <td class="text-center">PC</td>
+            <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="2"></td>
+            <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="dias" data-index="2"></td>
+            <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação" data-index="2"></td>
+        </tr>
+        <tr data-item-id="30" data-index="3">
+            <td class="text-center">955735</td>
+            <td class="text-center">0007</td>
+            <td><small class="text-muted">EF001434       </small><br><strong>SOQUETE SEXTAVADO DE IMPACTO ENCAIXE DE 1/2-REF.K19-6MM-GEDORE</strong></td>
+            <td class="text-center">1.0</td>
+            <td class="text-center">PC</td>
+            <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="3"></td>
+            <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="dias" data-index="3"></td>
+            <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação" data-index="3"></td>
+        </tr>
+        <tr data-item-id="33" data-index="4">
+            <td class="text-center">955735</td>
+            <td class="text-center">0008</td>
+            <td><small class="text-muted">EF001435       </small><br><strong>SOQUETE SEXTAVADO DE IMPACTO ENCAIXE DE 1/2-REF.K19-12MM-GEDORE</strong></td>
+            <td class="text-center">1.0</td>
+            <td class="text-center">PC</td>
+            <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="4"></td>
+            <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="dias" data-index="4"></td>
+            <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação" data-index="4"></td>
+        </tr>
+        <tr data-item-id="34" data-index="5">
+            <td class="text-center">955735</td>
+            <td class="text-center">0020</td>
+            <td><small class="text-muted">EF001436       </small><br><strong>ALARGADOR MANUAL DIN 206 FORMA B DIAMETRO DE 09</strong></td>
+            <td class="text-center">1.0</td>
+            <td class="text-center">PC</td>
+            <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="5"></td>
+            <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="dias" data-index="5"></td>
+            <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação" data-index="5"></td>
+        </tr>
+        <tr data-item-id="35" data-index="6">
+            <td class="text-center">955735</td>
+            <td class="text-center">0021</td>
+            <td><small class="text-muted">EF001437       </small><br><strong>ALARGADOR MANUAL DIN 206 FORMA B DIAMETRO DE 13</strong></td>
+            <td class="text-center">1.0</td>
+            <td class="text-center">PC</td>
+            <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="6"></td>
+            <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="dias" data-index="6"></td>
+            <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação" data-index="6"></td>
+        </tr>
+        <tr data-item-id="36" data-index="7">
+            <td class="text-center">955735</td>
+            <td class="text-center">0022</td>
+            <td><small class="text-muted">EF001438       </small><br><strong>ALARGADOR MANUAL DIN 206 FORMA B DIAMETRO DE 18</strong></td>
+            <td class="text-center">1.0</td>
+            <td class="text-center">PC</td>
+            <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="7"></td>
+            <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="dias" data-index="7"></td>
+            <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação" data-index="7"></td>
+        </tr>
+        <tr data-item-id="32" data-index="8">
+            <td class="text-center">955735</td>
+            <td class="text-center">0023</td>
+            <td><small class="text-muted">EF001246       </small><br><strong>KIT CONJUNTO SOQUETE ADAPTADOR VIRA MACHO DESANDADOR M4-M16.</strong></td>
+            <td class="text-center">2.0</td>
+            <td class="text-center">PC</td>
+            <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="8"></td>
+            <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="dias" data-index="8"></td>
+            <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação" data-index="8"></td>
+        </tr>
+        <tr data-item-id="38" data-index="9">
+            <td class="text-center">955740</td>
+            <td class="text-center">0005</td>
+            <td><small class="text-muted">EF001439       </small><br><strong>BANQUETA  PASTICA DOBRAVEL PRETA ALTURA 22 CM VONDER SUPORTA 150KG</strong></td>
+            <td class="text-center">1.0</td>
+            <td class="text-center">PC</td>
+            <td><input type="number" class="form-control form-control-sm preco-input" step="0.01" min="0" placeholder="0,00" data-index="9"></td>
+            <td><input type="number" class="form-control form-control-sm prazo-input" min="0" placeholder="dias" data-index="9"></td>
+            <td><input type="text" class="form-control form-control-sm obs-input" placeholder="Observação" data-index="9"></td>
+        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Informações Gerais da Resposta -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">💰 Informações Gerais da Proposta</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label"><strong>Frete Total (R$)</strong></label>
+                        <input type="number" class="form-control" id="freteTotal" step="0.01" min="0" placeholder="0,00">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label"><strong>Condição de Pagamento</strong></label>
+                        <input type="text" class="form-control" id="condicaoPagamento" placeholder="Ex: 30 DDL, 28 dias, etc.">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label"><strong>Validade da Proposta</strong></label>
+                        <input type="text" class="form-control" id="validadeProposta" placeholder="Ex: 15 dias">
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <label class="form-label"><strong>Observação Geral</strong></label>
+                        <textarea class="form-control" id="observacaoGeral" rows="2" placeholder="Observações adicionais sobre a proposta..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Botões de Ação -->
+        <div class="card mb-5 no-print">
+            <div class="card-body text-center">
+                <button class="btn btn-success btn-lg me-2" onclick="baixarJSON()">
+                    ⬇️ Baixar JSON Preenchido
+                </button>
+                <button class="btn btn-outline-secondary btn-lg" onclick="window.print()">
+                    🖨️ Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Dados originais da cotação
+        const dadosCotacao = {"versao": "1.0", "tipo": "SOLICITACAO_COTACAO", "token": "I9bKWLa4FXXyWj88j7eENXrPzCvVbnlcCh0tvPNTz9g", "data_geracao": "2026-01-29T09:08:09.471041", "cotacao": {"codigo": "COT- FERRAMENTAS - 27/01/2026 - Nº3", "observacoes": "", "informacao_fornecedor": ""}, "fornecedor": {"id_interno": 16, "nome": "GUILHERME PEIXOTO BATISTA EPP", "email": "vendas2@gruposaosebastiao.com.br; guilherme@widiamaq.com.br", "telefone": "1430183084"}, "itens": [{"id": 29, "numero_sc": "955735", "item_sc": "0001", "codigo_produto": "MTG000386      ", "descricao": "MACHO PARA ROSCA POSTIÇA AR (HSS) M8 X 1,25 ROCAST 2560003", "quantidade": 2.0, "unidade": "PC", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}, {"id": 31, "numero_sc": "955735", "item_sc": "0005", "codigo_produto": "EF001211       ", "descricao": "SOQUETE SEXTAVADO DE IMPACTO ENCAIXE DE 1/2-REF.K19-8MM-GEDORE", "quantidade": 1.0, "unidade": "PC", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}, {"id": 37, "numero_sc": "955735", "item_sc": "0006", "codigo_produto": "EF000260       ", "descricao": "SOQUETE SEXTAVADO DE IMPACTO ENCAIXE DE 1/2-REF.K19-10MM-GEDORE", "quantidade": 1.0, "unidade": "PC", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}, {"id": 30, "numero_sc": "955735", "item_sc": "0007", "codigo_produto": "EF001434       ", "descricao": "SOQUETE SEXTAVADO DE IMPACTO ENCAIXE DE 1/2-REF.K19-6MM-GEDORE", "quantidade": 1.0, "unidade": "PC", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}, {"id": 33, "numero_sc": "955735", "item_sc": "0008", "codigo_produto": "EF001435       ", "descricao": "SOQUETE SEXTAVADO DE IMPACTO ENCAIXE DE 1/2-REF.K19-12MM-GEDORE", "quantidade": 1.0, "unidade": "PC", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}, {"id": 34, "numero_sc": "955735", "item_sc": "0020", "codigo_produto": "EF001436       ", "descricao": "ALARGADOR MANUAL DIN 206 FORMA B DIAMETRO DE 09", "quantidade": 1.0, "unidade": "PC", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}, {"id": 35, "numero_sc": "955735", "item_sc": "0021", "codigo_produto": "EF001437       ", "descricao": "ALARGADOR MANUAL DIN 206 FORMA B DIAMETRO DE 13", "quantidade": 1.0, "unidade": "PC", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}, {"id": 36, "numero_sc": "955735", "item_sc": "0022", "codigo_produto": "EF001438       ", "descricao": "ALARGADOR MANUAL DIN 206 FORMA B DIAMETRO DE 18", "quantidade": 1.0, "unidade": "PC", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}, {"id": 32, "numero_sc": "955735", "item_sc": "0023", "codigo_produto": "EF001246       ", "descricao": "KIT CONJUNTO SOQUETE ADAPTADOR VIRA MACHO DESANDADOR M4-M16.", "quantidade": 2.0, "unidade": "PC", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}, {"id": 38, "numero_sc": "955740", "item_sc": "0005", "codigo_produto": "EF001439       ", "descricao": "BANQUETA  PASTICA DOBRAVEL PRETA ALTURA 22 CM VONDER SUPORTA 150KG", "quantidade": 1.0, "unidade": "PC", "observacao": "", "resposta": {"preco_unitario": null, "prazo_entrega_dias": null, "observacao": null}}], "resposta_geral": {"frete_total": null, "condicao_pagamento": null, "observacao_geral": null, "data_resposta": null}, "instrucoes": {"preenchimento": ["Preencha o campo \"preco_unitario\" com o valor em reais (use ponto como separador decimal)", "Preencha \"prazo_entrega_dias\" com o número de dias para entrega", "Informe \"frete_total\" se houver custo de frete (valor total)", "Preencha \"condicao_pagamento\" com as condições (ex: \"30 DDL\")", "Use os campos de \"observacao\" para informações adicionais"], "retorno": "Após preencher, salve o arquivo e envie de volta ao comprador"}, "hash_validacao": "ce11d6b383a120b4516cd4a225f9529d3b8014c6e71c14087e17510a2ceccef2"};
+        
+        function coletarDados() {
+            // Coleta respostas dos itens
+            document.querySelectorAll('#tabelaItens tbody tr').forEach((row, index) => {
+                const precoInput = row.querySelector('.preco-input');
+                const prazoInput = row.querySelector('.prazo-input');
+                const obsInput = row.querySelector('.obs-input');
+                
+                dadosCotacao.itens[index].resposta.preco_unitario = precoInput.value ? parseFloat(precoInput.value) : null;
+                dadosCotacao.itens[index].resposta.prazo_entrega_dias = prazoInput.value ? parseInt(prazoInput.value) : null;
+                dadosCotacao.itens[index].resposta.observacao = obsInput.value || null;
+            });
+            
+            // Coleta informações gerais
+            dadosCotacao.resposta_geral.frete_total = document.getElementById('freteTotal').value ? parseFloat(document.getElementById('freteTotal').value) : null;
+            dadosCotacao.resposta_geral.condicao_pagamento = document.getElementById('condicaoPagamento').value || null;
+            dadosCotacao.resposta_geral.observacao_geral = document.getElementById('observacaoGeral').value || null;
+            dadosCotacao.resposta_geral.data_resposta = new Date().toISOString();
+            
+            // Muda o tipo para resposta
+            dadosCotacao.tipo = 'RESPOSTA_COTACAO';
+            
+            return dadosCotacao;
+        }
+        
+        function baixarJSON() {
+            const dados = coletarDados();
+            
+            // Verifica se pelo menos um preço foi preenchido
+            const temPreco = dados.itens.some(item => item.resposta.preco_unitario !== null && item.resposta.preco_unitario > 0);
+            if (!temPreco) {
+                if (!confirm('Nenhum preço foi preenchido. Deseja baixar mesmo assim?')) {
+                    return;
+                }
+            }
+            
+            // Cria o arquivo para download
+            const jsonString = JSON.stringify(dados, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            // Nome do arquivo de resposta
+            const nomeArquivo = 'RESPOSTA_' + dadosCotacao.token.substring(0, 8) + '.json';
+            
+            // Cria link de download
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = nomeArquivo;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert('JSON baixado com sucesso!\n\nEnvie o arquivo "' + nomeArquivo + '" de volta ao comprador.');
+        }
+        
+        // Formata inputs de preço
+        document.querySelectorAll('.preco-input').forEach(input => {
+            input.addEventListener('blur', function() {
+                if (this.value) {
+                    this.value = parseFloat(this.value).toFixed(2);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

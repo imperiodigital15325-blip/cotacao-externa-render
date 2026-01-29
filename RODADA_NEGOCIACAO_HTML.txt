@@ -1,0 +1,517 @@
+<!-- =============================================================================
+     ADICIONAR APÓS A SEÇÃO "COMPARATIVO DE RESPOSTAS" (linha ~680)
+     Adicionar antes de "<!-- HISTÓRICO -->"
+     ============================================================================= -->
+
+            <!-- RODADAS DE NEGOCIAÇÃO -->
+            {% if cotacao.rodadas_negociacao and cotacao.rodadas_negociacao|length > 0 %}
+            <div class="card-section mt-4" id="secaoRodadaNegociacao">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0"><i class="fas fa-handshake me-2"></i>Rodada de Negociação (Rodada 2)</h5>
+                    <button class="btn btn-sm btn-outline-danger" onclick="excluirTodasRodadas({{ cotacao.id }})">
+                        <i class="fas fa-trash me-1"></i> Limpar Rodada 2
+                    </button>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Valores negociados</strong> com fornecedor selecionado após primeira rodada de cotação.
+                </div>
+                
+                <!-- Identificar fornecedor da negociação -->
+                {% set fornecedor_negociacao = '' %}
+                {% if cotacao.rodadas_negociacao|length > 0 %}
+                    {% set fornecedor_negociacao = cotacao.rodadas_negociacao[0].nome_fornecedor %}
+                {% endif %}
+                
+                <!-- Cabeçalho com nome do fornecedor -->
+                <div class="p-3 mb-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white;">
+                    <h6 class="mb-0"><i class="fas fa-building me-2"></i>Fornecedor: {{ fornecedor_negociacao }}</h6>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th rowspan="2">Código</th>
+                                <th rowspan="2">Item</th>
+                                <th rowspan="2">Qtd</th>
+                                <th colspan="3" class="text-center" style="background: #e3f2fd; border-bottom: 2px solid #1976d2;">Rodada 1 (Original)</th>
+                                <th colspan="3" class="text-center" style="background: #f3e5f5; border-bottom: 2px solid #7b1fa2;">Rodada 2 (Negociado)</th>
+                                <th rowspan="2">Economia</th>
+                                <th rowspan="2">Ações</th>
+                            </tr>
+                            <tr>
+                                <!-- Rodada 1 -->
+                                <th style="background: #e3f2fd;">Preço Unit.</th>
+                                <th style="background: #e3f2fd;">Prazo</th>
+                                <th style="background: #e3f2fd;">Total</th>
+                                <!-- Rodada 2 -->
+                                <th style="background: #f3e5f5;">Preço Unit.</th>
+                                <th style="background: #f3e5f5;">Prazo</th>
+                                <th style="background: #f3e5f5;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rodada in cotacao.rodadas_negociacao %}
+                            <tr>
+                                <td class="fw-bold">{{ rodada.cod_produto }}</td>
+                                <td>{{ rodada.descricao_produto }}</td>
+                                <td>{{ rodada.quantidade }} {{ rodada.unidade or 'UN' }}</td>
+                                
+                                <!-- Rodada 1 (Original) -->
+                                <td style="background: #e3f2fd20;">R$ {{ "%.2f"|format(rodada.preco_unitario_original or 0) }}</td>
+                                <td style="background: #e3f2fd20;">{{ rodada.prazo_entrega_original or '-' }} dias</td>
+                                <td style="background: #e3f2fd20;" class="fw-bold">R$ {{ "%.2f"|format((rodada.preco_unitario_original or 0) * rodada.quantidade) }}</td>
+                                
+                                <!-- Rodada 2 (Negociado) -->
+                                <td style="background: #f3e5f520;">R$ {{ "%.2f"|format(rodada.preco_unitario_negociado or 0) }}</td>
+                                <td style="background: #f3e5f520;">{{ rodada.prazo_entrega_negociado or '-' }} dias</td>
+                                <td style="background: #f3e5f520;" class="fw-bold text-success">R$ {{ "%.2f"|format((rodada.preco_unitario_negociado or 0) * rodada.quantidade) }}</td>
+                                
+                                <!-- Economia -->
+                                {% set economia = ((rodada.preco_unitario_original or 0) - (rodada.preco_unitario_negociado or 0)) * rodada.quantidade %}
+                                <td class="fw-bold {{ 'text-success' if economia > 0 else 'text-danger' }}">
+                                    {% if economia > 0 %}
+                                        -R$ {{ "%.2f"|format(economia) }}
+                                    {% elif economia < 0 %}
+                                        +R$ {{ "%.2f"|format(economia|abs) }}
+                                    {% else %}
+                                        R$ 0,00
+                                    {% endif %}
+                                </td>
+                                
+                                <!-- Ações -->
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            onclick="editarRodadaNegociacao({{ rodada.id }}, {{ rodada.preco_unitario_negociado }}, {{ rodada.prazo_entrega_negociado or 0 }}, '{{ rodada.observacao or '' }}')"
+                                            title="Editar valores negociados">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" 
+                                            onclick="excluirRodadaNegociacao({{ rodada.id }}, {{ cotacao.id }})"
+                                            title="Excluir item da negociação">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            
+                            <!-- Totais -->
+                            <tr class="table-secondary fw-bold">
+                                <td colspan="5" class="text-end">TOTAL GERAL:</td>
+                                {% set total_original = namespace(val=0) %}
+                                {% set total_negociado = namespace(val=0) %}
+                                {% for rodada in cotacao.rodadas_negociacao %}
+                                    {% set total_original.val = total_original.val + ((rodada.preco_unitario_original or 0) * rodada.quantidade) %}
+                                    {% set total_negociado.val = total_negociado.val + ((rodada.preco_unitario_negociado or 0) * rodada.quantidade) %}
+                                {% endfor %}
+                                <td class="text-primary">R$ {{ "%.2f"|format(total_original.val) }}</td>
+                                <td colspan="2"></td>
+                                <td class="text-success">R$ {{ "%.2f"|format(total_negociado.val) }}</td>
+                                <td class="text-success">-R$ {{ "%.2f"|format(total_original.val - total_negociado.val) }}</td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if cotacao.rodadas_negociacao[0].observacao %}
+                <div class="alert alert-warning mt-3">
+                    <strong><i class="fas fa-comment me-2"></i>Observação:</strong> {{ cotacao.rodadas_negociacao[0].observacao }}
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <!-- Botão para iniciar negociação quando não houver rodadas -->
+            {% if cotacao.respostas %}
+            <div class="card-section mt-4">
+                <div class="text-center py-4">
+                    <i class="fas fa-handshake fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted mb-3">Nenhuma rodada de negociação iniciada</h5>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalIniciarNegociacao">
+                        <i class="fas fa-plus me-2"></i>Iniciar Rodada de Negociação
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+
+
+<!-- =============================================================================
+     MODAL PARA INICIAR RODADA DE NEGOCIAÇÃO
+     Adicionar antes do </body> ou junto com outros modais
+     ============================================================================= -->
+
+    <!-- Modal: Iniciar Rodada de Negociação -->
+    <div class="modal fade" id="modalIniciarNegociacao" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h5 class="modal-title"><i class="fas fa-handshake me-2"></i>Iniciar Rodada de Negociação (Rodada 2)</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Selecione o fornecedor para negociar e informe os novos preços/prazos negociados.
+                    </div>
+                    
+                    <!-- Seleção de Fornecedor -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Fornecedor para Negociação *</label>
+                        <select class="form-select" id="fornecedorNegociacao" onchange="carregarItensNegociacao()">
+                            <option value="">Selecione o fornecedor...</option>
+                            {% set fornecedores_unicos = [] %}
+                            {% for resp in cotacao.respostas %}
+                                {% if resp.fornecedor_id not in fornecedores_unicos %}
+                                    <option value="{{ resp.fornecedor_id }}">{{ resp.nome_fornecedor }}</option>
+                                    {% set _ = fornecedores_unicos.append(resp.fornecedor_id) %}
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Tabela de Itens para Negociação -->
+                    <div id="containerItensNegociacao" style="display: none;">
+                        <h6 class="mb-3">Informe os valores negociados:</h6>
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th><input type="checkbox" id="selecionarTodos" onchange="selecionarTodosItens(this)"></th>
+                                        <th>Item</th>
+                                        <th>Qtd</th>
+                                        <th style="background: #e3f2fd;">Preço Original</th>
+                                        <th style="background: #e3f2fd;">Prazo Original</th>
+                                        <th style="background: #f3e5f5;">Preço Negociado</th>
+                                        <th style="background: #f3e5f5;">Prazo Negociado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelaItensNegociacao">
+                                    <!-- Preenchido via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Observação Geral (opcional)</label>
+                            <textarea class="form-control" id="observacaoNegociacao" rows="2" 
+                                      placeholder="Ex: Valores negociados via telefone em DD/MM/AAAA"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="salvarRodadaNegociacao()" id="btnSalvarNegociacao" disabled>
+                        <i class="fas fa-save me-1"></i>Salvar Rodada de Negociação
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Editar Rodada Individual -->
+    <div class="modal fade" id="modalEditarRodadaNegociacao" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Editar Valor Negociado</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editRodadaId">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Preço Unitário Negociado</label>
+                        <input type="text" class="form-control" id="editPrecoNegociado" 
+                               placeholder="0,00" oninput="formatarMoedaModal(this)">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Prazo de Entrega Negociado (dias)</label>
+                        <input type="number" class="form-control" id="editPrazoNegociado" min="0">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Observação</label>
+                        <textarea class="form-control" id="editObservacaoNegociacao" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="salvarEdicaoRodada()">
+                        <i class="fas fa-save me-1"></i>Salvar Alterações
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+<!-- =============================================================================
+     JAVASCRIPT PARA RODADAS DE NEGOCIAÇÃO
+     Adicionar antes do </script> final ou criar novo bloco <script>
+     ============================================================================= -->
+
+<script>
+// =================== RODADAS DE NEGOCIAÇÃO ===================
+
+let dadosItensNegociacao = [];
+const cotacaoId = {{ cotacao.id }};
+
+/**
+ * Carrega itens do fornecedor selecionado para negociação
+ */
+function carregarItensNegociacao() {
+    const fornecedorId = document.getElementById('fornecedorNegociacao').value;
+    if (!fornecedorId) {
+        document.getElementById('containerItensNegociacao').style.display = 'none';
+        return;
+    }
+    
+    // Filtrar respostas do fornecedor selecionado
+    const respostas = {{ cotacao.respostas|tojson }};
+    const itens = {{ cotacao.itens|tojson }};
+    
+    dadosItensNegociacao = [];
+    
+    itens.forEach(item => {
+        const resposta = respostas.find(r => r.fornecedor_id == fornecedorId && r.item_id == item.id);
+        if (resposta) {
+            dadosItensNegociacao.push({
+                item_id: item.id,
+                cod_produto: item.cod_produto,
+                descricao: item.descricao_produto,
+                quantidade: item.quantidade,
+                unidade: item.unidade || 'UN',
+                preco_original: resposta.preco_unitario || 0,
+                prazo_original: resposta.prazo_entrega || 0
+            });
+        }
+    });
+    
+    renderizarTabelaNegociacao();
+    document.getElementById('containerItensNegociacao').style.display = 'block';
+    document.getElementById('btnSalvarNegociacao').disabled = false;
+}
+
+/**
+ * Renderiza tabela com itens para negociação
+ */
+function renderizarTabelaNegociacao() {
+    const tbody = document.getElementById('tabelaItensNegociacao');
+    tbody.innerHTML = '';
+    
+    dadosItensNegociacao.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="text-center">
+                <input type="checkbox" class="checkbox-item" data-index="${index}" checked>
+            </td>
+            <td>
+                <strong>${item.cod_produto}</strong><br>
+                <small class="text-muted">${item.descricao}</small>
+            </td>
+            <td>${item.quantidade} ${item.unidade}</td>
+            <td style="background: #e3f2fd20;">R$ ${item.preco_original.toFixed(2)}</td>
+            <td style="background: #e3f2fd20;">${item.prazo_original} dias</td>
+            <td style="background: #f3e5f520;">
+                <input type="text" class="form-control form-control-sm preco-negociado" 
+                       data-index="${index}" value="${item.preco_original.toFixed(2)}" 
+                       oninput="formatarMoedaModal(this)">
+            </td>
+            <td style="background: #f3e5f520;">
+                <input type="number" class="form-control form-control-sm prazo-negociado" 
+                       data-index="${index}" value="${item.prazo_original}" min="0">
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+/**
+ * Selecionar/desselecionar todos os itens
+ */
+function selecionarTodosItens(checkbox) {
+    document.querySelectorAll('.checkbox-item').forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+}
+
+/**
+ * Salva rodada de negociação
+ */
+function salvarRodadaNegociacao() {
+    const fornecedorId = document.getElementById('fornecedorNegociacao').value;
+    const observacao = document.getElementById('observacaoNegociacao').value;
+    
+    if (!fornecedorId) {
+        mostrarToast('Selecione um fornecedor', 'warning');
+        return;
+    }
+    
+    const itensNegociados = [];
+    
+    document.querySelectorAll('.checkbox-item:checked').forEach(checkbox => {
+        const index = checkbox.dataset.index;
+        const item = dadosItensNegociacao[index];
+        
+        const precoNegociadoStr = document.querySelector(`.preco-negociado[data-index="${index}"]`).value;
+        const prazoNegociado = parseInt(document.querySelector(`.prazo-negociado[data-index="${index}"]`).value);
+        
+        // Converter preço BR para decimal
+        const precoNegociado = parseFloat(precoNegociadoStr.replace('.', '').replace(',', '.'));
+        
+        if (isNaN(precoNegociado) || precoNegociado <= 0) {
+            mostrarToast(`Preço inválido para ${item.cod_produto}`, 'danger');
+            return;
+        }
+        
+        itensNegociados.push({
+            item_id: item.item_id,
+            preco_original: item.preco_original,
+            preco_negociado: precoNegociado,
+            prazo_original: item.prazo_original,
+            prazo_negociado: prazoNegociado
+        });
+    });
+    
+    if (itensNegociados.length === 0) {
+        mostrarToast('Selecione pelo menos um item para negociar', 'warning');
+        return;
+    }
+    
+    // Enviar para API
+    fetch(`/api/cotacao/${cotacaoId}/rodada-negociacao`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            fornecedor_id: fornecedorId,
+            itens: itensNegociados,
+            observacao: observacao
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarToast(data.message, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            mostrarToast(data.error || 'Erro ao salvar negociação', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        mostrarToast('Erro ao salvar negociação', 'danger');
+    });
+}
+
+/**
+ * Abre modal para editar rodada individual
+ */
+function editarRodadaNegociacao(rodadaId, preco, prazo, observacao) {
+    document.getElementById('editRodadaId').value = rodadaId;
+    document.getElementById('editPrecoNegociado').value = preco.toFixed(2).replace('.', ',');
+    document.getElementById('editPrazoNegociado').value = prazo;
+    document.getElementById('editObservacaoNegociacao').value = observacao || '';
+    
+    new bootstrap.Modal(document.getElementById('modalEditarRodadaNegociacao')).show();
+}
+
+/**
+ * Salva edição de rodada individual
+ */
+function salvarEdicaoRodada() {
+    const rodadaId = document.getElementById('editRodadaId').value;
+    const precoStr = document.getElementById('editPrecoNegociado').value;
+    const prazo = parseInt(document.getElementById('editPrazoNegociado').value);
+    const observacao = document.getElementById('editObservacaoNegociacao').value;
+    
+    const preco = parseFloat(precoStr.replace('.', '').replace(',', '.'));
+    
+    if (isNaN(preco) || preco <= 0) {
+        mostrarToast('Preço inválido', 'danger');
+        return;
+    }
+    
+    fetch(`/api/cotacao/rodada/${rodadaId}/editar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            preco_negociado: preco,
+            prazo_negociado: prazo,
+            observacao: observacao
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarToast(data.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            mostrarToast(data.error || 'Erro ao editar', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        mostrarToast('Erro ao editar rodada', 'danger');
+    });
+}
+
+/**
+ * Excluir uma rodada individual
+ */
+function excluirRodadaNegociacao(rodadaId, cotacaoId) {
+    if (!confirm('Tem certeza que deseja excluir este item da negociação?')) return;
+    
+    fetch(`/api/cotacao/rodada/${rodadaId}/excluir`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarToast(data.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            mostrarToast(data.error || 'Erro ao excluir', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        mostrarToast('Erro ao excluir rodada', 'danger');
+    });
+}
+
+/**
+ * Excluir todas as rodadas da cotação
+ */
+function excluirTodasRodadas(cotacaoId) {
+    if (!confirm('Tem certeza que deseja LIMPAR TODA a Rodada 2?\nEsta ação não pode ser desfeita.')) return;
+    
+    // Como não temos API específica para deletar tudo, precisamos pegar os IDs
+    const rodadas = {{ cotacao.rodadas_negociacao|tojson|safe }};
+    
+    let promises = rodadas.map(r => {
+        return fetch(`/api/cotacao/rodada/${r.id}/excluir`, { method: 'POST' })
+            .then(response => response.json());
+    });
+    
+    Promise.all(promises)
+        .then(results => {
+            const todosOk = results.every(r => r.success);
+            if (todosOk) {
+                mostrarToast('Rodada 2 limpa com sucesso', 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                mostrarToast('Erro ao limpar algumas rodadas', 'warning');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            mostrarToast('Erro ao limpar rodadas', 'danger');
+        });
+}
+</script>

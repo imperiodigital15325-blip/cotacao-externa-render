@@ -1,0 +1,1691 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avaliação de Fornecedores - ISO (PQ021)</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/css/bootstrap-select.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --sidebar-bg: #212529;
+            --primary-blue: #0d6efd;
+            --danger-red: #dc3545;
+            --success-green: #198754;
+            --warning-yellow: #ffc107;
+            --text-primary: #1a1a2e;
+            --text-secondary: #6c757d;
+            --border-color: #e9ecef;
+            --transition: all 0.25s ease;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 0.875rem;
+            overflow-x: hidden;
+        }
+
+        /* LAYOUT COM SIDEBAR */
+        .wrapper { display: flex; width: 100%; align-items: stretch; }
+        
+        .sidebar {
+            min-width: 250px;
+            max-width: 250px;
+            background: linear-gradient(180deg, #1a1d21 0%, #212529 100%);
+            color: #fff;
+            min-height: 100vh;
+            transition: var(--transition);
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 999;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+        }
+
+        .sidebar.collapsed { margin-left: -250px; }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar ul.components { padding: 10px 0; }
+
+        .sidebar ul li {
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .sidebar ul li a {
+            padding: 12px 20px;
+            display: block;
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            transition: var(--transition);
+            font-size: 0.9rem;
+        }
+
+        .sidebar ul li a:hover { 
+            background: rgba(255,255,255,0.05); 
+            color: #fff;
+            padding-left: 25px;
+        }
+
+        .sidebar ul li.active a {
+            background: var(--primary-blue);
+            color: #fff;
+            border-left: 4px solid #fff;
+        }
+
+        .sidebar ul li a i { margin-right: 10px; width: 20px; }
+
+        .content {
+            width: 100%;
+            padding: 20px 30px;
+            margin-left: 250px;
+            transition: margin-left 0.3s;
+            min-height: 100vh;
+        }
+        
+        .content.expanded { margin-left: 0; }
+
+        /* BOTÃO TOGGLE SIDEBAR */
+        .sidebar-toggle {
+            position: fixed;
+            top: 72px;
+            left: 254px;
+            z-index: 998;
+            background: transparent;
+            color: rgba(108, 117, 125, 0.4);
+            border: none;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            box-shadow: none;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            opacity: 0.5;
+        }
+        
+        .sidebar-toggle:hover { 
+            background: rgba(108, 117, 125, 0.15);
+            color: var(--text-secondary);
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        .sidebar-toggle.collapsed { 
+            left: 8px; 
+            top: 12px;
+            opacity: 0.7;
+            background: rgba(108, 117, 125, 0.1);
+        }
+
+        /* PAGE HEADER */
+        .page-header { margin-bottom: 24px; }
+        .page-header h4 { font-weight: 700; font-size: 1.5rem; color: var(--text-primary); margin-bottom: 4px; }
+        .page-header small { color: var(--text-secondary); font-size: 0.85rem; }
+
+        /* CARDS KPI */
+        .kpi-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+            border-left: 4px solid;
+            margin-bottom: 15px;
+        }
+
+        .kpi-card:hover { transform: translateY(-3px); }
+        .kpi-card.danger { border-left-color: var(--danger-red); }
+        .kpi-card.success { border-left-color: var(--success-green); }
+        .kpi-card.primary { border-left-color: var(--primary-blue); }
+        .kpi-card.warning { border-left-color: var(--warning-yellow); }
+
+        .kpi-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .kpi-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        /* TABELA */
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .table thead th {
+            background: #f8f9fa;
+            border-bottom: 2px solid var(--border-color);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            padding: 12px 8px;
+            white-space: nowrap;
+        }
+
+        .table tbody td {
+            vertical-align: middle;
+            padding: 10px 8px;
+            font-size: 0.85rem;
+        }
+
+        .table tbody tr:hover {
+            background-color: rgba(13, 110, 253, 0.03);
+        }
+
+        /* STATUS BADGES */
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-valido {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .status-proximo {
+            background: #fff3cd;
+            color: #664d03;
+        }
+
+        .status-vencido {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .status-indefinido {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+
+        /* LINHA DA TABELA COLORIDA */
+        .row-vencido {
+            background-color: rgba(220, 53, 69, 0.08) !important;
+        }
+
+        .row-proximo {
+            background-color: rgba(255, 193, 7, 0.1) !important;
+        }
+
+        /* BOTÕES DE AÇÃO */
+        .btn-action {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            border-radius: 4px;
+        }
+
+        .btn-group-actions {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        /* MODAL */
+        .modal-header {
+            background: linear-gradient(135deg, #0d6efd, #0056b3);
+            color: white;
+            border-radius: 0;
+        }
+
+        .modal-header .btn-close {
+            filter: brightness(0) invert(1);
+        }
+
+        /* DOCUMENTOS */
+        .doc-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            margin: 2px;
+        }
+
+        .doc-avaliacao {
+            background: #cfe2ff;
+            color: #084298;
+        }
+
+        .doc-certificado {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        /* FILTROS */
+        .filter-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        .form-label-sm {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        /* HISTÓRICO DE E-MAILS */
+        .email-history-item {
+            border-left: 3px solid var(--primary-blue);
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 0 5px 5px 0;
+        }
+
+        .email-history-item.erro {
+            border-left-color: var(--danger-red);
+        }
+
+        /* NOTAS */
+        .nota-badge {
+            display: inline-block;
+            width: 40px;
+            text-align: center;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .nota-excelente { background: #d1e7dd; color: #0f5132; }
+        .nota-bom { background: #cfe2ff; color: #084298; }
+        .nota-regular { background: #fff3cd; color: #664d03; }
+        .nota-ruim { background: #f8d7da; color: #842029; }
+
+        /* TOOLTIP */
+        [data-bs-toggle="tooltip"] {
+            cursor: pointer;
+        }
+
+        /* LOADING */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="text-center">
+        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+        <p class="mt-2 text-primary fw-bold">Processando...</p>
+    </div>
+</div>
+
+<!-- BOTÃO TOGGLE SIDEBAR -->
+<button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+    <i class="fas fa-bars"></i>
+</button>
+
+<div class="wrapper">
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h4 class="mb-0"><i class="fas fa-cubes me-2"></i>Polimaquinas</h4>
+            <small class="text-muted" style="font-size: 0.75rem;">Portal de Compras</small>
+        </div>
+        <ul class="list-unstyled components">
+            <li><a href="{{ url_for('dashboard') }}"><i class="fas fa-chart-line"></i> Dashboard Financeiro</a></li>
+            <li><a href="{{ url_for('status_pedidos') }}"><i class="fas fa-tasks"></i> Status de Pedidos</a></li>
+            <li><a href="{{ url_for('performance') }}"><i class="fas fa-tachometer-alt"></i> OTD & Performance</a></li>
+            <li><a href="{{ url_for('variacao_preco') }}"><i class="fas fa-balance-scale"></i> Variação de Preço</a></li>
+            <li><a href="{{ url_for('terceiros') }}"><i class="fas fa-industry"></i> Terceiros</a></li>
+            <li><a href="{{ url_for('solicitacoes') }}"><i class="fas fa-file-alt"></i> Solicitações em Aberto</a></li>
+            <li><a href="{{ url_for('cotacoes') }}"><i class="fas fa-file-invoice-dollar"></i> Cotações e Orçamentos</a></li>
+            <li class="active"><a href="{{ url_for('avaliacao_iso') }}"><i class="fas fa-certificate"></i> Avaliação ISO (PQ021)</a></li>
+        </ul>
+    </nav>
+
+    <div class="content" id="content">
+        <!-- HEADER -->
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div>
+                <h4><i class="fas fa-certificate me-2 text-primary"></i>Avaliação de Fornecedores - ISO (PQ021)</h4>
+                <small>Controle de avaliações e documentos para auditoria ISO</small>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <button class="btn btn-primary" onclick="abrirModalNovo()">
+                    <i class="fas fa-plus me-1"></i> Novo Fornecedor
+                </button>
+                <span class="badge bg-light text-dark border px-3 py-2">
+                    <i class="fas fa-user-circle me-1"></i>{{ user }}
+                </span>
+            </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="kpi-card primary">
+                    <div class="kpi-value text-primary">{{ kpis.total }}</div>
+                    <div class="kpi-label">Total Cadastrados</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card success">
+                    <div class="kpi-value text-success">{{ kpis.validos }}</div>
+                    <div class="kpi-label">🟢 Válidos</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card warning">
+                    <div class="kpi-value text-warning">{{ kpis.proximos }}</div>
+                    <div class="kpi-label">🟡 Próximo Vencimento</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card danger">
+                    <div class="kpi-value text-danger">{{ kpis.vencidos }}</div>
+                    <div class="kpi-label">🔴 Vencidos</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FILTROS -->
+        <div class="filter-card">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label-sm">Buscar Fornecedor:</label>
+                    <input type="text" class="form-control form-control-sm" id="filtroNome" 
+                           placeholder="Nome ou código..." onkeyup="filtrarTabela()">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label-sm">Status:</label>
+                    <select class="form-select form-select-sm" id="filtroStatus" onchange="filtrarTabela()">
+                        <option value="">Todos</option>
+                        <option value="valido">🟢 Válidos</option>
+                        <option value="proximo">🟡 Próximo Vencimento</option>
+                        <option value="vencido">🔴 Vencidos</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label-sm">Possui ISO:</label>
+                    <select class="form-select form-select-sm" id="filtroISO" onchange="filtrarTabela()">
+                        <option value="">Todos</option>
+                        <option value="Sim">Sim</option>
+                        <option value="Nao">Não</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-secondary btn-sm w-100" onclick="limparFiltros()">
+                        <i class="fas fa-eraser me-1"></i> Limpar
+                    </button>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button class="btn btn-danger btn-sm me-1" onclick="confirmarLimparTodos()" title="Apagar todos os registros">
+                        <i class="fas fa-trash-alt me-1"></i> Limpar Todos
+                    </button>
+                    <button class="btn btn-info btn-sm me-1" onclick="abrirModalImportarExcel()">
+                        <i class="fas fa-file-import me-1"></i> Importar Excel
+                    </button>
+                    <button class="btn btn-success btn-sm" onclick="exportarExcel()">
+                        <i class="fas fa-file-excel me-1"></i> Exportar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABELA -->
+        <div class="table-container">
+            <div class="table-responsive">
+                <table class="table table-hover" id="tabelaAvaliacoes">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Fornecedor</th>
+                            <th>Última Avaliação</th>
+                            <th>Vencimento</th>
+                            <th>Status</th>
+                            <th>ISO</th>
+                            <th>Nota</th>
+                            <th>Documentos</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if avaliacoes %}
+                            {% for av in avaliacoes %}
+                            <tr class="{% if av.status == 'vencido' %}row-vencido{% elif av.status == 'proximo' %}row-proximo{% endif %}"
+                                data-status="{{ av.status }}"
+                                data-iso="{{ av.possui_iso }}"
+                                data-nome="{{ av.nome_fornecedor|lower }}"
+                                data-codigo="{{ av.cod_fornecedor|lower }}">
+                                <td><code>{{ av.cod_fornecedor }}</code></td>
+                                <td>
+                                    <strong>{{ av.nome_fornecedor }}</strong>
+                                    {% if av.email_fornecedor %}
+                                    <br><small class="text-muted"><i class="fas fa-envelope me-1"></i>{{ av.email_fornecedor }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if av.data_ultima_avaliacao %}
+                                        {{ av.data_ultima_avaliacao|replace('-', '/')|truncate(10, True, '') }}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if av.data_vencimento %}
+                                        {{ av.data_vencimento|replace('-', '/')|truncate(10, True, '') }}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if av.status == 'valido' %}
+                                        <span class="status-badge status-valido"><i class="fas fa-check-circle"></i> Válido</span>
+                                    {% elif av.status == 'proximo' %}
+                                        <span class="status-badge status-proximo"><i class="fas fa-exclamation-triangle"></i> Próximo</span>
+                                    {% elif av.status == 'vencido' %}
+                                        <span class="status-badge status-vencido"><i class="fas fa-times-circle"></i> Vencido</span>
+                                    {% else %}
+                                        <span class="status-badge status-indefinido"><i class="fas fa-question-circle"></i> Indefinido</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if av.possui_iso == 'Sim' %}
+                                        <span class="badge bg-success">Sim</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Não</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if av.nota %}
+                                        {% if av.nota >= 8 %}
+                                            <span class="nota-badge nota-excelente">{{ '%.1f'|format(av.nota) }}</span>
+                                        {% elif av.nota >= 6 %}
+                                            <span class="nota-badge nota-bom">{{ '%.1f'|format(av.nota) }}</span>
+                                        {% elif av.nota >= 4 %}
+                                            <span class="nota-badge nota-regular">{{ '%.1f'|format(av.nota) }}</span>
+                                        {% else %}
+                                            <span class="nota-badge nota-ruim">{{ '%.1f'|format(av.nota) }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% for doc in av.documentos %}
+                                        {% if doc.tipo_documento == 'avaliacao' %}
+                                            <span class="doc-badge doc-avaliacao" 
+                                                  data-bs-toggle="tooltip" 
+                                                  title="{{ doc.nome_original }}">
+                                                <i class="fas fa-file-pdf"></i> Avaliação
+                                            </span>
+                                        {% elif doc.tipo_documento == 'certificado_iso' %}
+                                            <span class="doc-badge doc-certificado"
+                                                  data-bs-toggle="tooltip" 
+                                                  title="{{ doc.nome_original }}">
+                                                <i class="fas fa-certificate"></i> ISO
+                                            </span>
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if not av.documentos %}
+                                        <span class="text-muted small">Nenhum</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group-actions">
+                                        <button class="btn btn-outline-primary btn-action" 
+                                                onclick="abrirModalEditar({{ av.id }})"
+                                                title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-outline-success btn-action" 
+                                                onclick="abrirModalUpload({{ av.id }}, '{{ av.nome_fornecedor }}')"
+                                                title="Upload Documento">
+                                            <i class="fas fa-upload"></i>
+                                        </button>
+                                        <button class="btn btn-outline-info btn-action" 
+                                                onclick="abrirModalDocumentos({{ av.id }}, '{{ av.nome_fornecedor }}')"
+                                                title="Ver Documentos">
+                                            <i class="fas fa-folder-open"></i>
+                                        </button>
+                                        {% if av.status == 'vencido' or av.status == 'proximo' %}
+                                        <button class="btn btn-warning btn-action" 
+                                                onclick="enviarEmailSolicitacao({{ av.id }}, '{{ av.email_fornecedor }}', '{{ av.nome_fornecedor }}')"
+                                                title="Enviar Solicitação">
+                                            <i class="fas fa-envelope"></i>
+                                        </button>
+                                        {% endif %}
+                                        <button class="btn btn-outline-secondary btn-action" 
+                                                onclick="abrirModalHistoricoEmails({{ av.id }}, '{{ av.nome_fornecedor }}')"
+                                                title="Histórico E-mails">
+                                            <i class="fas fa-history"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger btn-action" 
+                                                onclick="confirmarExclusao({{ av.id }}, '{{ av.nome_fornecedor }}')"
+                                                title="Excluir">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center py-5">
+                                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">Nenhuma avaliação cadastrada.</p>
+                                    <button class="btn btn-primary" onclick="abrirModalNovo()">
+                                        <i class="fas fa-plus me-1"></i> Cadastrar Primeiro Fornecedor
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: NOVO/EDITAR FORNECEDOR -->
+<div class="modal fade" id="modalFornecedor" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalFornecedorTitulo">
+                    <i class="fas fa-plus-circle me-2"></i>Novo Fornecedor
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formFornecedor">
+                    <input type="hidden" id="avaliacaoId">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Código do Fornecedor *</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="codFornecedor" required>
+                                <button class="btn btn-outline-secondary" type="button" onclick="buscarFornecedor()">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Buscar do TOTVS</small>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Nome do Fornecedor *</label>
+                            <input type="text" class="form-control" id="nomeFornecedor" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">E-mail</label>
+                            <input type="email" class="form-control" id="emailFornecedor" placeholder="email@fornecedor.com">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Possui ISO?</label>
+                            <select class="form-select" id="possuiISO">
+                                <option value="Nao">Não</option>
+                                <option value="Sim">Sim</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Nota (0-10)</label>
+                            <input type="number" class="form-control" id="nota" min="0" max="10" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Data da Última Avaliação</label>
+                            <input type="date" class="form-control" id="dataUltimaAvaliacao">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Data de Vencimento</label>
+                            <input type="date" class="form-control" id="dataVencimento">
+                            <small class="text-muted">Geralmente 1 ano após a avaliação</small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Observação</label>
+                        <textarea class="form-control" id="observacao" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarFornecedor()">
+                    <i class="fas fa-save me-1"></i> Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: UPLOAD DOCUMENTO -->
+<div class="modal fade" id="modalUpload" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-upload me-2"></i>Upload de Documento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Fornecedor: <strong id="uploadFornecedorNome"></strong></p>
+                <input type="hidden" id="uploadAvaliacaoId">
+                
+                <div class="mb-3">
+                    <label class="form-label">Tipo de Documento *</label>
+                    <select class="form-select" id="tipoDocumento">
+                        <option value="avaliacao">Formulário de Avaliação</option>
+                        <option value="certificado_iso">Certificado ISO</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Arquivo PDF *</label>
+                    <input type="file" class="form-control" id="arquivoUpload" accept=".pdf">
+                    <small class="text-muted">Apenas arquivos PDF são permitidos</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="enviarDocumento()">
+                    <i class="fas fa-cloud-upload-alt me-1"></i> Enviar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: VER DOCUMENTOS -->
+<div class="modal fade" id="modalDocumentos" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-folder-open me-2"></i>Documentos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Fornecedor: <strong id="docsFornecedorNome"></strong></p>
+                <div id="listaDocumentos">
+                    <!-- Preenchido via JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: HISTÓRICO DE E-MAILS -->
+<div class="modal fade" id="modalHistoricoEmails" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-history me-2"></i>Histórico de E-mails</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Fornecedor: <strong id="emailsFornecedorNome"></strong></p>
+                <div id="listaEmails">
+                    <!-- Preenchido via JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: BUSCAR FORNECEDOR TOTVS -->
+<div class="modal fade" id="modalBuscarFornecedor" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-search me-2"></i>Buscar Fornecedor no TOTVS</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="termoBuscaFornecedor" 
+                               placeholder="Digite código ou nome do fornecedor...">
+                        <button class="btn btn-primary" type="button" onclick="executarBuscaFornecedor()">
+                            <i class="fas fa-search"></i> Buscar
+                        </button>
+                    </div>
+                </div>
+                <div id="resultadosBusca" class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <!-- Resultados da busca -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: IMPORTAR EXCEL -->
+<div class="modal fade" id="modalImportarExcel" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-file-import me-2"></i>Importar Fornecedores do Excel</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>Formato esperado do Excel:</h6>
+                    <p class="mb-2">O arquivo deve conter as seguintes colunas (a ordem não importa):</p>
+                    <ul class="mb-0">
+                        <li><strong>Fornecedor</strong> - Nome do fornecedor (obrigatório)</li>
+                        <li><strong>Data avaliação</strong> ou <strong>Data da última avaliação</strong> - Data da última avaliação</li>
+                        <li><strong>Data vencimento</strong> ou <strong>Vencimento</strong> - Data de vencimento</li>
+                        <li><strong>Certificado</strong> ou <strong>ISO</strong> ou <strong>Possui ISO</strong> - Sim/Não</li>
+                        <li><strong>Nota</strong> - Nota da avaliação (0-10)</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Selecione o arquivo Excel:</label>
+                    <input type="file" class="form-control" id="arquivoExcelImport" accept=".xlsx,.xls">
+                </div>
+                
+                <div id="previewImportacao" style="display: none;">
+                    <h6 class="mt-4 mb-3"><i class="fas fa-eye me-2"></i>Prévia dos dados:</h6>
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm table-bordered" id="tabelaPreviewImport">
+                            <thead class="table-light">
+                                <tr id="headerPreview"></tr>
+                            </thead>
+                            <tbody id="bodyPreview"></tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3">
+                        <span class="badge bg-primary" id="totalLinhasImport">0 registros</span>
+                        <span class="badge bg-success" id="novosImport">0 novos</span>
+                        <span class="badge bg-warning text-dark" id="duplicadosImport">0 já existentes</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-info" id="btnProcessarExcel" onclick="processarExcelImport()" disabled>
+                    <i class="fas fa-cog me-1"></i> Processar Arquivo
+                </button>
+                <button type="button" class="btn btn-success" id="btnConfirmarImport" onclick="confirmarImportacao()" style="display: none;">
+                    <i class="fas fa-check me-1"></i> Confirmar Importação
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/js/bootstrap-select.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.19.1/package/dist/xlsx.full.min.js"></script>
+
+<script>
+// ============================================================================
+// VARIÁVEIS GLOBAIS
+// ============================================================================
+let modalFornecedor, modalUpload, modalDocumentos, modalHistoricoEmails, modalBuscarFornecedor;
+
+// ============================================================================
+// INICIALIZAÇÃO
+// ============================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar modais
+    modalFornecedor = new bootstrap.Modal(document.getElementById('modalFornecedor'));
+    modalUpload = new bootstrap.Modal(document.getElementById('modalUpload'));
+    modalDocumentos = new bootstrap.Modal(document.getElementById('modalDocumentos'));
+    modalHistoricoEmails = new bootstrap.Modal(document.getElementById('modalHistoricoEmails'));
+    modalBuscarFornecedor = new bootstrap.Modal(document.getElementById('modalBuscarFornecedor'));
+    
+    // Inicializar tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Carregar estado da sidebar
+    const sidebarState = localStorage.getItem('sidebarCollapsed');
+    if (sidebarState === 'true') {
+        document.getElementById('sidebar').classList.add('collapsed');
+        document.getElementById('content').classList.add('expanded');
+        document.getElementById('sidebarToggle').classList.add('collapsed');
+    }
+});
+
+// ============================================================================
+// SIDEBAR
+// ============================================================================
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const content = document.getElementById('content');
+    const toggle = document.getElementById('sidebarToggle');
+    
+    sidebar.classList.toggle('collapsed');
+    content.classList.toggle('expanded');
+    toggle.classList.toggle('collapsed');
+    
+    localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+}
+
+// ============================================================================
+// LOADING
+// ============================================================================
+function showLoading() {
+    document.getElementById('loadingOverlay').classList.add('active');
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').classList.remove('active');
+}
+
+// ============================================================================
+// FILTROS
+// ============================================================================
+function filtrarTabela() {
+    const nome = document.getElementById('filtroNome').value.toLowerCase();
+    const status = document.getElementById('filtroStatus').value;
+    const iso = document.getElementById('filtroISO').value;
+    
+    const linhas = document.querySelectorAll('#tabelaAvaliacoes tbody tr');
+    
+    linhas.forEach(linha => {
+        if (linha.querySelector('td[colspan]')) return; // Pular linha "nenhum resultado"
+        
+        const linhaNome = linha.dataset.nome || '';
+        const linhaCodigo = linha.dataset.codigo || '';
+        const linhaStatus = linha.dataset.status || '';
+        const linhaISO = linha.dataset.iso || '';
+        
+        let mostrar = true;
+        
+        if (nome && !linhaNome.includes(nome) && !linhaCodigo.includes(nome)) {
+            mostrar = false;
+        }
+        if (status && linhaStatus !== status) {
+            mostrar = false;
+        }
+        if (iso && linhaISO !== iso) {
+            mostrar = false;
+        }
+        
+        linha.style.display = mostrar ? '' : 'none';
+    });
+}
+
+function limparFiltros() {
+    document.getElementById('filtroNome').value = '';
+    document.getElementById('filtroStatus').value = '';
+    document.getElementById('filtroISO').value = '';
+    filtrarTabela();
+}
+
+// ============================================================================
+// MODAL: NOVO FORNECEDOR
+// ============================================================================
+function abrirModalNovo() {
+    document.getElementById('modalFornecedorTitulo').innerHTML = '<i class="fas fa-plus-circle me-2"></i>Novo Fornecedor';
+    document.getElementById('formFornecedor').reset();
+    document.getElementById('avaliacaoId').value = '';
+    document.getElementById('codFornecedor').readOnly = false;
+    modalFornecedor.show();
+}
+
+// ============================================================================
+// MODAL: EDITAR FORNECEDOR
+// ============================================================================
+async function abrirModalEditar(id) {
+    showLoading();
+    try {
+        const response = await fetch(`/api/avaliacao-iso/${id}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const av = data.avaliacao;
+            document.getElementById('modalFornecedorTitulo').innerHTML = '<i class="fas fa-edit me-2"></i>Editar Fornecedor';
+            document.getElementById('avaliacaoId').value = av.id;
+            document.getElementById('codFornecedor').value = av.cod_fornecedor;
+            document.getElementById('codFornecedor').readOnly = true;
+            document.getElementById('nomeFornecedor').value = av.nome_fornecedor || '';
+            document.getElementById('emailFornecedor').value = av.email_fornecedor || '';
+            document.getElementById('possuiISO').value = av.possui_iso || 'Nao';
+            document.getElementById('nota').value = av.nota || '';
+            document.getElementById('dataUltimaAvaliacao').value = av.data_ultima_avaliacao || '';
+            document.getElementById('dataVencimento').value = av.data_vencimento || '';
+            document.getElementById('observacao').value = av.observacao || '';
+            
+            modalFornecedor.show();
+        } else {
+            alert('Erro ao carregar dados: ' + data.error);
+        }
+    } catch (e) {
+        alert('Erro ao carregar dados: ' + e.message);
+    }
+    hideLoading();
+}
+
+// ============================================================================
+// SALVAR FORNECEDOR
+// ============================================================================
+async function salvarFornecedor() {
+    const id = document.getElementById('avaliacaoId').value;
+    const dados = {
+        cod_fornecedor: document.getElementById('codFornecedor').value.trim(),
+        nome_fornecedor: document.getElementById('nomeFornecedor').value.trim(),
+        email_fornecedor: document.getElementById('emailFornecedor').value.trim(),
+        possui_iso: document.getElementById('possuiISO').value,
+        nota: document.getElementById('nota').value || null,
+        data_ultima_avaliacao: document.getElementById('dataUltimaAvaliacao').value || null,
+        data_vencimento: document.getElementById('dataVencimento').value || null,
+        observacao: document.getElementById('observacao').value.trim()
+    };
+    
+    if (!dados.cod_fornecedor || !dados.nome_fornecedor) {
+        alert('Código e nome do fornecedor são obrigatórios!');
+        return;
+    }
+    
+    showLoading();
+    try {
+        const url = id ? `/api/avaliacao-iso/${id}/atualizar` : '/api/avaliacao-iso/criar';
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dados)
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Erro: ' + data.error);
+        }
+    } catch (e) {
+        alert('Erro: ' + e.message);
+    }
+    hideLoading();
+}
+
+// ============================================================================
+// BUSCAR FORNECEDOR NO TOTVS
+// ============================================================================
+function buscarFornecedor() {
+    document.getElementById('termoBuscaFornecedor').value = document.getElementById('codFornecedor').value;
+    document.getElementById('resultadosBusca').innerHTML = '<p class="text-muted text-center">Digite um termo e clique em Buscar</p>';
+    modalBuscarFornecedor.show();
+}
+
+async function executarBuscaFornecedor() {
+    const termo = document.getElementById('termoBuscaFornecedor').value.trim();
+    if (!termo) {
+        alert('Digite um termo para buscar');
+        return;
+    }
+    
+    showLoading();
+    try {
+        const response = await fetch(`/api/fornecedores/buscar?termo=${encodeURIComponent(termo)}`);
+        const data = await response.json();
+        
+        if (data.success && data.fornecedores.length > 0) {
+            let html = '<table class="table table-sm table-hover"><thead><tr><th>Código</th><th>Nome</th><th>E-mail</th><th></th></tr></thead><tbody>';
+            data.fornecedores.forEach(f => {
+                html += `<tr>
+                    <td><code>${f.codigo}</code></td>
+                    <td>${f.nome}</td>
+                    <td>${f.email || '-'}</td>
+                    <td><button class="btn btn-sm btn-primary" onclick="selecionarFornecedor('${f.codigo}', '${f.nome.replace(/'/g, "\\'")}', '${f.email || ''}')">Selecionar</button></td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            document.getElementById('resultadosBusca').innerHTML = html;
+        } else {
+            document.getElementById('resultadosBusca').innerHTML = '<p class="text-center text-muted">Nenhum fornecedor encontrado</p>';
+        }
+    } catch (e) {
+        document.getElementById('resultadosBusca').innerHTML = `<p class="text-center text-danger">Erro: ${e.message}</p>`;
+    }
+    hideLoading();
+}
+
+function selecionarFornecedor(codigo, nome, email) {
+    document.getElementById('codFornecedor').value = codigo;
+    document.getElementById('nomeFornecedor').value = nome;
+    document.getElementById('emailFornecedor').value = email;
+    modalBuscarFornecedor.hide();
+}
+
+// ============================================================================
+// UPLOAD DE DOCUMENTO
+// ============================================================================
+function abrirModalUpload(id, nome) {
+    document.getElementById('uploadAvaliacaoId').value = id;
+    document.getElementById('uploadFornecedorNome').textContent = nome;
+    document.getElementById('arquivoUpload').value = '';
+    document.getElementById('tipoDocumento').value = 'avaliacao';
+    modalUpload.show();
+}
+
+async function enviarDocumento() {
+    const avaliacaoId = document.getElementById('uploadAvaliacaoId').value;
+    const tipoDocumento = document.getElementById('tipoDocumento').value;
+    const arquivo = document.getElementById('arquivoUpload').files[0];
+    
+    if (!arquivo) {
+        alert('Selecione um arquivo PDF');
+        return;
+    }
+    
+    if (!arquivo.name.toLowerCase().endsWith('.pdf')) {
+        alert('Apenas arquivos PDF são permitidos');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('arquivo', arquivo);
+    formData.append('tipo_documento', tipoDocumento);
+    
+    showLoading();
+    try {
+        const response = await fetch(`/api/avaliacao-iso/${avaliacaoId}/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Erro: ' + data.error);
+        }
+    } catch (e) {
+        alert('Erro: ' + e.message);
+    }
+    hideLoading();
+}
+
+// ============================================================================
+// VER DOCUMENTOS
+// ============================================================================
+async function abrirModalDocumentos(id, nome) {
+    document.getElementById('docsFornecedorNome').textContent = nome;
+    document.getElementById('listaDocumentos').innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm"></div> Carregando...</div>';
+    modalDocumentos.show();
+    
+    try {
+        const response = await fetch(`/api/avaliacao-iso/${id}`);
+        const data = await response.json();
+        
+        if (data.success && data.avaliacao.documentos.length > 0) {
+            let html = '<div class="list-group">';
+            data.avaliacao.documentos.forEach(doc => {
+                const tipoLabel = doc.tipo_documento === 'avaliacao' ? 'Formulário de Avaliação' : 'Certificado ISO';
+                const tipoClass = doc.tipo_documento === 'avaliacao' ? 'primary' : 'success';
+                const dataUpload = new Date(doc.data_upload).toLocaleDateString('pt-BR');
+                
+                html += `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-${tipoClass} me-2">${tipoLabel}</span>
+                        <strong>${doc.nome_original}</strong>
+                        <br><small class="text-muted">Enviado em: ${dataUpload}</small>
+                    </div>
+                    <div>
+                        <a href="/api/avaliacao-iso/documento/${doc.id}/download" class="btn btn-sm btn-outline-primary me-1" target="_blank">
+                            <i class="fas fa-download"></i>
+                        </a>
+                        <button class="btn btn-sm btn-outline-danger" onclick="excluirDocumento(${doc.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+            document.getElementById('listaDocumentos').innerHTML = html;
+        } else {
+            document.getElementById('listaDocumentos').innerHTML = '<p class="text-center text-muted">Nenhum documento cadastrado</p>';
+        }
+    } catch (e) {
+        document.getElementById('listaDocumentos').innerHTML = `<p class="text-center text-danger">Erro: ${e.message}</p>`;
+    }
+}
+
+async function excluirDocumento(docId) {
+    if (!confirm('Tem certeza que deseja excluir este documento?')) return;
+    
+    showLoading();
+    try {
+        const response = await fetch(`/api/avaliacao-iso/documento/${docId}/excluir`, { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Erro: ' + data.error);
+        }
+    } catch (e) {
+        alert('Erro: ' + e.message);
+    }
+    hideLoading();
+}
+
+// ============================================================================
+// ENVIAR E-MAIL DE SOLICITAÇÃO
+// ============================================================================
+async function enviarEmailSolicitacao(id, email, nome) {
+    if (!email) {
+        alert('Este fornecedor não possui e-mail cadastrado!\n\nEdite o fornecedor e adicione um e-mail antes de enviar a solicitação.');
+        return;
+    }
+    
+    if (!confirm(`Enviar solicitação de atualização de documentos para:\n\n${nome}\n${email}\n\nConfirmar?`)) {
+        return;
+    }
+    
+    showLoading();
+    try {
+        const response = await fetch(`/api/avaliacao-iso/${id}/enviar-email`, { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+        } else {
+            alert('Erro: ' + data.error);
+        }
+    } catch (e) {
+        alert('Erro: ' + e.message);
+    }
+    hideLoading();
+}
+
+// ============================================================================
+// HISTÓRICO DE E-MAILS
+// ============================================================================
+async function abrirModalHistoricoEmails(id, nome) {
+    document.getElementById('emailsFornecedorNome').textContent = nome;
+    document.getElementById('listaEmails').innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm"></div> Carregando...</div>';
+    modalHistoricoEmails.show();
+    
+    try {
+        const response = await fetch(`/api/avaliacao-iso/${id}/historico-emails`);
+        const data = await response.json();
+        
+        if (data.success && data.emails.length > 0) {
+            let html = '';
+            data.emails.forEach(email => {
+                const dataEnvio = new Date(email.data_envio).toLocaleString('pt-BR');
+                const isErro = email.status === 'Erro';
+                
+                html += `
+                <div class="email-history-item ${isErro ? 'erro' : ''}">
+                    <div class="d-flex justify-content-between">
+                        <strong>${email.assunto}</strong>
+                        <span class="badge ${isErro ? 'bg-danger' : 'bg-success'}">${email.status}</span>
+                    </div>
+                    <small class="text-muted">
+                        <i class="fas fa-envelope me-1"></i>${email.email_destinatario} &bull;
+                        <i class="fas fa-clock me-1"></i>${dataEnvio} &bull;
+                        <i class="fas fa-user me-1"></i>${email.enviado_por || 'Sistema'}
+                    </small>
+                    ${isErro ? `<br><small class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>${email.erro_msg}</small>` : ''}
+                </div>`;
+            });
+            document.getElementById('listaEmails').innerHTML = html;
+        } else {
+            document.getElementById('listaEmails').innerHTML = '<p class="text-center text-muted">Nenhum e-mail enviado para este fornecedor</p>';
+        }
+    } catch (e) {
+        document.getElementById('listaEmails').innerHTML = `<p class="text-center text-danger">Erro: ${e.message}</p>`;
+    }
+}
+
+// ============================================================================
+// EXCLUIR AVALIAÇÃO
+// ============================================================================
+async function confirmarExclusao(id, nome) {
+    if (!confirm(`Tem certeza que deseja EXCLUIR a avaliação de:\n\n${nome}\n\nEsta ação não pode ser desfeita!`)) {
+        return;
+    }
+    
+    showLoading();
+    try {
+        const response = await fetch(`/api/avaliacao-iso/${id}/excluir`, { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Erro: ' + data.error);
+        }
+    } catch (e) {
+        alert('Erro: ' + e.message);
+    }
+    hideLoading();
+}
+
+// ============================================================================
+// EXPORTAR EXCEL
+// ============================================================================
+function exportarExcel() {
+    const table = document.getElementById('tabelaAvaliacoes');
+    const rows = table.querySelectorAll('tbody tr:not([style*="display: none"])');
+    
+    if (rows.length === 0 || rows[0].querySelector('td[colspan]')) {
+        alert('Não há dados para exportar');
+        return;
+    }
+    
+    const data = [];
+    
+    // Cabeçalho
+    data.push(['Código', 'Fornecedor', 'E-mail', 'Última Avaliação', 'Vencimento', 'Status', 'Possui ISO', 'Nota']);
+    
+    // Dados
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const rowData = [
+            cells[0].textContent.trim(),
+            cells[1].querySelector('strong')?.textContent.trim() || '',
+            cells[1].querySelector('small')?.textContent.replace(/[📧\s]/g, '').trim() || '',
+            cells[2].textContent.trim(),
+            cells[3].textContent.trim(),
+            cells[4].textContent.trim(),
+            cells[5].textContent.trim(),
+            cells[6].textContent.trim()
+        ];
+        data.push(rowData);
+    });
+    
+    // Criar workbook
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Avaliação ISO');
+    
+    // Download
+    const dataAtual = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `Avaliacao_ISO_PQ021_${dataAtual}.xlsx`);
+}
+
+// ============================================================================
+// IMPORTAR EXCEL
+// ============================================================================
+let modalImportarExcel;
+let dadosParaImportar = [];
+
+// Inicializar modal de importação
+document.addEventListener('DOMContentLoaded', function() {
+    modalImportarExcel = new bootstrap.Modal(document.getElementById('modalImportarExcel'));
+    
+    // Listener para quando selecionar arquivo
+    document.getElementById('arquivoExcelImport').addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            document.getElementById('btnProcessarExcel').disabled = false;
+        } else {
+            document.getElementById('btnProcessarExcel').disabled = true;
+        }
+        // Esconder preview anterior
+        document.getElementById('previewImportacao').style.display = 'none';
+        document.getElementById('btnConfirmarImport').style.display = 'none';
+    });
+});
+
+function abrirModalImportarExcel() {
+    // Resetar modal
+    document.getElementById('arquivoExcelImport').value = '';
+    document.getElementById('btnProcessarExcel').disabled = true;
+    document.getElementById('previewImportacao').style.display = 'none';
+    document.getElementById('btnConfirmarImport').style.display = 'none';
+    dadosParaImportar = [];
+    
+    modalImportarExcel.show();
+}
+
+function processarExcelImport() {
+    const arquivo = document.getElementById('arquivoExcelImport').files[0];
+    if (!arquivo) {
+        alert('Selecione um arquivo Excel');
+        return;
+    }
+    
+    showLoading();
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+            
+            // Pegar primeira planilha
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            
+            // Converter para JSON
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' });
+            
+            if (jsonData.length < 2) {
+                alert('Arquivo vazio ou sem dados');
+                hideLoading();
+                return;
+            }
+            
+            // Pegar cabeçalho (primeira linha) - normalizar para minúsculo
+            const headers = jsonData[0].map(h => h ? h.toString().toLowerCase().trim() : '');
+            
+            console.log('=== DEBUG IMPORTAÇÃO EXCEL ===');
+            console.log('Cabeçalhos originais:', jsonData[0]);
+            console.log('Cabeçalhos normalizados:', headers);
+            
+            // Mapear colunas (aceita várias variações de nomes)
+            const colMap = {
+                fornecedor: findColumn(headers, ['fornecedor', 'nome', 'razao social', 'razão social', 'nome fornecedor', 'empresa']),
+                dataAvaliacao: findColumn(headers, ['data avaliação', 'data avaliacao', 'data da última avaliação', 'data da ultima avaliacao', 'última avaliação', 'ultima avaliacao', 'avaliação', 'avaliacao', 'dt avaliação', 'dt avaliacao']),
+                dataVencimento: findColumn(headers, ['vencimento', 'data vencimento', 'data de vencimento', 'dt vencimento', 'validade', 'data validade', 'venc', 'vcto']),
+                possuiISO: findColumn(headers, ['certificado', 'iso', 'possui iso', 'possui certificado', 'cert', 'certificado iso', 'cert iso', 'tem iso', 'tem certificado']),
+                nota: findColumn(headers, ['nota', 'pontuação', 'pontuacao', 'score', 'pts', 'pontos'])
+            };
+            
+            console.log('Mapeamento de colunas:', colMap);
+            
+            if (colMap.fornecedor === -1) {
+                alert('Coluna "Fornecedor" não encontrada no Excel.\n\nColunas encontradas: ' + jsonData[0].join(', '));
+                hideLoading();
+                return;
+            }
+            
+            // Processar dados
+            dadosParaImportar = [];
+            for (let i = 1; i < jsonData.length; i++) {
+                const row = jsonData[i];
+                if (!row || !row[colMap.fornecedor]) continue;
+                
+                const fornecedor = row[colMap.fornecedor]?.toString().trim();
+                if (!fornecedor) continue;
+                
+                // Processar datas
+                let dataAvaliacao = '';
+                let dataVencimento = '';
+                
+                if (colMap.dataAvaliacao !== -1 && row[colMap.dataAvaliacao]) {
+                    dataAvaliacao = formatarDataExcel(row[colMap.dataAvaliacao]);
+                }
+                
+                if (colMap.dataVencimento !== -1 && row[colMap.dataVencimento]) {
+                    dataVencimento = formatarDataExcel(row[colMap.dataVencimento]);
+                }
+                
+                // Processar ISO
+                let possuiISO = 'Nao';
+                if (colMap.possuiISO !== -1 && row[colMap.possuiISO]) {
+                    const valorISO = row[colMap.possuiISO].toString().toLowerCase().trim();
+                    if (valorISO === 'sim' || valorISO === 's' || valorISO === 'yes' || valorISO === 'y' || valorISO === '1' || valorISO === 'x') {
+                        possuiISO = 'Sim';
+                    }
+                }
+                
+                // Processar nota
+                let nota = null;
+                if (colMap.nota !== -1 && row[colMap.nota]) {
+                    const valorNota = parseFloat(row[colMap.nota].toString().replace(',', '.'));
+                    if (!isNaN(valorNota)) {
+                        nota = Math.min(10, Math.max(0, valorNota));
+                    }
+                }
+                
+                dadosParaImportar.push({
+                    nome_fornecedor: fornecedor,
+                    data_ultima_avaliacao: dataAvaliacao,
+                    data_vencimento: dataVencimento,
+                    possui_iso: possuiISO,
+                    nota: nota
+                });
+            }
+            
+            if (dadosParaImportar.length === 0) {
+                alert('Nenhum dado válido encontrado no arquivo');
+                hideLoading();
+                return;
+            }
+            
+            // Mostrar preview
+            mostrarPreviewImportacao(dadosParaImportar, jsonData[0]);
+            
+        } catch (err) {
+            console.error(err);
+            if (err.message && err.message.includes('password')) {
+                alert('⚠️ Arquivo protegido por senha!\n\nO arquivo Excel está protegido e não pode ser lido.\n\nSolução:\n1. Abra o arquivo no Excel\n2. Salve como um novo arquivo sem proteção\n3. Tente importar novamente');
+            } else {
+                alert('Erro ao processar arquivo: ' + err.message);
+            }
+        }
+        hideLoading();
+    };
+    
+    reader.readAsArrayBuffer(arquivo);
+}
+
+function findColumn(headers, possibleNames) {
+    // Primeiro tentar correspondência exata
+    for (let name of possibleNames) {
+        const idx = headers.findIndex(h => h === name);
+        if (idx !== -1) return idx;
+    }
+    // Depois tentar includes
+    for (let name of possibleNames) {
+        const idx = headers.findIndex(h => h.includes(name));
+        if (idx !== -1) return idx;
+    }
+    return -1;
+}
+
+function formatarDataExcel(valor) {
+    if (!valor) return '';
+    
+    // Se já é uma string no formato correto
+    if (typeof valor === 'string') {
+        // Tentar converter de DD/MM/YYYY para YYYY-MM-DD
+        const match = valor.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (match) {
+            return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+        }
+        // Se já está no formato YYYY-MM-DD
+        if (valor.match(/^\d{4}-\d{2}-\d{2}/)) {
+            return valor.substring(0, 10);
+        }
+    }
+    
+    // Se é um objeto Date
+    if (valor instanceof Date) {
+        return valor.toISOString().substring(0, 10);
+    }
+    
+    // Se é um número (serial do Excel)
+    if (typeof valor === 'number') {
+        const date = new Date((valor - 25569) * 86400 * 1000);
+        return date.toISOString().substring(0, 10);
+    }
+    
+    return '';
+}
+
+function mostrarPreviewImportacao(dados, headersOriginal) {
+    const headerRow = document.getElementById('headerPreview');
+    const bodyEl = document.getElementById('bodyPreview');
+    
+    // Limpar
+    headerRow.innerHTML = '';
+    bodyEl.innerHTML = '';
+    
+    // Header
+    headerRow.innerHTML = '<th>#</th><th>Fornecedor</th><th>Data Avaliação</th><th>Vencimento</th><th>ISO</th><th>Nota</th>';
+    
+    // Dados (mostrar até 20 primeiros)
+    const maxShow = Math.min(dados.length, 20);
+    for (let i = 0; i < maxShow; i++) {
+        const d = dados[i];
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${i + 1}</td>
+            <td>${d.nome_fornecedor}</td>
+            <td>${d.data_ultima_avaliacao || '-'}</td>
+            <td>${d.data_vencimento || '-'}</td>
+            <td>${d.possui_iso}</td>
+            <td>${d.nota !== null ? d.nota.toFixed(1) : '-'}</td>
+        `;
+        bodyEl.appendChild(tr);
+    }
+    
+    if (dados.length > maxShow) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="6" class="text-center text-muted">... e mais ${dados.length - maxShow} registros</td>`;
+        bodyEl.appendChild(tr);
+    }
+    
+    // Atualizar contadores
+    document.getElementById('totalLinhasImport').textContent = `${dados.length} registros`;
+    document.getElementById('novosImport').textContent = `${dados.length} a importar`;
+    document.getElementById('duplicadosImport').textContent = `Duplicados serão ignorados`;
+    
+    // Mostrar preview e botão de confirmar
+    document.getElementById('previewImportacao').style.display = 'block';
+    document.getElementById('btnConfirmarImport').style.display = 'inline-block';
+}
+
+// ==================== LIMPAR TODOS ====================
+async function confirmarLimparTodos() {
+    const totalRegistros = {{ avaliacoes|length }};
+    
+    if (totalRegistros === 0) {
+        alert('Não há registros para apagar.');
+        return;
+    }
+    
+    // Dupla confirmação para segurança
+    if (!confirm(`⚠️ ATENÇÃO!\n\nVocê está prestes a APAGAR TODOS os ${totalRegistros} fornecedores cadastrados.\n\nEsta ação NÃO pode ser desfeita!\n\nDeseja continuar?`)) {
+        return;
+    }
+    
+    // Segunda confirmação
+    const confirmacao = prompt(`Para confirmar, digite "APAGAR" (em maiúsculas):`);
+    if (confirmacao !== 'APAGAR') {
+        alert('Operação cancelada.');
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        const response = await fetch('/api/avaliacao-iso/limpar-todos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`✅ ${result.excluidos} registros foram apagados com sucesso!`);
+            location.reload();
+        } else {
+            alert('Erro: ' + result.error);
+        }
+    } catch (err) {
+        alert('Erro ao limpar registros: ' + err.message);
+    }
+    
+    hideLoading();
+}
+
+// ==================== CONFIRMAR IMPORTAÇÃO ====================
+async function confirmarImportacao() {
+    if (dadosParaImportar.length === 0) {
+        alert('Nenhum dado para importar');
+        return;
+    }
+    
+    if (!confirm(`Confirma a importação de ${dadosParaImportar.length} fornecedores?\n\nFornecedores já existentes serão ignorados.`)) {
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        const response = await fetch('/api/avaliacao-iso/importar-excel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fornecedores: dadosParaImportar })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`Importação concluída!\n\n✅ Importados: ${result.importados}\n⚠️ Ignorados (já existem): ${result.ignorados}\n❌ Erros: ${result.erros}`);
+            modalImportarExcel.hide();
+            location.reload();
+        } else {
+            alert('Erro na importação: ' + result.error);
+        }
+    } catch (err) {
+        alert('Erro na importação: ' + err.message);
+    }
+    
+    hideLoading();
+}
+</script>
+
+</body>
+</html>

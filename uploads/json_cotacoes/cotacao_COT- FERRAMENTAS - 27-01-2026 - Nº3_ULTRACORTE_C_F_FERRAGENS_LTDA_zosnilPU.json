@@ -1,0 +1,186 @@
+{
+  "versao": "1.0",
+  "tipo": "SOLICITACAO_COTACAO",
+  "token": "zosnilPUIoVrdELqkld2v1MTwvTbsWL93W93irajSf4",
+  "data_geracao": "2026-01-29T09:05:46.251693",
+  "cotacao": {
+    "codigo": "COT- FERRAMENTAS - 27/01/2026 - Nº3",
+    "observacoes": "",
+    "informacao_fornecedor": ""
+  },
+  "fornecedor": {
+    "id_interno": 19,
+    "nome": "ULTRACORTE C F FERRAGENS LTDA",
+    "email": "claudecir@ultracorte.com.br",
+    "telefone": "1132089007"
+  },
+  "itens": [
+    {
+      "id": 29,
+      "numero_sc": "955735",
+      "item_sc": "0001",
+      "codigo_produto": "MTG000386      ",
+      "descricao": "MACHO PARA ROSCA POSTIÇA AR (HSS) M8 X 1,25 ROCAST 2560003",
+      "quantidade": 2.0,
+      "unidade": "PC",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 31,
+      "numero_sc": "955735",
+      "item_sc": "0005",
+      "codigo_produto": "EF001211       ",
+      "descricao": "SOQUETE SEXTAVADO DE IMPACTO ENCAIXE DE 1/2-REF.K19-8MM-GEDORE",
+      "quantidade": 1.0,
+      "unidade": "PC",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 37,
+      "numero_sc": "955735",
+      "item_sc": "0006",
+      "codigo_produto": "EF000260       ",
+      "descricao": "SOQUETE SEXTAVADO DE IMPACTO ENCAIXE DE 1/2-REF.K19-10MM-GEDORE",
+      "quantidade": 1.0,
+      "unidade": "PC",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 30,
+      "numero_sc": "955735",
+      "item_sc": "0007",
+      "codigo_produto": "EF001434       ",
+      "descricao": "SOQUETE SEXTAVADO DE IMPACTO ENCAIXE DE 1/2-REF.K19-6MM-GEDORE",
+      "quantidade": 1.0,
+      "unidade": "PC",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 33,
+      "numero_sc": "955735",
+      "item_sc": "0008",
+      "codigo_produto": "EF001435       ",
+      "descricao": "SOQUETE SEXTAVADO DE IMPACTO ENCAIXE DE 1/2-REF.K19-12MM-GEDORE",
+      "quantidade": 1.0,
+      "unidade": "PC",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 34,
+      "numero_sc": "955735",
+      "item_sc": "0020",
+      "codigo_produto": "EF001436       ",
+      "descricao": "ALARGADOR MANUAL DIN 206 FORMA B DIAMETRO DE 09",
+      "quantidade": 1.0,
+      "unidade": "PC",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 35,
+      "numero_sc": "955735",
+      "item_sc": "0021",
+      "codigo_produto": "EF001437       ",
+      "descricao": "ALARGADOR MANUAL DIN 206 FORMA B DIAMETRO DE 13",
+      "quantidade": 1.0,
+      "unidade": "PC",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 36,
+      "numero_sc": "955735",
+      "item_sc": "0022",
+      "codigo_produto": "EF001438       ",
+      "descricao": "ALARGADOR MANUAL DIN 206 FORMA B DIAMETRO DE 18",
+      "quantidade": 1.0,
+      "unidade": "PC",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 32,
+      "numero_sc": "955735",
+      "item_sc": "0023",
+      "codigo_produto": "EF001246       ",
+      "descricao": "KIT CONJUNTO SOQUETE ADAPTADOR VIRA MACHO DESANDADOR M4-M16.",
+      "quantidade": 2.0,
+      "unidade": "PC",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    },
+    {
+      "id": 38,
+      "numero_sc": "955740",
+      "item_sc": "0005",
+      "codigo_produto": "EF001439       ",
+      "descricao": "BANQUETA  PASTICA DOBRAVEL PRETA ALTURA 22 CM VONDER SUPORTA 150KG",
+      "quantidade": 1.0,
+      "unidade": "PC",
+      "observacao": "",
+      "resposta": {
+        "preco_unitario": null,
+        "prazo_entrega_dias": null,
+        "observacao": null
+      }
+    }
+  ],
+  "resposta_geral": {
+    "frete_total": null,
+    "condicao_pagamento": null,
+    "observacao_geral": null,
+    "data_resposta": null
+  },
+  "instrucoes": {
+    "preenchimento": [
+      "Preencha o campo \"preco_unitario\" com o valor em reais (use ponto como separador decimal)",
+      "Preencha \"prazo_entrega_dias\" com o número de dias para entrega",
+      "Informe \"frete_total\" se houver custo de frete (valor total)",
+      "Preencha \"condicao_pagamento\" com as condições (ex: \"30 DDL\")",
+      "Use os campos de \"observacao\" para informações adicionais"
+    ],
+    "retorno": "Após preencher, salve o arquivo e envie de volta ao comprador"
+  },
+  "hash_validacao": "5de57d79b049d5523cde0d1cfab93c9cb5098a7a2e4413c6683d85b09a7c1862"
+}
