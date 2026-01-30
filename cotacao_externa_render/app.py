@@ -582,6 +582,122 @@ def api_stats():
 
 
 # =============================================================================
+# API PARA SINCRONIZAÇÃO COM SISTEMA LOCAL (POLLING)
+# =============================================================================
+
+# Dicionário para controlar respostas já sincronizadas
+respostas_sincronizadas = set()
+
+@app.route('/api/respostas-pendentes', methods=['GET'])
+def api_respostas_pendentes():
+    """
+    Retorna lista de respostas que ainda não foram sincronizadas com o sistema local.
+    O sistema local faz polling nesta rota a cada 20 segundos.
+    
+    IMPORTANTE: Rota pública para facilitar integração (sistema local pode não ter IP fixo)
+    """
+    try:
+        respostas = []
+        
+        for token, resposta_data in respostas_enviadas.items():
+            # Pula se já foi sincronizada
+            if token in respostas_sincronizadas:
+                continue
+            
+            resposta = resposta_data.get('dados', {})
+            
+            # Monta dados para o sistema local
+            respostas.append({
+                'token': token,
+                'cotacao_id': resposta.get('cotacao_id'),
+                'fornecedor_id': resposta.get('fornecedor_id'),
+                'fornecedor_nome': resposta.get('fornecedor_nome', 'Fornecedor'),
+                'respondido_em': resposta.get('submitted_at'),
+                'frete_total': resposta.get('info_geral', {}).get('frete_total', 0),
+                'condicao_pagamento': resposta.get('info_geral', {}).get('condicao_pagamento', ''),
+                'observacao_geral': resposta.get('info_geral', {}).get('observacao_geral', ''),
+                'itens': [
+                    {
+                        'item_id': r.get('item_id'),
+                        'preco_unitario': r.get('preco_unitario', 0),
+                        'prazo_entrega': r.get('prazo_entrega', 0),
+                        'observacao': r.get('observacao', '')
+                    }
+                    for r in resposta.get('respostas', [])
+                ]
+            })
+        
+        if respostas:
+            print(f"[POLLING] {len(respostas)} resposta(s) pendente(s) de sincronização")
+        
+        return jsonify({
+            'success': True,
+            'respostas': respostas,
+            'count': len(respostas)
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_respostas_pendentes: {e}")
+        return jsonify({'success': False, 'error': str(e), 'respostas': []}), 500
+
+
+@app.route('/api/confirmar-sincronizacao', methods=['POST'])
+def api_confirmar_sincronizacao():
+    """
+    Sistema local chama esta rota para confirmar que uma resposta foi sincronizada.
+    Isso evita que a mesma resposta seja retornada novamente no polling.
+    """
+    try:
+        dados = request.get_json()
+        token = dados.get('token')
+        
+        if not token:
+            return jsonify({'success': False, 'error': 'Token é obrigatório'}), 400
+        
+        # Marca como sincronizada
+        respostas_sincronizadas.add(token)
+        print(f"[SINCRONIZAÇÃO] Resposta {token} marcada como sincronizada")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Resposta {token} confirmada como sincronizada'
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_confirmar_sincronizacao: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/status-cotacao/<token>', methods=['GET'])
+def api_status_cotacao(token):
+    """
+    Retorna status de uma cotação específica.
+    Útil para verificar se uma cotação já foi respondida.
+    """
+    if token not in cotacoes_ativas:
+        return jsonify({
+            'success': False,
+            'existe': False,
+            'error': 'Token não encontrado'
+        }), 404
+    
+    cotacao = cotacoes_ativas[token]
+    respondida = token in respostas_enviadas
+    sincronizada = token in respostas_sincronizadas
+    
+    return jsonify({
+        'success': True,
+        'existe': True,
+        'status': cotacao.get('status', 'ativa'),
+        'respondida': respondida,
+        'sincronizada': sincronizada,
+        'fornecedor_nome': cotacao['dados'].get('fornecedor', {}).get('nome', 'N/A'),
+        'cotacao_id': cotacao['dados'].get('cotacao_id'),
+        'fornecedor_id': cotacao['dados'].get('fornecedor', {}).get('id')
+    })
+
+
+# =============================================================================
 # INICIALIZAÇÃO
 # =============================================================================
 

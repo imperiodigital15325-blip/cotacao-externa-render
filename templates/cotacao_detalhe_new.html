@@ -455,21 +455,13 @@
                                     </button>
                                 </td>
                                 <td>
-                                    <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-success btn-gerar-json"
-                                                data-fornecedor-id="{{ forn.id }}"
-                                                data-fornecedor-nome="{{ forn.nome_fornecedor }}"
-                                                data-token="{{ forn.token_acesso }}"
-                                                title="Enviar cotação por link ou arquivo">
-                                            <i class="fas fa-share-alt me-1"></i>Enviar Cotação
-                                        </button>
-                                        <button class="btn btn-outline-warning btn-importar-json"
-                                                data-fornecedor-id="{{ forn.id }}"
-                                                data-fornecedor-nome="{{ forn.nome_fornecedor }}"
-                                                title="Importar resposta JSON do fornecedor">
-                                            <i class="fas fa-file-import me-1"></i>Importar
-                                        </button>
-                                    </div>
+                                    <!-- Botão único para gerar link externo -->
+                                    <button class="btn btn-sm btn-success btn-gerar-link-externo"
+                                            data-fornecedor-id="{{ forn.id }}"
+                                            data-fornecedor-nome="{{ forn.nome_fornecedor }}"
+                                            title="Gerar link de cotação externa para o fornecedor">
+                                        <i class="fas fa-link me-1"></i>Gerar Link
+                                    </button>
                                 </td>
                                 <td class="text-center">
                                     {% if forn.tem_anexo and forn.tem_anexo > 0 %}
@@ -1150,177 +1142,95 @@
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title"><i class="fas fa-share-alt me-2"></i>Cotação Externa</h5>
+                    <h5 class="modal-title"><i class="fas fa-link me-2"></i>Gerar Link Externo</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body py-4">
-                    <input type="hidden" id="jsonFornecedorId">
-                    <input type="hidden" id="jsonFornecedorToken">
+                    <input type="hidden" id="linkExternoFornecedorId">
                     
-                    <div class="alert alert-light border mb-3">
+                    <!-- Info do Fornecedor -->
+                    <div class="alert alert-light border mb-4">
                         <small class="text-muted d-block">Fornecedor</small>
-                        <strong id="jsonFornecedorNome" class="text-primary">-</strong>
+                        <strong id="linkExternoFornecedorNome" class="text-primary fs-5">-</strong>
                     </div>
                     
-                    <!-- ABAS: Link Externo (Render) vs Link Interno vs Arquivo Offline -->
-                    <ul class="nav nav-tabs mb-3" id="tabCotacaoExterna" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="tab-link-render" data-bs-toggle="tab" data-bs-target="#panel-link-render" type="button" role="tab">
-                                <i class="fas fa-cloud me-1"></i> Link Externo
-                                <span class="badge bg-success ms-1">Recomendado</span>
+                    <!-- Estado: Aguardando Gerar -->
+                    <div id="estadoAguardandoGerar">
+                        <div class="text-center py-4">
+                            <i class="fas fa-link fa-3x text-primary mb-3"></i>
+                            <p class="text-muted mb-4">Clique no botão abaixo para gerar um link de cotação para este fornecedor.</p>
+                            <button type="button" class="btn btn-success btn-lg" id="btnGerarLinkExterno" onclick="gerarLinkExternoSimplificado()">
+                                <i class="fas fa-magic me-2"></i> Gerar Link Externo
                             </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="tab-link-online" data-bs-toggle="tab" data-bs-target="#panel-link-online" type="button" role="tab">
-                                <i class="fas fa-link me-1"></i> Link Interno
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="tab-arquivo-offline" data-bs-toggle="tab" data-bs-target="#panel-arquivo-offline" type="button" role="tab">
-                                <i class="fas fa-file-export me-1"></i> Arquivo Offline
-                            </button>
-                        </li>
-                    </ul>
+                            <p class="text-muted small mt-3 mb-0">O link será válido por 72 horas</p>
+                        </div>
+                    </div>
                     
-                    <div class="tab-content" id="tabCotacaoExternaContent">
-                        <!-- ABA 1: LINK EXTERNO (RENDER) -->
-                        <div class="tab-pane fade show active" id="panel-link-render" role="tabpanel">
-                            <div class="alert alert-success mb-3">
-                                <h6 class="alert-heading mb-2"><i class="fas fa-cloud me-2"></i>Link Externo (Internet)</h6>
-                                <p class="mb-2 small">Gera um link público que funciona em <strong>qualquer lugar</strong> - celular, computador, fora da empresa. Os dados são salvos automaticamente.</p>
+                    <!-- Estado: Gerando -->
+                    <div id="estadoGerandoLink" style="display: none;">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                                <span class="visually-hidden">Gerando...</span>
                             </div>
-                            
-                            <!-- Status da conexão -->
-                            <div class="mb-3" id="statusRenderContainer">
-                                <div class="d-flex align-items-center mb-2">
-                                    <span class="me-2">Status:</span>
-                                    <span id="statusRenderBadge" class="badge bg-secondary">Verificando...</span>
-                                </div>
-                            </div>
-                            
-                            <!-- Link externo gerado -->
-                            <div class="mb-3" id="linkRenderContainer" style="display: none;">
-                                <label class="form-label fw-bold small">Link Externo para o Fornecedor:</label>
-                                <div class="input-group">
-                                    <input type="text" class="form-control bg-light" id="linkCotacaoRender" readonly style="font-size: 13px;">
-                                    <button class="btn btn-primary" type="button" onclick="copiarLinkRender()">
-                                        <i class="fas fa-copy"></i>
-                                    </button>
-                                </div>
-                                <small class="text-success"><i class="fas fa-check-circle me-1"></i>Link válido por 72 horas</small>
-                            </div>
-                            
-                            <!-- Botão gerar link -->
-                            <div class="text-center py-3" id="btnGerarLinkRenderContainer">
-                                <button type="button" class="btn btn-success btn-lg" id="btnGerarLinkRender" onclick="gerarLinkExterno()">
-                                    <i class="fas fa-cloud-upload-alt me-2"></i> Gerar Link Externo
+                            <p class="text-muted mb-0">Gerando link externo...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Estado: Link Gerado -->
+                    <div id="estadoLinkGerado" style="display: none;">
+                        <div class="alert alert-success mb-4">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>Link gerado com sucesso!</strong>
+                        </div>
+                        
+                        <!-- Link para copiar -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Link para o Fornecedor:</label>
+                            <div class="input-group input-group-lg">
+                                <input type="text" class="form-control bg-light" id="linkExternoGerado" readonly>
+                                <button class="btn btn-primary" type="button" onclick="copiarLinkExternoSimplificado()">
+                                    <i class="fas fa-copy me-1"></i> Copiar
                                 </button>
-                                <p class="text-muted small mt-2 mb-0">O link será gerado na aplicação externa (Render)</p>
                             </div>
-                            
-                            <!-- Texto para copiar -->
-                            <div class="card border-success mt-3" id="textoRenderContainer" style="display: none;">
-                                <div class="card-header bg-success text-white py-2">
-                                    <small class="fw-bold"><i class="fas fa-envelope me-1"></i>Texto para enviar ao fornecedor:</small>
-                                    <button class="btn btn-sm btn-light float-end py-0" onclick="copiarTextoLinkRender()">
-                                        <i class="fas fa-copy me-1"></i>Copiar
-                                    </button>
-                                </div>
-                                <div class="card-body py-2" style="font-size: 12px; background: #f8f9fa;">
-                                    <p class="mb-1">Prezado fornecedor,</p>
-                                    <p class="mb-1">Solicitamos cotação para os itens. Acesse o link abaixo:</p>
-                                    <p class="mb-1 text-success fw-bold" id="linkRenderNoTexto">[LINK]</p>
-                                    <p class="mb-1"><strong>Instruções:</strong> Preencha os preços e clique em "Enviar Cotação".</p>
-                                    <p class="mb-0">Atenciosamente.</p>
-                                </div>
+                            <small class="text-success"><i class="fas fa-clock me-1"></i>Válido por 72 horas</small>
+                        </div>
+                        
+                        <!-- Texto pronto para enviar -->
+                        <div class="card border-success">
+                            <div class="card-header bg-success text-white py-2 d-flex justify-content-between align-items-center">
+                                <small class="fw-bold"><i class="fas fa-envelope me-1"></i>Texto pronto para enviar:</small>
+                                <button class="btn btn-sm btn-light py-0" onclick="copiarTextoCompleto()">
+                                    <i class="fas fa-copy me-1"></i>Copiar Tudo
+                                </button>
+                            </div>
+                            <div class="card-body py-3" style="font-size: 13px; background: #f8f9fa;" id="textoParaEnviar">
+                                <p class="mb-2">Prezado fornecedor,</p>
+                                <p class="mb-2">Solicitamos cotação de preços. Por favor, acesse o link abaixo e preencha os valores:</p>
+                                <p class="mb-2 text-success fw-bold" id="linkNoTextoSimplificado">[LINK]</p>
+                                <p class="mb-2"><strong>Instruções:</strong> Preencha os preços e prazos de cada item e clique em "Enviar Cotação".</p>
+                                <p class="mb-0">Atenciosamente,<br>Setor de Compras</p>
                             </div>
                         </div>
                         
-                        <!-- ABA 2: LINK INTERNO -->
-                        <div class="tab-pane fade" id="panel-link-online" role="tabpanel">
-                            <div class="alert alert-info mb-3">
-                                <h6 class="alert-heading mb-2"><i class="fas fa-building me-2"></i>Link Interno (Rede Local)</h6>
-                                <p class="mb-2 small">Funciona apenas dentro da <strong>rede da empresa</strong>. Use apenas se o fornecedor tiver acesso à rede interna.</p>
-                            </div>
-                            
-                            <!-- Link gerado -->
-                            <div class="mb-3">
-                                <label class="form-label fw-bold small">Link Interno:</label>
-                                <div class="input-group">
-                                    <input type="text" class="form-control bg-light" id="linkCotacaoExterna" readonly style="font-size: 13px;">
-                                    <button class="btn btn-primary" type="button" onclick="copiarLinkExterno()">
-                                        <i class="fas fa-copy"></i>
-                                    </button>
-                                </div>
-                                <small class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Só funciona dentro da rede corporativa</small>
-                            </div>
-                            
-                            <!-- Sugestão de texto -->
-                            <div class="card border-primary">
-                                <div class="card-header bg-primary text-white py-2">
-                                    <small class="fw-bold"><i class="fas fa-envelope me-1"></i>Sugestão de texto:</small>
-                                    <button class="btn btn-sm btn-light float-end py-0" onclick="copiarTextoLinkOnline()">
-                                        <i class="fas fa-copy me-1"></i>Copiar
-                                    </button>
-                                </div>
-                                <div class="card-body py-2" style="font-size: 12px; background: #f8f9fa;" id="textoLinkOnline">
-                                    <p class="mb-1">Prezado fornecedor,</p>
-                                    <p class="mb-1">Solicitamos cotação para os itens no link abaixo:</p>
-                                    <p class="mb-1 text-primary fw-bold" id="linkNoTexto">[LINK]</p>
-                                    <p class="mb-1"><strong>Instruções:</strong> Acesse o link, preencha os preços e clique em "Enviar Cotação".</p>
-                                    <p class="mb-0">Atenciosamente.</p>
-                                </div>
-                            </div>
+                        <div class="alert alert-info mt-3 mb-0">
+                            <small>
+                                <i class="fas fa-info-circle me-1"></i>
+                                <strong>Sincronização automática:</strong> Quando o fornecedor responder, você receberá uma notificação e os dados serão atualizados automaticamente.
+                            </small>
                         </div>
-                        
-                        <!-- ABA 3: ARQUIVO OFFLINE -->
-                        <div class="tab-pane fade" id="panel-arquivo-offline" role="tabpanel">
-                            <div class="alert alert-info mb-3">
-                                <h6 class="alert-heading mb-2"><i class="fas fa-file-export me-2"></i>Método por Arquivos (Offline)</h6>
-                                <p class="mb-2 small">Use quando o fornecedor não conseguir acessar o link. Funciona 100% offline via e-mail.</p>
-                                <hr class="my-2">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <p class="mb-1 fw-bold text-primary small">📤 Você (Comprador):</p>
-                                        <ol class="small mb-0 ps-3" style="font-size: 11px;">
-                                            <li>Clique em "Gerar Arquivo"</li>
-                                            <li>Baixe o arquivo <strong>.HTML</strong></li>
-                                            <li>Envie por <strong>e-mail</strong> ao fornecedor</li>
-                                        </ol>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <p class="mb-1 fw-bold text-success small">📥 Fornecedor:</p>
-                                        <ol class="small mb-0 ps-3" style="font-size: 11px;">
-                                            <li>Baixa o arquivo do e-mail</li>
-                                            <li>Abre no navegador</li>
-                                            <li>Preenche preços e clica "Salvar"</li>
-                                            <li>Envia o <strong>.JSON</strong> de volta</li>
-                                        </ol>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div id="jsonGeradoInfo" class="d-none">
-                                <div class="alert alert-success mb-3">
-                                    <i class="fas fa-check-circle me-2"></i>
-                                    <strong>Arquivo gerado com sucesso!</strong>
-                                    <p class="mb-2 small">Arquivo: <span id="jsonNomeArquivo"></span></p>
-                                    <div class="d-flex gap-2 flex-wrap">
-                                        <a id="jsonDownloadLink" href="#" class="btn btn-success btn-sm">
-                                            <i class="fas fa-download me-1"></i> Baixar Arquivo HTML
-                                        </a>
-                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="copiarInstrucoesFornecedor()">
-                                            <i class="fas fa-copy me-1"></i> Copiar Instruções
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="text-center py-3" id="btnGerarContainer">
-                                <button type="button" class="btn btn-success btn-lg" id="btnGerarJson">
-                                    <i class="fas fa-file-export me-2"></i> Gerar Arquivo HTML
-                                </button>
-                            </div>
+                    </div>
+                    
+                    <!-- Estado: Erro -->
+                    <div id="estadoErroLink" style="display: none;">
+                        <div class="alert alert-danger mb-3">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            <strong>Erro ao gerar link</strong>
+                            <p class="mb-0 mt-2" id="mensagemErroLink"></p>
+                        </div>
+                        <div class="text-center">
+                            <button type="button" class="btn btn-primary" onclick="resetarModalLink()">
+                                <i class="fas fa-redo me-1"></i> Tentar Novamente
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1331,21 +1241,7 @@
         </div>
     </div>
 
-    <!-- MODAL IMPORTAR JSON DE RESPOSTA -->
-    <div class="modal fade" id="modalImportarJson" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow">
-                <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title"><i class="fas fa-file-import me-2"></i>Importar Resposta JSON</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body py-4">
-                    <input type="hidden" id="importJsonFornecedorId">
-                    
-                    <div class="alert alert-light border mb-3">
-                        <small class="text-muted d-block">Fornecedor</small>
-                        <strong id="importJsonFornecedorNome" class="text-primary">-</strong>
-                    </div>
+    <!-- MODAL RESPONDER COTAÇÃO (mantido para preenchimento manual) -->
                     
                     <div class="mb-3">
                         <label class="form-label fw-bold">Selecione o arquivo JSON de resposta</label>
@@ -3295,6 +3191,174 @@ Departamento de Compras`;
     }
 
     // ============================================================================
+    // FUNÇÕES PARA BOTÃO "GERAR LINK" SIMPLIFICADO
+    // ============================================================================
+    
+    // Abre modal simplificado de gerar link
+    function abrirModalGerarLinkExterno(btn) {
+        const fornecedorId = btn.dataset.fornecedorId;
+        const fornecedorNome = btn.dataset.fornecedorNome;
+        
+        console.log('[GERAR LINK] Abrindo modal para:', fornecedorNome, 'ID:', fornecedorId);
+        
+        if (!fornecedorId) {
+            console.error('[GERAR LINK] ERRO: fornecedorId está vazio!');
+            mostrarToast('Erro: ID do fornecedor não encontrado', 'danger');
+            return;
+        }
+        
+        // Preenche dados do modal
+        document.getElementById('linkExternoFornecedorId').value = fornecedorId;
+        document.getElementById('linkExternoFornecedorNome').textContent = fornecedorNome;
+        
+        // Reseta estados
+        resetarModalLink();
+        
+        // Abre modal
+        new bootstrap.Modal(document.getElementById('modalGerarJson')).show();
+    }
+    
+    // Reseta o modal para estado inicial
+    function resetarModalLink() {
+        document.getElementById('estadoAguardandoGerar').style.display = 'block';
+        document.getElementById('estadoGerandoLink').style.display = 'none';
+        document.getElementById('estadoLinkGerado').style.display = 'none';
+        document.getElementById('estadoErroLink').style.display = 'none';
+        
+        const btn = document.getElementById('btnGerarLinkExterno');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-magic me-2"></i> Gerar Link Externo';
+    }
+    
+    // Gera link externo (versão simplificada)
+    async function gerarLinkExternoSimplificado() {
+        const fornecedorId = document.getElementById('linkExternoFornecedorId').value;
+        
+        if (!fornecedorId) {
+            mostrarToast('Erro: ID do fornecedor não encontrado', 'danger');
+            return;
+        }
+        
+        console.log('[GERAR LINK] Gerando link para fornecedor ID:', fornecedorId);
+        
+        // Muda para estado "gerando"
+        document.getElementById('estadoAguardandoGerar').style.display = 'none';
+        document.getElementById('estadoGerandoLink').style.display = 'block';
+        
+        try {
+            const response = await fetch(`/api/cotacao/fornecedor/${fornecedorId}/gerar-link-externo`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log('[GERAR LINK] Sucesso! Link:', data.link_externo);
+                
+                // Preenche o link gerado
+                document.getElementById('linkExternoGerado').value = data.link_externo;
+                document.getElementById('linkNoTextoSimplificado').textContent = data.link_externo;
+                
+                // Muda para estado "link gerado"
+                document.getElementById('estadoGerandoLink').style.display = 'none';
+                document.getElementById('estadoLinkGerado').style.display = 'block';
+                
+                mostrarToast('Link gerado com sucesso!', 'success');
+                
+                // Atualiza a linha do fornecedor na tabela
+                const row = document.getElementById(`row-forn-${fornecedorId}`);
+                if (row) {
+                    const statusCell = row.querySelector('td:nth-child(3)');
+                    if (statusCell) {
+                        statusCell.innerHTML = '<span class="badge bg-info"><i class="fas fa-link me-1"></i>Link Gerado</span>';
+                    }
+                }
+                
+            } else {
+                throw new Error(data.error || 'Erro ao gerar link');
+            }
+            
+        } catch (error) {
+            console.error('[GERAR LINK] Erro:', error);
+            
+            // Muda para estado "erro"
+            document.getElementById('estadoGerandoLink').style.display = 'none';
+            document.getElementById('estadoErroLink').style.display = 'block';
+            document.getElementById('mensagemErroLink').textContent = error.message;
+            
+            mostrarToast('Erro ao gerar link: ' + error.message, 'danger');
+        }
+    }
+    
+    // Copia o link externo
+    function copiarLinkExternoSimplificado() {
+        const link = document.getElementById('linkExternoGerado');
+        link.select();
+        link.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(link.value);
+        
+        // Feedback visual
+        const btn = link.nextElementSibling;
+        const iconOriginal = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check me-1"></i> Copiado!';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-success');
+        
+        setTimeout(() => {
+            btn.innerHTML = iconOriginal;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-primary');
+        }, 2000);
+        
+        mostrarToast('Link copiado para a área de transferência!', 'success');
+    }
+    
+    // Copia texto completo com link
+    function copiarTextoCompleto() {
+        const fornecedorNome = document.getElementById('linkExternoFornecedorNome').textContent;
+        const link = document.getElementById('linkExternoGerado').value;
+        
+        const texto = `Prezado ${fornecedorNome},
+
+Solicitamos cotação de preços. Por favor, acesse o link abaixo e preencha os valores:
+
+${link}
+
+INSTRUÇÕES:
+• Clique no link acima (funciona em celular ou computador)
+• Preencha os preços e prazos de cada item
+• Clique em "Enviar Cotação"
+
+Atenciosamente,
+Setor de Compras`;
+
+        navigator.clipboard.writeText(texto).then(() => {
+            mostrarToast('Texto copiado para a área de transferência!', 'success');
+        }).catch(err => {
+            console.error('[COPIAR] Erro:', err);
+            mostrarToast('Erro ao copiar texto', 'danger');
+        });
+    }
+    
+    // Evento de click nos botões de gerar link
+    document.addEventListener('DOMContentLoaded', function() {
+        // Novo botão simplificado
+        document.querySelectorAll('.btn-gerar-link-externo').forEach(btn => {
+            btn.addEventListener('click', function() {
+                abrirModalGerarLinkExterno(this);
+            });
+        });
+        
+        // Mantém compatibilidade com botão antigo (se existir)
+        document.querySelectorAll('.btn-gerar-json').forEach(btn => {
+            btn.addEventListener('click', function() {
+                abrirModalGerarJson(this);
+            });
+        });
+    });
+
+    // ============================================================================
     // POLLING - SINCRONIZAÇÃO AUTOMÁTICA DE COTAÇÕES EXTERNAS
     // ============================================================================
     // Este sistema verifica a cada 30 segundos se há novas respostas de 
@@ -3405,7 +3469,7 @@ Departamento de Compras`;
         
         try {
             // Busca cotações respondidas não sincronizadas
-            const response = await fetch('/api/cotacoes-externas/respondidas');
+            const response = await fetch('/api/cotacoes-externas/polling');
             
             if (!response.ok) {
                 console.warn('[POLLING] Erro ao buscar respostas:', response.status);
@@ -3414,41 +3478,41 @@ Departamento de Compras`;
             
             const data = await response.json();
             
-            if (!data.success || !data.cotacoes || data.cotacoes.length === 0) {
+            if (!data.success || !data.respostas || data.respostas.length === 0) {
                 return; // Nada para sincronizar
             }
             
-            console.log(`[POLLING] ${data.cotacoes.length} resposta(s) pendente(s) de sincronização`);
+            console.log(`[POLLING] ${data.respostas.length} resposta(s) pendente(s) de sincronização`);
             
             // Filtra apenas respostas desta cotação
-            const respostasDaCotacao = data.cotacoes.filter(c => c.cotacao_id === COTACAO_ID_ATUAL);
+            const respostasDaCotacao = data.respostas.filter(r => r.cotacao_id === COTACAO_ID_ATUAL);
             
             if (respostasDaCotacao.length === 0) {
                 return; // Nenhuma resposta para esta cotação
             }
             
             // Sincroniza cada resposta
-            for (const cotacao of respostasDaCotacao) {
+            for (const resposta of respostasDaCotacao) {
                 try {
-                    const syncResponse = await fetch('/api/cotacoes-externas/sincronizar', {
+                    const syncResponse = await fetch('/api/cotacoes-externas/sincronizar-render', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ cotacao_externa_id: cotacao.id })
+                        body: JSON.stringify(resposta)
                     });
                     
                     const syncData = await syncResponse.json();
                     
                     if (syncData.success) {
-                        console.log(`[POLLING] Cotação ${cotacao.id} sincronizada com sucesso`);
+                        console.log(`[POLLING] Resposta sincronizada: ${resposta.fornecedor_nome}`);
                         
                         // Mostra notificação toast
                         mostrarToastResposta(
-                            cotacao.fornecedor_nome || 'Fornecedor',
+                            resposta.fornecedor_nome || 'Fornecedor',
                             '{{ cotacao.codigo }}'
                         );
                         
                         // Atualiza a linha do fornecedor na tabela
-                        atualizarLinhaFornecedor(cotacao.fornecedor_id);
+                        atualizarLinhaFornecedor(resposta.fornecedor_id);
                         
                         // Agenda reload da página após 3 segundos para mostrar dados atualizados
                         setTimeout(() => {
@@ -3570,5 +3634,8 @@ Departamento de Compras`;
             100% { background-color: transparent; }
         }
     </style>
+
+<!-- POLLING GLOBAL - Sincronização automática de cotações externas -->
+<script src="/static/js/polling_cotacoes.js"></script>
 </body>
 </html>

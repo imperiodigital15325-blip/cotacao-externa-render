@@ -1532,7 +1532,183 @@ def enviar_cotacao_externa(token):
 # =============================================================================
 # API POLLING - SINCRONIZAÇÃO AUTOMÁTICA DE COTAÇÕES EXTERNAS
 # =============================================================================
+# O sistema LOCAL faz polling no RENDER para buscar respostas de fornecedores.
+# Quando encontra uma resposta pendente, sincroniza para o banco local.
+# =============================================================================
 
+@app.route('/api/cotacoes-externas/polling', methods=['GET'])
+def api_polling_respostas_render():
+    """
+    Endpoint principal de polling - busca respostas no Render.
+    
+    O frontend chama esta rota a cada 20 segundos.
+    Esta rota consulta o Render e retorna respostas pendentes de sincronização.
+    """
+    try:
+        print("[POLLING] Consultando Render para respostas pendentes...")
+        
+        # Busca respostas pendentes no Render
+        response = requests.get(
+            f"{RENDER_PUBLIC_URL}/api/respostas-pendentes",
+            timeout=10
+        )
+        
+        if response.status_code != 200:
+            print(f"[POLLING] Erro ao consultar Render: {response.status_code}")
+            return jsonify({'success': False, 'respostas': [], 'error': f'Render retornou {response.status_code}'}), 200
+        
+        dados_render = response.json()
+        
+        if not dados_render.get('success'):
+            return jsonify({'success': False, 'respostas': [], 'error': dados_render.get('error', 'Erro desconhecido')}), 200
+        
+        respostas = dados_render.get('respostas', [])
+        
+        if respostas:
+            print(f"[POLLING] {len(respostas)} resposta(s) encontrada(s) no Render")
+        
+        return jsonify({
+            'success': True,
+            'respostas': respostas,
+            'count': len(respostas)
+        })
+        
+    except requests.exceptions.Timeout:
+        print("[POLLING] Timeout ao consultar Render")
+        return jsonify({'success': False, 'respostas': [], 'error': 'Timeout'}), 200
+    except Exception as e:
+        print(f"[POLLING] Erro: {e}")
+        return jsonify({'success': False, 'respostas': [], 'error': str(e)}), 200
+
+
+@app.route('/api/cotacoes-externas/sincronizar-render', methods=['POST'])
+def api_sincronizar_resposta_render():
+    """
+    Sincroniza uma resposta do Render com o banco local.
+    
+    Recebe os dados da resposta e:
+    1. Atualiza status do fornecedor para 'Respondido'
+    2. Insere/atualiza preços na tabela de respostas
+    3. Confirma sincronização no Render
+    """
+    try:
+        dados = request.get_json()
+        
+        if not dados:
+            return jsonify({'success': False, 'error': 'Dados não recebidos'}), 400
+        
+        token = dados.get('token')
+        cotacao_id = dados.get('cotacao_id')
+        fornecedor_id = dados.get('fornecedor_id')
+        fornecedor_nome = dados.get('fornecedor_nome', 'Fornecedor')
+        
+        if not all([token, cotacao_id, fornecedor_id]):
+            return jsonify({'success': False, 'error': 'token, cotacao_id e fornecedor_id são obrigatórios'}), 400
+        
+        print(f"[SINCRONIZAÇÃO] Processando resposta: Token={token[:8]}..., Cotação={cotacao_id}, Fornecedor={fornecedor_nome}")
+        
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # 1. Atualiza status e dados gerais do fornecedor
+            frete_total = float(dados.get('frete_total', 0) or 0)
+            condicao_pagamento = dados.get('condicao_pagamento', '')
+            observacao_geral = dados.get('observacao_geral', '')
+            
+            cursor.execute('''
+                UPDATE cotacao_fornecedores 
+                SET status = 'Respondido',
+                    data_resposta = CURRENT_TIMESTAMP,
+                    frete_total = ?,
+                    condicao_pagamento = ?,
+                    observacao_geral = ?
+                WHERE id = ?
+            ''', (frete_total, condicao_pagamento, observacao_geral, fornecedor_id))
+            
+            print(f"[SINCRONIZAÇÃO] Status do fornecedor {fornecedor_id} atualizado para 'Respondido'")
+            
+            # 2. Processa itens da resposta
+            itens = dados.get('itens', [])
+            itens_processados = 0
+            
+            for item in itens:
+                item_id = item.get('item_id')
+                preco_unitario = float(item.get('preco_unitario', 0) or 0)
+                prazo_entrega = int(item.get('prazo_entrega', 0) or 0)
+                observacao_item = item.get('observacao', '')
+                
+                if not item_id:
+                    continue
+                
+                # Verifica se já existe resposta para este item
+                cursor.execute('''
+                    SELECT id FROM cotacao_respostas 
+                    WHERE cotacao_id = ? AND fornecedor_id = ? AND item_id = ?
+                ''', (cotacao_id, fornecedor_id, item_id))
+                
+                existe = cursor.fetchone()
+                
+                if existe:
+                    # Atualiza resposta existente
+                    cursor.execute('''
+                        UPDATE cotacao_respostas 
+                        SET preco_unitario = ?,
+                            prazo_entrega = ?,
+                            observacao = ?,
+                            data_resposta = CURRENT_TIMESTAMP
+                        WHERE cotacao_id = ? AND fornecedor_id = ? AND item_id = ?
+                    ''', (preco_unitario, prazo_entrega, observacao_item, cotacao_id, fornecedor_id, item_id))
+                else:
+                    # Insere nova resposta
+                    cursor.execute('''
+                        INSERT INTO cotacao_respostas 
+                        (cotacao_id, fornecedor_id, item_id, preco_unitario, prazo_entrega, observacao)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (cotacao_id, fornecedor_id, item_id, preco_unitario, prazo_entrega, observacao_item))
+                
+                itens_processados += 1
+            
+            conn.commit()
+            print(f"[SINCRONIZAÇÃO] {itens_processados} itens processados")
+            
+            # 3. Confirma sincronização no Render
+            try:
+                confirm_response = requests.post(
+                    f"{RENDER_PUBLIC_URL}/api/confirmar-sincronizacao",
+                    json={'token': token},
+                    timeout=5
+                )
+                if confirm_response.status_code == 200:
+                    print(f"[SINCRONIZAÇÃO] Confirmação enviada ao Render")
+                else:
+                    print(f"[SINCRONIZAÇÃO] Aviso: Não foi possível confirmar no Render: {confirm_response.status_code}")
+            except Exception as e:
+                print(f"[SINCRONIZAÇÃO] Aviso: Erro ao confirmar no Render: {e}")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Resposta sincronizada com sucesso!',
+                'cotacao_id': cotacao_id,
+                'fornecedor_id': fornecedor_id,
+                'fornecedor_nome': fornecedor_nome,
+                'itens_processados': itens_processados
+            })
+            
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+        
+    except Exception as e:
+        print(f"[SINCRONIZAÇÃO] Erro: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# Mantém endpoints antigos para compatibilidade
 @app.route('/api/cotacoes-externas/respondidas', methods=['GET'])
 def api_cotacoes_externas_respondidas():
     """
