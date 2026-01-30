@@ -2942,21 +2942,25 @@ def api_analise_comparativa():
         if not df.empty:
             df = df.drop_duplicates(subset=['NumeroPedido', 'ItemPedido'], keep='first')
         
-        # Filtra por período 1
+        # Filtra por período 1 (PERÍODO ATUAL - o que está sendo analisado)
         df_p1 = df[(df['DataEmissao'] >= dt_p1_inicio) & (df['DataEmissao'] <= dt_p1_fim)].copy()
         
-        # Filtra por período 2
+        # Filtra por período 2 (PERÍODO ANTERIOR - referência para comparação)
         df_p2 = df[(df['DataEmissao'] >= dt_p2_inicio) & (df['DataEmissao'] <= dt_p2_fim)].copy()
         
         # Métricas totais
-        total_p1 = df_p1['ValorTotal'].sum() if not df_p1.empty else 0
-        total_p2 = df_p2['ValorTotal'].sum() if not df_p2.empty else 0
+        total_p1 = df_p1['ValorTotal'].sum() if not df_p1.empty else 0  # Valor do período atual
+        total_p2 = df_p2['ValorTotal'].sum() if not df_p2.empty else 0  # Valor do período anterior (referência)
         qtd_pedidos_p1 = df_p1['NumeroPedido'].nunique() if not df_p1.empty else 0
         qtd_pedidos_p2 = df_p2['NumeroPedido'].nunique() if not df_p2.empty else 0
         qtd_itens_p1 = len(df_p1) if not df_p1.empty else 0
         qtd_itens_p2 = len(df_p2) if not df_p2.empty else 0
         
-        # Cálculo de variação
+        # =====================================================================
+        # CÁLCULO DE VARIAÇÃO: ((Atual - Anterior) / Anterior) * 100
+        # - Positivo (+) = Aumento de gastos (gastou MAIS que o período anterior)
+        # - Negativo (-) = Redução de gastos (gastou MENOS que o período anterior)
+        # =====================================================================
         variacao_valor = ((total_p1 - total_p2) / total_p2 * 100) if total_p2 > 0 else (100 if total_p1 > 0 else 0)
         variacao_pedidos = ((qtd_pedidos_p1 - qtd_pedidos_p2) / qtd_pedidos_p2 * 100) if qtd_pedidos_p2 > 0 else (100 if qtd_pedidos_p1 > 0 else 0)
         

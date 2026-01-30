@@ -1174,7 +1174,7 @@
                                 <div class="col-md-5">
                                     <div class="periodo-box periodo-atual">
                                         <div class="periodo-titulo" style="color: #fd7e14;">
-                                            <i class="fas fa-calendar-check"></i> Período Base
+                                            <i class="fas fa-calendar-check"></i> Período Atual (Analisado)
                                         </div>
                                         <div class="row g-2">
                                             <div class="col-6">
@@ -1197,7 +1197,7 @@
                                 <div class="col-md-5">
                                     <div class="periodo-box periodo-comparacao">
                                         <div class="periodo-titulo" style="color: #20c997;">
-                                            <i class="fas fa-history"></i> Período de Comparação
+                                            <i class="fas fa-history"></i> Período Anterior (Referência)
                                         </div>
                                         <div class="row g-2">
                                             <div class="col-6">
@@ -1337,7 +1337,7 @@
                                 <div class="col-md-6">
                                     <div class="top-variacoes-card">
                                         <div class="card-titulo text-danger">
-                                            <i class="fas fa-arrow-up me-2"></i>Maiores Aumentos
+                                            <i class="fas fa-arrow-up me-2"></i>Maiores Aumentos (Gastos a mais)
                                         </div>
                                         <div id="listaTopAumentos">
                                             <div class="text-center text-muted py-3">Sem dados</div>
@@ -1347,7 +1347,7 @@
                                 <div class="col-md-6">
                                     <div class="top-variacoes-card">
                                         <div class="card-titulo text-success">
-                                            <i class="fas fa-arrow-down me-2"></i>Maiores Reduções
+                                            <i class="fas fa-arrow-down me-2"></i>Maiores Reduções (Economia)
                                         </div>
                                         <div id="listaTopReducoes">
                                             <div class="text-center text-muted py-3">Sem dados</div>
@@ -1360,17 +1360,17 @@
                             <div class="row">
                                 <div class="col-12">
                                     <h6 class="text-secondary mb-3">
-                                        <i class="fas fa-table me-2"></i>Detalhamento por Item
+                                        <i class="fas fa-table me-2"></i>Detalhamento Mensal
                                     </h6>
                                     <div class="tabela-variacoes">
                                         <table class="table table-modern table-striped table-hover" id="tabelaComparativa">
                                             <thead>
                                                 <tr>
-                                                    <th class="text-start">Item</th>
-                                                    <th class="text-end">Período Atual</th>
-                                                    <th class="text-end">Período Anterior</th>
-                                                    <th class="text-end">Diferença</th>
-                                                    <th class="text-center">Variação</th>
+                                                    <th class="text-start">Mês</th>
+                                                    <th class="text-end"><span class="text-warning">Período Atual</span></th>
+                                                    <th class="text-end"><span style="color: #20c997;">Período Anterior</span></th>
+                                                    <th class="text-end">Diferença (R$)</th>
+                                                    <th class="text-center">Variação (%)</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="corpoTabelaComparativa"></tbody>
@@ -2693,15 +2693,19 @@
         
         el.classList.remove('positiva', 'negativa', 'neutra');
         
+        const valorAbs = Math.abs(valor).toFixed(1);
+        
         if (valor > 0) {
+            // Aumento = gastou MAIS que o período anterior (vermelho = alerta)
             el.classList.add('positiva');
-            el.innerHTML = `<i class="fas fa-arrow-up"></i> +${valor.toFixed(1)}%`;
+            el.innerHTML = `<i class="fas fa-arrow-up"></i> Aumento de ${valorAbs}%`;
         } else if (valor < 0) {
+            // Redução = gastou MENOS que o período anterior (verde = economia)
             el.classList.add('negativa');
-            el.innerHTML = `<i class="fas fa-arrow-down"></i> ${valor.toFixed(1)}%`;
+            el.innerHTML = `<i class="fas fa-arrow-down"></i> Redução de ${valorAbs}%`;
         } else {
             el.classList.add('neutra');
-            el.innerHTML = `<i class="fas fa-equals"></i> 0%`;
+            el.innerHTML = `<i class="fas fa-equals"></i> Sem variação`;
         }
     }
     
@@ -2786,13 +2790,18 @@
                             },
                             afterBody: function(tooltipItems) {
                                 if (tooltipItems.length < 2) return '';
-                                const v1 = tooltipItems[0].raw || 0;
-                                const v2 = tooltipItems[1].raw || 0;
+                                const v1 = tooltipItems[0].raw || 0;  // Período Atual
+                                const v2 = tooltipItems[1].raw || 0;  // Período Anterior
                                 const diff = v1 - v2;
-                                const pct = v2 > 0 ? ((diff / v2) * 100).toFixed(1) : 0;
-                                const sinal = diff >= 0 ? '+' : '';
-                                const corTexto = diff > 0 ? '🔴' : (diff < 0 ? '🟢' : '⚪');
-                                return `\n${corTexto} Variação: ${sinal}${pct}%`;
+                                const pctAbs = v2 > 0 ? Math.abs((diff / v2) * 100).toFixed(1) : 0;
+                                
+                                if (diff > 0) {
+                                    return `\n🔴 Aumento de ${pctAbs}% em relação ao período anterior`;
+                                } else if (diff < 0) {
+                                    return `\n🟢 Redução de ${pctAbs}% em relação ao período anterior`;
+                                } else {
+                                    return `\n⚪ Sem variação`;
+                                }
                             }
                         }
                     },
@@ -2837,11 +2846,12 @@
         let html = '';
         items.forEach(item => {
             const classe = isAumento ? 'positivo' : 'negativo';
-            const sinal = item.variacao_pct >= 0 ? '+' : '';
+            const valorAbsPct = Math.abs(item.variacao_pct).toFixed(1);
+            const icone = isAumento ? '↑' : '↓';
             html += `
                 <div class="item-variacao">
                     <span class="nome" title="${item.label}">${item.label}</span>
-                    <span class="valor-var ${classe}">${sinal}${item.variacao_pct.toFixed(1)}%</span>
+                    <span class="valor-var ${classe}">${icone} ${valorAbsPct}%</span>
                 </div>
             `;
         });
@@ -2862,7 +2872,17 @@
         dados.forEach(item => {
             const classeVariacao = item.variacao_pct > 0 ? 'aumento' : (item.variacao_pct < 0 ? 'reducao' : '');
             const icone = item.variacao_pct > 0 ? 'fa-arrow-up' : (item.variacao_pct < 0 ? 'fa-arrow-down' : 'fa-equals');
-            const sinal = item.variacao_pct >= 0 ? '+' : '';
+            const valorAbsPct = Math.abs(item.variacao_pct).toFixed(1);
+            
+            // Texto descritivo intuitivo
+            let textoVariacao = '';
+            if (item.variacao_pct > 0) {
+                textoVariacao = `↑ +${valorAbsPct}%`;
+            } else if (item.variacao_pct < 0) {
+                textoVariacao = `↓ -${valorAbsPct}%`;
+            } else {
+                textoVariacao = '= 0%';
+            }
             
             html += `
                 <tr>
@@ -2872,7 +2892,7 @@
                     <td class="text-end valor-monetario">${formatBRL(item.diferenca)}</td>
                     <td class="text-center">
                         <span class="badge-variacao ${classeVariacao}">
-                            <i class="fas ${icone}"></i> ${sinal}${item.variacao_pct.toFixed(1)}%
+                            ${textoVariacao}
                         </span>
                     </td>
                 </tr>

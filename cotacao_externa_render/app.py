@@ -59,16 +59,21 @@ cotacoes_ativas = {}
 # Estrutura: { token: { resposta_json, submitted_at } }
 respostas_enviadas = {}
 
+# Set para controlar respostas já sincronizadas com o sistema local
+# IMPORTANTE: Também precisa ser persistido para não duplicar sincronizações após reinício
+respostas_sincronizadas = set()
+
 
 def salvar_dados_persistentes():
     """
-    Salva cotações e respostas em arquivo JSON para persistência.
+    Salva cotações, respostas E tokens sincronizados em arquivo JSON para persistência.
     Chamado após cada alteração nos dicionários.
     """
     try:
         dados = {
             'cotacoes_ativas': {},
             'respostas_enviadas': {},
+            'respostas_sincronizadas': list(respostas_sincronizadas),  # Set → List para JSON
             'salvo_em': datetime.now().isoformat()
         }
         
@@ -91,19 +96,21 @@ def salvar_dados_persistentes():
         with open(STORAGE_FILE, 'w', encoding='utf-8') as f:
             json.dump(dados, f, ensure_ascii=False, indent=2)
         
-        print(f"[PERSISTÊNCIA] Dados salvos em {STORAGE_FILE}: {len(cotacoes_ativas)} cotações, {len(respostas_enviadas)} respostas")
+        print(f"[PERSISTÊNCIA] Dados salvos em {STORAGE_FILE}: {len(cotacoes_ativas)} cotações, {len(respostas_enviadas)} respostas, {len(respostas_sincronizadas)} sincronizadas")
         return True
         
     except Exception as e:
         print(f"[PERSISTÊNCIA] ERRO ao salvar dados: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
 def carregar_dados_persistentes():
     """
-    Carrega cotações e respostas do arquivo JSON na inicialização.
+    Carrega cotações, respostas e tokens sincronizados do arquivo JSON na inicialização.
     """
-    global cotacoes_ativas, respostas_enviadas
+    global cotacoes_ativas, respostas_enviadas, respostas_sincronizadas
     
     try:
         if not os.path.exists(STORAGE_FILE):
@@ -137,10 +144,16 @@ def carregar_dados_persistentes():
             except Exception as e:
                 print(f"[PERSISTÊNCIA] Erro ao carregar resposta {token[:20]}...: {e}")
         
+        # Carrega tokens já sincronizados (List → Set)
+        sincronizadas_carregadas = dados.get('respostas_sincronizadas', [])
+        respostas_sincronizadas.clear()
+        respostas_sincronizadas.update(sincronizadas_carregadas)
+        
         salvo_em = dados.get('salvo_em', 'desconhecido')
         print(f"[PERSISTÊNCIA] Dados carregados de {STORAGE_FILE}")
         print(f"[PERSISTÊNCIA] - {len(cotacoes_ativas)} cotações ativas")
         print(f"[PERSISTÊNCIA] - {len(respostas_enviadas)} respostas")
+        print(f"[PERSISTÊNCIA] - {len(respostas_sincronizadas)} sincronizadas")
         print(f"[PERSISTÊNCIA] - Último salvamento: {salvo_em}")
         
     except json.JSONDecodeError as e:
@@ -152,6 +165,8 @@ def carregar_dados_persistentes():
             print(f"[PERSISTÊNCIA] Backup criado: {backup_name}")
     except Exception as e:
         print(f"[PERSISTÊNCIA] ERRO ao carregar dados: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 # Carrega dados ao iniciar a aplicação
@@ -810,11 +825,11 @@ def api_stats():
 # API PARA SINCRONIZAÇÃO COM SISTEMA LOCAL (POLLING)
 # =============================================================================
 
-# Dicionário para controlar respostas já sincronizadas
-respostas_sincronizadas = set()
+# NOTA: respostas_sincronizadas foi movido para o topo do arquivo junto com as outras
+# variáveis globais e é persistido/carregado pelo sistema de persistência JSON
 
 @app.route('/api/respostas-pendentes', methods=['GET'])
-def api_respostas_pendentes():
+def api_respostas_pendentes_v2():
     """
     Retorna lista de respostas que ainda não foram sincronizadas com o sistema local.
     O sistema local faz polling nesta rota a cada 20 segundos.
@@ -871,6 +886,8 @@ def api_confirmar_sincronizacao():
     """
     Sistema local chama esta rota para confirmar que uma resposta foi sincronizada.
     Isso evita que a mesma resposta seja retornada novamente no polling.
+    
+    IMPORTANTE: Persiste os dados para que a sincronização sobreviva a reinícios.
     """
     try:
         dados = request.get_json()
@@ -881,17 +898,20 @@ def api_confirmar_sincronizacao():
         
         # Marca como sincronizada
         respostas_sincronizadas.add(token)
-        print(f"[SINCRONIZAÇÃO] Resposta {token} marcada como sincronizada")
+        print(f"[SINCRONIZAÇÃO] Resposta {token[:20]}... marcada como sincronizada")
+        
+        # *** PERSISTE DADOS APÓS CONFIRMAR SINCRONIZAÇÃO ***
+        salvar_dados_persistentes()
         
         return jsonify({
             'success': True,
-            'message': f'Resposta {token} confirmada como sincronizada'
+            'message': f'Resposta confirmada como sincronizada',
+            'total_sincronizadas': len(respostas_sincronizadas)
         })
         
     except Exception as e:
         print(f"[ERRO] api_confirmar_sincronizacao: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
-
 
 @app.route('/api/status-cotacao/<token>', methods=['GET'])
 def api_status_cotacao(token):
@@ -949,12 +969,23 @@ def api_diagnostico():
                 'status': cotacao.get('status', 'ativa'),
                 'created_at': cotacao['created_at'].isoformat() if isinstance(cotacao['created_at'], datetime) else str(cotacao['created_at']),
                 'expires_at': cotacao['expires_at'].isoformat() if isinstance(cotacao['expires_at'], datetime) else str(cotacao['expires_at']),
-                'respondida': token in respostas_enviadas
+                'respondida': token in respostas_enviadas,
+                'sincronizada': token in respostas_sincronizadas
             })
         
         # Verifica arquivo de persistência
         persistencia_ok = os.path.exists(STORAGE_FILE)
         persistencia_tamanho = os.path.getsize(STORAGE_FILE) if persistencia_ok else 0
+        
+        # Lê última data de salvamento do arquivo
+        ultima_gravacao = None
+        if persistencia_ok:
+            try:
+                with open(STORAGE_FILE, 'r', encoding='utf-8') as f:
+                    dados_arquivo = json.load(f)
+                    ultima_gravacao = dados_arquivo.get('salvo_em', 'desconhecido')
+            except:
+                pass
         
         return jsonify({
             'success': True,
@@ -963,9 +994,14 @@ def api_diagnostico():
             'estatisticas': {
                 'cotacoes_ativas': len(cotacoes_ativas),
                 'respostas_enviadas': len(respostas_enviadas),
-                'persistencia_arquivo': STORAGE_FILE,
-                'persistencia_existe': persistencia_ok,
-                'persistencia_tamanho_bytes': persistencia_tamanho
+                'respostas_sincronizadas': len(respostas_sincronizadas),
+                'respostas_pendentes': len(respostas_enviadas) - len(respostas_sincronizadas.intersection(respostas_enviadas.keys()))
+            },
+            'persistencia': {
+                'arquivo': STORAGE_FILE,
+                'existe': persistencia_ok,
+                'tamanho_bytes': persistencia_tamanho,
+                'ultima_gravacao': ultima_gravacao
             },
             'cotacoes': cotacoes_info,
             'ambiente': {
@@ -975,6 +1011,8 @@ def api_diagnostico():
         })
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
