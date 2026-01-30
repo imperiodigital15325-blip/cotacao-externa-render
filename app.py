@@ -1735,21 +1735,30 @@ def api_importar_resposta_render(fornecedor_id):
     """
     Importa manualmente a resposta de uma cotação do Render.
     
-    Útil quando o polling automático não está funcionando ou
-    quando o Render não tem os endpoints de sincronização.
+    FLUXO:
+    1. Busca fornecedor no banco local
+    2. Verifica se existe token_externo ou link_externo
+    3. Consulta o Render para ver se há resposta
+    4. Se houver, importa os dados para o banco local
     
-    O sistema busca o token do fornecedor e consulta diretamente
-    o Render para verificar se há resposta disponível.
+    IMPORTANTE: O sistema local é a fonte de verdade do token.
     """
     try:
-        print(f"[IMPORTAR RENDER] Iniciando importação para fornecedor {fornecedor_id}")
+        print(f"\n{'='*60}")
+        print(f"[IMPORTAR RENDER] === INICIANDO IMPORTAÇÃO ===")
+        print(f"[IMPORTAR RENDER] Fornecedor ID: {fornecedor_id}")
+        print(f"{'='*60}")
         
         # Busca dados do fornecedor
         conn = db.get_db_connection()
         cursor = conn.cursor()
         
+        # Query específica para buscar campos de cotação externa
         cursor.execute('''
-            SELECT f.*, c.id as cotacao_id, c.codigo as cotacao_codigo
+            SELECT f.id, f.cotacao_id, f.nome_fornecedor, f.status,
+                   f.token_externo, f.link_externo, f.data_envio_externo,
+                   f.frete_total, f.condicao_pagamento, f.observacao_geral,
+                   c.id as cotacao_id, c.codigo as cotacao_codigo
             FROM cotacao_fornecedores f
             JOIN cotacoes c ON f.cotacao_id = c.id
             WHERE f.id = ?
@@ -1757,53 +1766,91 @@ def api_importar_resposta_render(fornecedor_id):
         fornecedor = cursor.fetchone()
         
         if not fornecedor:
+            print(f"[IMPORTAR RENDER] ❌ ERRO: Fornecedor {fornecedor_id} não encontrado no banco!")
             conn.close()
-            return jsonify({'success': False, 'error': 'Fornecedor não encontrado'}), 404
+            return jsonify({'success': False, 'error': 'Fornecedor não encontrado no banco de dados'}), 404
         
         # Converte sqlite3.Row para dict para facilitar acesso
         fornecedor = dict(fornecedor)
         
-        # Verifica se tem link externo gerado
-        token = fornecedor.get('token_externo')
-        if not token:
-            # Tenta encontrar na URL do link
-            link_externo = fornecedor.get('link_externo', '')
-            if link_externo and '/' in link_externo:
-                token = link_externo.split('/')[-1]
+        # Log detalhado do fornecedor encontrado
+        print(f"[IMPORTAR RENDER] ✓ Fornecedor encontrado: {fornecedor['nome_fornecedor']}")
+        print(f"[IMPORTAR RENDER]   - Status atual: {fornecedor.get('status')}")
+        print(f"[IMPORTAR RENDER]   - token_externo: {fornecedor.get('token_externo', 'NÃO DEFINIDO')}")
+        print(f"[IMPORTAR RENDER]   - link_externo: {fornecedor.get('link_externo', 'NÃO DEFINIDO')}")
+        print(f"[IMPORTAR RENDER]   - data_envio_externo: {fornecedor.get('data_envio_externo', 'NÃO DEFINIDO')}")
         
-        print(f"[IMPORTAR RENDER] Token encontrado: {token[:20] if token else 'NENHUM'}...")
+        # =====================================================================
+        # BUSCA TOKEN - MÚLTIPLAS FONTES
+        # =====================================================================
+        token = None
+        token_source = None
         
-        if not token:
+        # 1. Primeiro tenta token_externo (fonte primária)
+        if fornecedor.get('token_externo'):
+            token = fornecedor['token_externo']
+            token_source = 'token_externo (coluna dedicada)'
+        
+        # 2. Se não tem, tenta extrair do link_externo
+        elif fornecedor.get('link_externo'):
+            link = fornecedor['link_externo']
+            if '/' in link:
+                token = link.split('/')[-1]
+                token_source = f'link_externo (extraído de {link})'
+        
+        # Log do resultado da busca do token
+        if token:
+            print(f"[IMPORTAR RENDER] ✓ TOKEN ENCONTRADO!")
+            print(f"[IMPORTAR RENDER]   - Token: {token}")
+            print(f"[IMPORTAR RENDER]   - Fonte: {token_source}")
+        else:
+            print(f"[IMPORTAR RENDER] ❌ ERRO: NENHUM TOKEN ENCONTRADO!")
+            print(f"[IMPORTAR RENDER]   - token_externo está vazio: {not fornecedor.get('token_externo')}")
+            print(f"[IMPORTAR RENDER]   - link_externo está vazio: {not fornecedor.get('link_externo')}")
+            print(f"[IMPORTAR RENDER]   >>> Isso significa que o link externo NUNCA foi gerado para este fornecedor,")
+            print(f"[IMPORTAR RENDER]   >>> ou foi gerado ANTES da correção de persistência.")
             conn.close()
-            return jsonify({'success': False, 'error': 'Nenhum link externo foi gerado para este fornecedor'}), 400
+            return jsonify({
+                'success': False, 
+                'error': 'Nenhum link externo foi gerado para este fornecedor. Gere o link primeiro clicando em "Gerar Link".'
+            }), 400
         
-        # Consulta o Render para verificar se há resposta
+        # =====================================================================
+        # CONSULTA O RENDER PARA BUSCAR RESPOSTA
+        # =====================================================================
         try:
             render_url = f"{RENDER_PUBLIC_URL}/api/cotacao/{token}/resposta"
-            print(f"[IMPORTAR RENDER] Consultando: {render_url}")
+            print(f"[IMPORTAR RENDER] Consultando Render...")
+            print(f"[IMPORTAR RENDER]   - URL: {render_url}")
             
             headers = {'X-API-Key': os.environ.get('API_SECRET_KEY', 'chave_secreta_padrao')}
             response = requests.get(render_url, headers=headers, timeout=15)
             
-            print(f"[IMPORTAR RENDER] Resposta do Render: status={response.status_code}")
+            print(f"[IMPORTAR RENDER]   - Status HTTP: {response.status_code}")
             
             if response.status_code == 404:
+                print(f"[IMPORTAR RENDER] ⚠ Render retornou 404 - Cotação ainda não respondida ou endpoint não existe")
                 conn.close()
                 return jsonify({
                     'success': False, 
-                    'error': 'Cotação ainda não foi respondida pelo fornecedor ou endpoint não existe no Render'
+                    'error': 'Cotação ainda não foi respondida pelo fornecedor (ou endpoint não existe no Render)'
                 }), 404
             
             if response.status_code != 200:
+                print(f"[IMPORTAR RENDER] ✗ Erro HTTP: {response.status_code}")
+                print(f"[IMPORTAR RENDER]   - Resposta: {response.text[:500]}")
                 conn.close()
                 return jsonify({
                     'success': False, 
-                    'error': f'Erro ao consultar Render: {response.status_code}'
+                    'error': f'Erro ao consultar Render: HTTP {response.status_code}'
                 }), 500
             
             dados_render = response.json()
+            print(f"[IMPORTAR RENDER]   - JSON recebido: {list(dados_render.keys())}")
             
             if not dados_render.get('success'):
+                print(f"[IMPORTAR RENDER] ✗ Render retornou success=false")
+                print(f"[IMPORTAR RENDER]   - Erro: {dados_render.get('error')}")
                 conn.close()
                 return jsonify({
                     'success': False, 
@@ -1811,7 +1858,8 @@ def api_importar_resposta_render(fornecedor_id):
                 }), 404
             
             resposta = dados_render.get('resposta', {})
-            print(f"[IMPORTAR RENDER] Resposta encontrada! Processando...")
+            print(f"[IMPORTAR RENDER] ✓ RESPOSTA ENCONTRADA NO RENDER!")
+            print(f"[IMPORTAR RENDER]   - Itens na resposta: {len(resposta.get('itens', []))}")
             
         except requests.exceptions.Timeout:
             conn.close()
@@ -7962,22 +8010,23 @@ def api_responder_cotacao_externa(token):
 @app.route('/api/cotacao/fornecedor/<int:fornecedor_id>/gerar-link-externo', methods=['POST'])
 def api_gerar_link_externo(fornecedor_id):
     """
-    Gera link para cotação externa chamando a API do Render.
+    Gera ou retorna link existente para cotação externa.
     
-    IMPORTANTE: O token é gerado e salvo no banco do RENDER, não local.
-    Isso garante que o link funcione para qualquer pessoa que acessá-lo.
+    FLUXO MELHORADO:
+    1. Verifica se já existe link_externo salvo para este fornecedor
+    2. Se existir → retorna o link existente (não gera novo)
+    3. Se não existir → gera novo no Render, salva no banco local, retorna
     
-    Fluxo:
-    1. Coleta dados da cotação do banco local
-    2. Envia dados para o Render via HTTP POST
-    3. Render gera token, salva no seu banco e retorna o link
-    4. Sistema local apenas repassa o link para o frontend
+    O link é persistido em:
+    - cotacao_fornecedores.token_externo (token do Render)
+    - cotacao_fornecedores.link_externo (URL completa)
+    - cotacao_fornecedores.data_envio_externo (quando foi gerado)
     """
     try:
-        # Busca dados do fornecedor e cotação no banco LOCAL
         conn = db.get_db_connection()
         cursor = conn.cursor()
         
+        # Busca dados do fornecedor
         cursor.execute('''
             SELECT f.*, c.codigo as cotacao_codigo, c.id as cotacao_id,
                    c.observacoes as cotacao_observacoes, c.informacao_fornecedor
@@ -7991,6 +8040,33 @@ def api_gerar_link_externo(fornecedor_id):
             conn.close()
             return jsonify({'success': False, 'error': 'Fornecedor não encontrado'}), 404
         
+        # Converte para dict
+        fornecedor = dict(fornecedor)
+        
+        # =====================================================================
+        # VERIFICA SE JÁ EXISTE LINK EXTERNO SALVO
+        # =====================================================================
+        link_existente = fornecedor.get('link_externo')
+        token_existente = fornecedor.get('token_externo')
+        
+        if link_existente and token_existente:
+            print(f"[COTAÇÃO EXTERNA] Link já existe para fornecedor {fornecedor_id}: {link_existente[:50]}...")
+            conn.close()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Link externo recuperado com sucesso!',
+                'link_externo': link_existente,
+                'token': token_existente,
+                'fornecedor': fornecedor['nome_fornecedor'],
+                'cotacao': fornecedor['cotacao_codigo'],
+                'ja_existia': True,
+                'status': fornecedor.get('status', 'Pendente')
+            })
+        
+        # =====================================================================
+        # GERA NOVO LINK NO RENDER
+        # =====================================================================
         # Busca itens da cotação
         cursor.execute('''
             SELECT i.id, i.numero_sc, i.item_sc, i.cod_produto, i.descricao_produto as descricao, 
@@ -8000,7 +8076,6 @@ def api_gerar_link_externo(fornecedor_id):
             ORDER BY i.numero_sc, i.item_sc
         ''', (fornecedor['cotacao_id'],))
         itens = [dict(item) for item in cursor.fetchall()]
-        conn.close()
         
         # Monta dados para enviar ao Render
         dados_para_render = {
@@ -8013,8 +8088,8 @@ def api_gerar_link_externo(fornecedor_id):
             'fornecedor': {
                 'id': fornecedor['id'],
                 'nome': fornecedor['nome_fornecedor'],
-                'email': fornecedor['email_fornecedor'] or '',
-                'telefone': fornecedor['telefone_fornecedor'] or ''
+                'email': fornecedor.get('email_fornecedor') or '',
+                'telefone': fornecedor.get('telefone_fornecedor') or ''
             },
             'itens': [
                 {
@@ -8032,22 +8107,18 @@ def api_gerar_link_externo(fornecedor_id):
             'usuario': session.get('username', 'Admin')
         }
         
-        print(f"[COTAÇÃO EXTERNA] Chamando API do Render para {fornecedor['nome_fornecedor']}...")
-        print(f"[COTAÇÃO EXTERNA] URL: {RENDER_PUBLIC_URL}/api/criar-cotacao-externa")
+        print(f"[COTAÇÃO EXTERNA] Gerando NOVO link para {fornecedor['nome_fornecedor']}...")
         
-        # Chama a API do Render para criar a cotação externa
         try:
             response = requests.post(
                 f"{RENDER_PUBLIC_URL}/api/criar-cotacao-externa",
                 json=dados_para_render,
                 headers={'Content-Type': 'application/json'},
-                timeout=30  # 30 segundos de timeout
+                timeout=30
             )
             
-            print(f"[COTAÇÃO EXTERNA] Resposta do Render: status={response.status_code}")
-            
             if response.status_code != 200:
-                print(f"[COTAÇÃO EXTERNA] Erro: {response.text}")
+                conn.close()
                 return jsonify({
                     'success': False, 
                     'error': f'Erro ao comunicar com servidor externo: {response.status_code}'
@@ -8056,34 +8127,72 @@ def api_gerar_link_externo(fornecedor_id):
             resultado = response.json()
             
             if not resultado.get('success'):
+                conn.close()
                 return jsonify({
                     'success': False,
                     'error': resultado.get('error', 'Erro desconhecido no servidor externo')
                 }), 500
             
-            # Atualiza status do fornecedor LOCAL para "Link Gerado"
-            db.atualizar_status_fornecedor(fornecedor_id, 'Link Gerado')
+            link_novo = resultado.get('link_externo')
+            token_novo = resultado.get('token')
             
-            print(f"[COTAÇÃO EXTERNA] Link gerado com sucesso: {resultado.get('link_externo')}")
+            # =====================================================================
+            # SALVA O LINK NO BANCO LOCAL (PERSISTÊNCIA CRÍTICA!)
+            # =====================================================================
+            print(f"\n{'='*60}")
+            print(f"[COTAÇÃO EXTERNA] === SALVANDO TOKEN NO BANCO LOCAL ===")
+            print(f"[COTAÇÃO EXTERNA] Fornecedor ID: {fornecedor_id}")
+            print(f"[COTAÇÃO EXTERNA] Token: {token_novo}")
+            print(f"[COTAÇÃO EXTERNA] Link: {link_novo}")
+            print(f"{'='*60}")
+            
+            cursor.execute('''
+                UPDATE cotacao_fornecedores 
+                SET token_externo = ?,
+                    link_externo = ?,
+                    data_envio_externo = CURRENT_TIMESTAMP,
+                    status = 'Link Gerado'
+                WHERE id = ?
+            ''', (token_novo, link_novo, fornecedor_id))
+            
+            # Verifica se o UPDATE realmente afetou alguma linha
+            if cursor.rowcount == 0:
+                print(f"[COTAÇÃO EXTERNA] ⚠ AVISO: UPDATE não afetou nenhuma linha!")
+            else:
+                print(f"[COTAÇÃO EXTERNA] ✓ UPDATE executado com sucesso! ({cursor.rowcount} linha(s) afetada(s))")
+            
+            conn.commit()
+            
+            # Verifica se foi salvo corretamente (double-check)
+            cursor.execute('SELECT token_externo, link_externo FROM cotacao_fornecedores WHERE id = ?', (fornecedor_id,))
+            verificacao = cursor.fetchone()
+            if verificacao:
+                print(f"[COTAÇÃO EXTERNA] ✓ VERIFICAÇÃO: Token salvo = {verificacao[0][:30] if verificacao[0] else 'VAZIO'}...")
+                print(f"[COTAÇÃO EXTERNA] ✓ VERIFICAÇÃO: Link salvo = {verificacao[1][:50] if verificacao[1] else 'VAZIO'}...")
+            conn.close()
+            
+            print(f"[COTAÇÃO EXTERNA] Link salvo no banco local: {link_novo}")
             
             return jsonify({
                 'success': True,
                 'message': 'Link de cotação externa gerado com sucesso!',
-                'link_externo': resultado.get('link_externo'),
-                'token': resultado.get('token'),
+                'link_externo': link_novo,
+                'token': token_novo,
                 'fornecedor': fornecedor['nome_fornecedor'],
-                'cotacao': fornecedor['cotacao_codigo']
+                'cotacao': fornecedor['cotacao_codigo'],
+                'ja_existia': False,
+                'status': 'Link Gerado'
             })
             
         except requests.exceptions.Timeout:
-            print(f"[COTAÇÃO EXTERNA] Timeout ao chamar Render")
+            conn.close()
             return jsonify({
                 'success': False,
                 'error': 'Servidor externo não respondeu a tempo. Tente novamente.'
             }), 504
             
-        except requests.exceptions.ConnectionError as e:
-            print(f"[COTAÇÃO EXTERNA] Erro de conexão: {e}")
+        except requests.exceptions.ConnectionError:
+            conn.close()
             return jsonify({
                 'success': False,
                 'error': 'Não foi possível conectar ao servidor externo. Verifique sua conexão.'
@@ -8093,6 +8202,50 @@ def api_gerar_link_externo(fornecedor_id):
         print(f"[ERRO] api_gerar_link_externo: {e}")
         import traceback
         traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/fornecedor/<int:fornecedor_id>/link-externo', methods=['GET'])
+def api_obter_link_externo(fornecedor_id):
+    """
+    Retorna informações do link externo de um fornecedor (se existir).
+    Usado para verificar se já existe link antes de mostrar modal.
+    """
+    try:
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT f.id, f.nome_fornecedor, f.status, f.token_externo, f.link_externo, 
+                   f.data_envio_externo, c.codigo as cotacao_codigo
+            FROM cotacao_fornecedores f
+            JOIN cotacoes c ON f.cotacao_id = c.id
+            WHERE f.id = ?
+        ''', (fornecedor_id,))
+        fornecedor = cursor.fetchone()
+        conn.close()
+        
+        if not fornecedor:
+            return jsonify({'success': False, 'error': 'Fornecedor não encontrado'}), 404
+        
+        fornecedor = dict(fornecedor)
+        
+        tem_link = bool(fornecedor.get('link_externo') and fornecedor.get('token_externo'))
+        
+        return jsonify({
+            'success': True,
+            'fornecedor_id': fornecedor['id'],
+            'fornecedor_nome': fornecedor['nome_fornecedor'],
+            'cotacao_codigo': fornecedor['cotacao_codigo'],
+            'tem_link': tem_link,
+            'link_externo': fornecedor.get('link_externo') or '',
+            'token': fornecedor.get('token_externo') or '',
+            'status': fornecedor.get('status') or 'Pendente',
+            'data_envio': fornecedor.get('data_envio_externo') or ''
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_obter_link_externo: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

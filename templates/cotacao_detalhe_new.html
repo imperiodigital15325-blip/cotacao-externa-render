@@ -3044,7 +3044,7 @@ Departamento de Compras`;
     // ============================================================================
     
     // Abre modal simplificado de gerar link
-    function abrirModalGerarLinkExterno(btn) {
+    async function abrirModalGerarLinkExterno(btn) {
         const fornecedorId = btn.dataset.fornecedorId;
         const fornecedorNome = btn.dataset.fornecedorNome;
         
@@ -3060,11 +3060,48 @@ Departamento de Compras`;
         document.getElementById('linkExternoFornecedorId').value = fornecedorId;
         document.getElementById('linkExternoFornecedorNome').textContent = fornecedorNome;
         
-        // Reseta estados
-        resetarModalLink();
+        // Reseta estados para "carregando"
+        document.getElementById('estadoAguardandoGerar').style.display = 'none';
+        document.getElementById('estadoGerandoLink').style.display = 'block';
+        document.getElementById('estadoLinkGerado').style.display = 'none';
+        document.getElementById('estadoErroLink').style.display = 'none';
         
         // Abre modal
         new bootstrap.Modal(document.getElementById('modalGerarJson')).show();
+        
+        // Verifica se já existe link para este fornecedor
+        try {
+            const response = await fetch(`/api/cotacao/fornecedor/${fornecedorId}/link-externo`);
+            const data = await response.json();
+            
+            if (data.success && data.tem_link) {
+                // Já existe link - mostra direto
+                console.log('[GERAR LINK] Link já existe:', data.link_externo);
+                
+                document.getElementById('linkExternoGerado').value = data.link_externo;
+                document.getElementById('linkNoTextoSimplificado').textContent = data.link_externo;
+                
+                document.getElementById('estadoGerandoLink').style.display = 'none';
+                document.getElementById('estadoLinkGerado').style.display = 'block';
+                
+                // Mostra mensagem de que já existia
+                const alertDiv = document.querySelector('#estadoLinkGerado .alert-success');
+                if (alertDiv) {
+                    alertDiv.innerHTML = '<i class="fas fa-info-circle me-2"></i><strong>Link já existente recuperado!</strong>';
+                }
+                
+            } else {
+                // Não existe link - mostra tela para gerar
+                document.getElementById('estadoGerandoLink').style.display = 'none';
+                document.getElementById('estadoAguardandoGerar').style.display = 'block';
+            }
+            
+        } catch (error) {
+            console.error('[GERAR LINK] Erro ao verificar link:', error);
+            // Em caso de erro, mostra tela para gerar
+            document.getElementById('estadoGerandoLink').style.display = 'none';
+            document.getElementById('estadoAguardandoGerar').style.display = 'block';
+        }
     }
     
     // Reseta o modal para estado inicial
@@ -3077,6 +3114,12 @@ Departamento de Compras`;
         const btn = document.getElementById('btnGerarLinkExterno');
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-magic me-2"></i> Gerar Link Externo';
+        
+        // Reseta mensagem de sucesso para padrão
+        const alertDiv = document.querySelector('#estadoLinkGerado .alert-success');
+        if (alertDiv) {
+            alertDiv.innerHTML = '<i class="fas fa-check-circle me-2"></i><strong>Link gerado com sucesso!</strong>';
+        }
     }
     
     // Gera link externo (versão simplificada)
@@ -3113,7 +3156,17 @@ Departamento de Compras`;
                 document.getElementById('estadoGerandoLink').style.display = 'none';
                 document.getElementById('estadoLinkGerado').style.display = 'block';
                 
-                mostrarToast('Link gerado com sucesso!', 'success');
+                // Atualiza mensagem baseado se era novo ou já existia
+                const alertDiv = document.querySelector('#estadoLinkGerado .alert-success');
+                if (alertDiv) {
+                    if (data.ja_existia) {
+                        alertDiv.innerHTML = '<i class="fas fa-info-circle me-2"></i><strong>Link existente recuperado!</strong>';
+                    } else {
+                        alertDiv.innerHTML = '<i class="fas fa-check-circle me-2"></i><strong>Link gerado com sucesso!</strong>';
+                    }
+                }
+                
+                mostrarToast(data.ja_existia ? 'Link recuperado!' : 'Link gerado com sucesso!', 'success');
                 
                 // Atualiza a linha do fornecedor na tabela
                 const row = document.getElementById(`row-forn-${fornecedorId}`);
