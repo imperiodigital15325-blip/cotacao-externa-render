@@ -1145,6 +1145,33 @@ def diagnostico_variacao():
 # --- ROTAS ---
 
 # =============================================================================
+# ROTAS DE TESTE E DIAGNÓSTICO (PRODUÇÃO)
+# =============================================================================
+
+@app.route('/teste-externo')
+def teste_externo():
+    """
+    Endpoint de teste para verificar se as rotas externas estão funcionando.
+    Use para diagnosticar problemas de deploy no Render.
+    """
+    return jsonify({
+        'status': 'ok',
+        'message': 'Rotas externas estão funcionando!',
+        'rotas_disponiveis': [
+            '/externo/<token> - Cotação externa pública',
+            '/teste-externo - Este endpoint de teste',
+            '/ - Página bloqueada (403)'
+        ],
+        'render_public_url': RENDER_PUBLIC_URL,
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/health')
+def health_check():
+    """Health check para o Render"""
+    return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
+
+# =============================================================================
 # ROTA PÚBLICA EXTERNA - COTAÇÃO POR TOKEN
 # =============================================================================
 
