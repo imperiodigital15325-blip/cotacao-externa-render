@@ -1730,6 +1730,170 @@ def api_sincronizar_resposta_render():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/cotacao/fornecedor/<int:fornecedor_id>/importar-resposta-render', methods=['POST'])
+def api_importar_resposta_render(fornecedor_id):
+    """
+    Importa manualmente a resposta de uma cotação do Render.
+    
+    Útil quando o polling automático não está funcionando ou
+    quando o Render não tem os endpoints de sincronização.
+    
+    O sistema busca o token do fornecedor e consulta diretamente
+    o Render para verificar se há resposta disponível.
+    """
+    try:
+        print(f"[IMPORTAR RENDER] Iniciando importação para fornecedor {fornecedor_id}")
+        
+        # Busca dados do fornecedor
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT f.*, c.id as cotacao_id, c.codigo as cotacao_codigo
+            FROM cotacao_fornecedores f
+            JOIN cotacoes c ON f.cotacao_id = c.id
+            WHERE f.id = ?
+        ''', (fornecedor_id,))
+        fornecedor = cursor.fetchone()
+        
+        if not fornecedor:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Fornecedor não encontrado'}), 404
+        
+        # Verifica se tem link externo gerado
+        token = fornecedor.get('token_externo')
+        if not token:
+            # Tenta encontrar na URL do link
+            link_externo = fornecedor.get('link_externo', '')
+            if link_externo and '/' in link_externo:
+                token = link_externo.split('/')[-1]
+        
+        print(f"[IMPORTAR RENDER] Token encontrado: {token[:20] if token else 'NENHUM'}...")
+        
+        if not token:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Nenhum link externo foi gerado para este fornecedor'}), 400
+        
+        # Consulta o Render para verificar se há resposta
+        try:
+            render_url = f"{RENDER_PUBLIC_URL}/api/cotacao/{token}/resposta"
+            print(f"[IMPORTAR RENDER] Consultando: {render_url}")
+            
+            headers = {'X-API-Key': os.environ.get('API_SECRET_KEY', 'chave_secreta_padrao')}
+            response = requests.get(render_url, headers=headers, timeout=15)
+            
+            print(f"[IMPORTAR RENDER] Resposta do Render: status={response.status_code}")
+            
+            if response.status_code == 404:
+                conn.close()
+                return jsonify({
+                    'success': False, 
+                    'error': 'Cotação ainda não foi respondida pelo fornecedor ou endpoint não existe no Render'
+                }), 404
+            
+            if response.status_code != 200:
+                conn.close()
+                return jsonify({
+                    'success': False, 
+                    'error': f'Erro ao consultar Render: {response.status_code}'
+                }), 500
+            
+            dados_render = response.json()
+            
+            if not dados_render.get('success'):
+                conn.close()
+                return jsonify({
+                    'success': False, 
+                    'error': dados_render.get('error', 'Resposta não encontrada no Render')
+                }), 404
+            
+            resposta = dados_render.get('resposta', {})
+            print(f"[IMPORTAR RENDER] Resposta encontrada! Processando...")
+            
+        except requests.exceptions.Timeout:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Timeout ao consultar o Render. Servidor pode estar hibernando.'}), 504
+        except requests.exceptions.ConnectionError:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Não foi possível conectar ao Render'}), 503
+        
+        # Processa a resposta e atualiza o banco local
+        try:
+            frete_total = float(resposta.get('frete_total', 0) or 0)
+            condicao_pagamento = resposta.get('condicao_pagamento', '')
+            observacao_geral = resposta.get('observacao_geral', '')
+            
+            # Atualiza o fornecedor
+            cursor.execute('''
+                UPDATE cotacao_fornecedores 
+                SET status = 'Respondido',
+                    data_resposta = CURRENT_TIMESTAMP,
+                    frete_total = ?,
+                    condicao_pagamento = ?,
+                    observacao_geral = ?
+                WHERE id = ?
+            ''', (frete_total, condicao_pagamento, observacao_geral, fornecedor_id))
+            
+            # Processa itens
+            itens = resposta.get('itens', [])
+            itens_processados = 0
+            
+            for item in itens:
+                item_id = item.get('item_id') or item.get('id')
+                preco_unitario = float(item.get('preco_unitario', 0) or 0)
+                prazo_entrega = int(item.get('prazo_entrega', 0) or 0)
+                observacao_item = item.get('observacao', '')
+                
+                if not item_id or preco_unitario <= 0:
+                    continue
+                
+                # Verifica se já existe
+                cursor.execute('''
+                    SELECT id FROM cotacao_respostas 
+                    WHERE cotacao_id = ? AND fornecedor_id = ? AND item_id = ?
+                ''', (fornecedor['cotacao_id'], fornecedor_id, item_id))
+                
+                existe = cursor.fetchone()
+                
+                if existe:
+                    cursor.execute('''
+                        UPDATE cotacao_respostas 
+                        SET preco_unitario = ?, prazo_entrega = ?, observacao = ?, data_resposta = CURRENT_TIMESTAMP
+                        WHERE cotacao_id = ? AND fornecedor_id = ? AND item_id = ?
+                    ''', (preco_unitario, prazo_entrega, observacao_item, fornecedor['cotacao_id'], fornecedor_id, item_id))
+                else:
+                    cursor.execute('''
+                        INSERT INTO cotacao_respostas 
+                        (cotacao_id, fornecedor_id, item_id, preco_unitario, prazo_entrega, observacao)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (fornecedor['cotacao_id'], fornecedor_id, item_id, preco_unitario, prazo_entrega, observacao_item))
+                
+                itens_processados += 1
+            
+            conn.commit()
+            conn.close()
+            
+            print(f"[IMPORTAR RENDER] Sucesso! {itens_processados} itens importados")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Resposta importada com sucesso! {itens_processados} itens processados.',
+                'fornecedor': fornecedor['nome_fornecedor'],
+                'itens_processados': itens_processados
+            })
+            
+        except Exception as e:
+            conn.rollback()
+            conn.close()
+            raise e
+        
+    except Exception as e:
+        print(f"[IMPORTAR RENDER] Erro: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # Mantém endpoints antigos para compatibilidade
 @app.route('/api/cotacoes-externas/respondidas', methods=['GET'])
 def api_cotacoes_externas_respondidas():
