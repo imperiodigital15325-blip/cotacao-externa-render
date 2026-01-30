@@ -32,14 +32,6 @@ app.secret_key = 'sua_chave_secreta_aqui'
 # =============================================================================
 RENDER_PUBLIC_URL = 'https://cotacao-externa-render.onrender.com'
 
-# =============================================================================
-# ARMAZENAMENTO EM MEMÓRIA PARA COTAÇÕES EXTERNAS (RENDER)
-# =============================================================================
-# Quando executado no Render, o banco de dados local não existe.
-# Por isso, cotações externas são armazenadas em memória.
-# Estrutura: { token: { dados, created_at, expires_at, status } }
-cotacoes_externas_memoria = {}
-
 # Tempo de expiração do token em horas (padrão: 72 horas)
 TOKEN_EXPIRATION_HOURS = 72
 
@@ -1222,12 +1214,22 @@ def debug_token(token):
 
 @app.route('/health')
 def health_check():
-    """Health check para o Render"""
-    return jsonify({
-        'status': 'healthy', 
-        'timestamp': datetime.now().isoformat(),
-        'cotacoes_memoria': len(cotacoes_externas_memoria)
-    })
+    """Health check para o Render - com estatísticas do banco"""
+    try:
+        stats = db.contar_cotacoes_externas()
+        return jsonify({
+            'status': 'healthy', 
+            'timestamp': datetime.now().isoformat(),
+            'cotacoes_externas': stats,
+            'storage': 'database'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'healthy', 
+            'timestamp': datetime.now().isoformat(),
+            'storage': 'database',
+            'db_error': str(e)
+        })
 
 
 # =============================================================================
@@ -1243,11 +1245,11 @@ def api_criar_cotacao_externa():
     "Gerar Link Externo". O sistema local envia os dados da cotação
     e esta rota:
     1. Gera um token único
-    2. Salva os dados em memória
+    2. Salva no BANCO DE DADOS (persistente)
     3. Retorna o link público para o fornecedor
     
-    IMPORTANTE: Esta rota NÃO requer autenticação para facilitar a integração.
-    Os dados são armazenados em memória (cotacoes_externas_memoria).
+    IMPORTANTE: Os dados são armazenados no BANCO DE DADOS,
+    garantindo persistência após restart/deploy.
     """
     try:
         dados = request.get_json()
@@ -1273,7 +1275,6 @@ def api_criar_cotacao_externa():
         expires_at = datetime.now() + timedelta(hours=TOKEN_EXPIRATION_HOURS)
         
         # Estrutura os dados da cotação para armazenamento
-        # IMPORTANTE: A estrutura deve corresponder ao que o template espera
         dados_cotacao = {
             'cotacao_id': dados['cotacao'].get('id'),
             'codigo': dados['cotacao'].get('codigo'),
@@ -1284,20 +1285,21 @@ def api_criar_cotacao_externa():
             'usuario': dados.get('usuario', 'Sistema')
         }
         
-        # Armazena cotação em memória
-        cotacoes_externas_memoria[token] = {
-            'dados': dados_cotacao,
-            'created_at': datetime.now(),
-            'expires_at': expires_at,
-            'status': 'ativa'
-        }
+        # Salva no BANCO DE DADOS (persistente)
+        ip_criacao = request.remote_addr
+        cotacao_id = db.criar_cotacao_externa(
+            token=token,
+            dados_json=json.dumps(dados_cotacao, ensure_ascii=False),
+            expira_em=expires_at.isoformat(),
+            ip_criacao=ip_criacao
+        )
         
         # Monta URL do link
         link_externo = f"{RENDER_PUBLIC_URL}/externo/{token}"
         
         print(f"[API CRIAR COTAÇÃO] Token gerado: {token[:20]}...")
         print(f"[API CRIAR COTAÇÃO] Link: {link_externo}")
-        print(f"[API CRIAR COTAÇÃO] Total em memória: {len(cotacoes_externas_memoria)}")
+        print(f"[API CRIAR COTAÇÃO] Salvo no banco com ID: {cotacao_id}")
         
         return jsonify({
             'success': True,
@@ -1329,8 +1331,8 @@ def cotacao_externa_publica(token):
     - Template independente do sistema interno
     
     Ordem de busca:
-    1. Primeiro verifica na memória (cotacoes_externas_memoria)
-    2. Se não encontrar, tenta no banco de dados local
+    1. Primeiro verifica na tabela cotacoes_externas (persistente)
+    2. Se não encontrar, tenta na tabela cotacao_json_envios (legado)
     
     Parâmetros:
         token (str): Token único de acesso à cotação
@@ -1342,47 +1344,53 @@ def cotacao_externa_publica(token):
     try:
         print(f"[EXTERNO] Acessando /externo/{token[:20]}...")
         
-        # === PRIMEIRO: VERIFICA NA MEMÓRIA (PARA RENDER) ===
-        if token in cotacoes_externas_memoria:
-            print(f"[EXTERNO] Token encontrado na MEMÓRIA")
-            cotacao_mem = cotacoes_externas_memoria[token]
-            
-            # Verifica expiração
-            if datetime.now() > cotacao_mem['expires_at']:
-                print(f"[EXTERNO] Cotação expirada")
-                return render_template('externo/erro.html', 
-                    erro='Esta cotação expirou.',
-                    mensagem=f'A cotação expirou em {cotacao_mem["expires_at"].strftime("%d/%m/%Y às %H:%M")}.'), 400
+        # === PRIMEIRO: VERIFICA NA TABELA cotacoes_externas (PERSISTENTE) ===
+        cotacao_ext = db.obter_cotacao_externa_por_token(token)
+        
+        if cotacao_ext:
+            print(f"[EXTERNO] Token encontrado no BANCO DE DADOS")
+            print(f"[EXTERNO] Status: {cotacao_ext['status']}")
             
             # Verifica se já foi respondida
-            if cotacao_mem.get('status') == 'respondida':
+            if cotacao_ext['status'] == 'respondida':
                 return render_template('externo/ja_respondida.html', 
                     mensagem='Esta cotação já foi respondida.'), 200
             
-            dados_cotacao = cotacao_mem['dados']
+            # Verifica expiração
+            if cotacao_ext.get('expira_em'):
+                try:
+                    expira_em = datetime.fromisoformat(cotacao_ext['expira_em'].replace('Z', '+00:00'))
+                    if datetime.now() > expira_em:
+                        print(f"[EXTERNO] Cotação expirada")
+                        return render_template('externo/erro.html', 
+                            erro='Esta cotação expirou.',
+                            mensagem=f'A cotação expirou em {expira_em.strftime("%d/%m/%Y às %H:%M")}.'), 400
+                except:
+                    pass  # Se não conseguir parsear a data, continua
+            
+            # Carrega os dados do JSON
+            dados_cotacao = json.loads(cotacao_ext['dados_json'])
             print(f"[EXTERNO] Renderizando cotação para: {dados_cotacao.get('fornecedor', {}).get('nome', 'N/A')}")
             
-            # Renderiza usando template cotacao.html (da pasta templates/externo)
+            # Renderiza template
             return render_template('externo/cotacao_externa.html', 
                 dados=dados_cotacao,
-                cotacao=dados_cotacao,  # Para compatibilidade
+                cotacao=dados_cotacao,
                 token=token,
-                expires_at=cotacao_mem['expires_at'].strftime('%d/%m/%Y às %H:%M'),
+                expires_at=cotacao_ext.get('expira_em', ''),
                 ano_atual=datetime.now().year)
         
-        # === SEGUNDO: VERIFICA NO BANCO DE DADOS LOCAL ===
-        print(f"[EXTERNO] Token não está na memória, verificando banco...")
+        # === SEGUNDO: VERIFICA NA TABELA cotacao_json_envios (LEGADO) ===
+        print(f"[EXTERNO] Token não encontrado em cotacoes_externas, verificando tabela legada...")
         envio = db.obter_envio_json_por_token(token)
         
-        print(f"[EXTERNO] Resultado da busca no banco: {envio is not None}")
-        
         if not envio:
-            print(f"[EXTERNO] Token não encontrado: {token[:20]}...")
+            print(f"[EXTERNO] Token não encontrado em nenhuma tabela: {token[:20]}...")
             return render_template('externo/erro.html', 
                 erro='Link de cotação inválido ou expirado.',
                 mensagem='Por favor, solicite um novo link ao comprador.'), 404
         
-        print(f"[EXTERNO] Envio encontrado no banco: ID={envio.get('id')}, Status={envio.get('status')}")
+        print(f"[EXTERNO] Envio encontrado na tabela legada: ID={envio.get('id')}, Status={envio.get('status')}")
         
         # Verifica se já foi respondido
         if envio.get('status') == 'Importado':
@@ -1391,30 +1399,19 @@ def cotacao_externa_publica(token):
         
         # Tenta carregar os dados do JSON
         dados_cotacao = None
-        
-        # Primeiro tenta do arquivo
         arquivo_json = envio.get('arquivo_json_gerado')
-        print(f"[EXTERNO] Arquivo JSON: {arquivo_json}")
         
         if arquivo_json and os.path.exists(arquivo_json):
-            print(f"[EXTERNO] Arquivo existe, carregando...")
             with open(arquivo_json, 'r', encoding='utf-8') as f:
                 dados_cotacao = json.load(f)
         else:
-            print(f"[EXTERNO] Arquivo não existe, tentando reconstruir dados...")
-            # Arquivo não existe (comum no Render após redeploy)
-            # Tenta reconstruir os dados da cotação
             dados_cotacao = reconstruir_dados_cotacao(envio)
         
         if not dados_cotacao:
-            print(f"[EXTERNO] Falha ao carregar dados da cotação")
             return render_template('externo/erro.html', 
                 erro='Arquivo de cotação não encontrado.',
                 mensagem='Por favor, solicite um novo link ao comprador.'), 404
         
-        print(f"[EXTERNO] Dados carregados com sucesso, renderizando template")
-        
-        # Renderiza template independente (sem menus/navegação do sistema interno)
         return render_template('externo/cotacao_externa.html', 
             dados=dados_cotacao,
             token=token,
@@ -1435,8 +1432,8 @@ def enviar_cotacao_externa(token):
     Rota POST para receber a resposta da cotação externa.
     O token é recebido pela URL para garantir consistência.
     
-    Verifica PRIMEIRO na memória (cotacoes_externas_memoria),
-    depois no banco de dados local.
+    Verifica PRIMEIRO na tabela cotacoes_externas (persistente),
+    depois na tabela cotacao_json_envios (legado).
     """
     print("="*60)
     print("TOKEN NO POST:", token)
@@ -1450,14 +1447,16 @@ def enviar_cotacao_externa(token):
         if not dados:
             return jsonify({'success': False, 'error': 'Dados não recebidos'}), 400
         
-        # === PRIMEIRO: VERIFICA NA MEMÓRIA ===
-        if token in cotacoes_externas_memoria:
-            print(f"[ENVIAR COTAÇÃO] Token encontrado na MEMÓRIA")
-            cotacao_mem = cotacoes_externas_memoria[token]
+        # === PRIMEIRO: VERIFICA NA TABELA cotacoes_externas (PERSISTENTE) ===
+        cotacao_ext = db.obter_cotacao_externa_por_token(token)
+        
+        if cotacao_ext:
+            print(f"[ENVIAR COTAÇÃO] Token encontrado no BANCO DE DADOS")
+            print(f"[ENVIAR COTAÇÃO] Status atual: {cotacao_ext['status']}")
             
-            # Log do status atual
-            print(f"[ENVIAR COTAÇÃO] Status atual: {cotacao_mem.get('status')}")
-            print(f"[ENVIAR COTAÇÃO] Expira em: {cotacao_mem.get('expires_at')}")
+            # Verifica se já foi respondida
+            if cotacao_ext['status'] == 'respondida':
+                return jsonify({'success': False, 'error': 'Esta cotação já foi respondida'}), 400
             
             # Processa a resposta
             itens_processados = 0
@@ -1466,50 +1465,47 @@ def enviar_cotacao_externa(token):
                 if preco and preco > 0:
                     itens_processados += 1
             
-            # Marca como respondida
-            cotacoes_externas_memoria[token]['status'] = 'respondida'
-            cotacoes_externas_memoria[token]['resposta'] = {
-                'dados': dados,
-                'data_resposta': datetime.now().isoformat(),
-                'itens_processados': itens_processados
-            }
+            # Salva a resposta no banco
+            ip_resposta = request.remote_addr
+            sucesso = db.atualizar_resposta_cotacao_externa(
+                token=token,
+                resposta_json=json.dumps(dados, ensure_ascii=False),
+                ip_resposta=ip_resposta
+            )
             
-            print(f"[ENVIAR COTAÇÃO] Cotação marcada como respondida. {itens_processados} itens.")
-            
-            return jsonify({
-                'success': True,
-                'message': f'Cotação enviada com sucesso! {itens_processados} item(ns) processado(s).',
-                'itens_processados': itens_processados
-            })
+            if sucesso:
+                print(f"[ENVIAR COTAÇÃO] Resposta salva no banco. {itens_processados} itens.")
+                return jsonify({
+                    'success': True,
+                    'message': f'Cotação enviada com sucesso! {itens_processados} item(ns) processado(s).',
+                    'itens_processados': itens_processados
+                })
+            else:
+                return jsonify({'success': False, 'error': 'Erro ao salvar resposta'}), 500
         
-        # === SEGUNDO: VERIFICA NO BANCO DE DADOS LOCAL ===
-        print(f"[ENVIAR COTAÇÃO] Token não na memória, verificando banco...")
+        # === SEGUNDO: VERIFICA NA TABELA cotacao_json_envios (LEGADO) ===
+        print(f"[ENVIAR COTAÇÃO] Token não encontrado em cotacoes_externas, verificando tabela legada...")
         envio = db.obter_envio_json_por_token(token)
         
         if not envio:
-            print(f"[ENVIAR COTAÇÃO] Token NÃO encontrado em nenhum lugar!")
+            print(f"[ENVIAR COTAÇÃO] Token NÃO encontrado em nenhuma tabela!")
             return jsonify({'success': False, 'error': 'Token inválido ou expirado'}), 400
         
-        print(f"[ENVIAR COTAÇÃO] Encontrado no banco. ID={envio.get('id')}")
+        print(f"[ENVIAR COTAÇÃO] Encontrado na tabela legada. ID={envio.get('id')}")
         
-        # Processa resposta do banco
-        cotacao_id = envio['cotacao_id']
+        # Processa resposta do banco legado
         fornecedor_id = envio['fornecedor_id']
         itens_processados = 0
         
         for item in dados.get('itens', []):
             preco = item.get('preco_unitario', 0)
-            prazo = item.get('prazo_entrega', 0)
-            
             if preco and preco > 0:
-                # Busca o ID real do item baseado no índice
-                # Por enquanto apenas conta
                 itens_processados += 1
         
         # Atualiza status
         db.atualizar_status_fornecedor(fornecedor_id, 'Respondido')
         
-        print(f"[ENVIAR COTAÇÃO] Processado do banco. {itens_processados} itens.")
+        print(f"[ENVIAR COTAÇÃO] Processado da tabela legada. {itens_processados} itens.")
         
         return jsonify({
             'success': True,

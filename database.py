@@ -292,6 +292,28 @@ def init_database():
         )
     ''')
     
+    # ==========================================================================
+    # TABELA: COTAÇÕES EXTERNAS (RENDER) - PERSISTÊNCIA PARA LINKS PÚBLICOS
+    # ==========================================================================
+    # Esta tabela armazena as cotações externas criadas via API do Render.
+    # Substitui o armazenamento em memória para garantir persistência após deploys.
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS cotacoes_externas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token TEXT UNIQUE NOT NULL,
+            dados_json TEXT NOT NULL,
+            status TEXT DEFAULT 'aberta',
+            criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expira_em TIMESTAMP,
+            respondido_em TIMESTAMP,
+            resposta_json TEXT,
+            ip_criacao TEXT,
+            ip_resposta TEXT
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacoes_externas_token ON cotacoes_externas(token)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacoes_externas_status ON cotacoes_externas(status)')
+    
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_avaliacao_iso_fornecedor ON avaliacao_fornecedores_iso(cod_fornecedor)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_avaliacao_iso_vencimento ON avaliacao_fornecedores_iso(data_vencimento)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_avaliacao_iso_docs ON avaliacao_iso_documentos(avaliacao_id)')
@@ -1700,6 +1722,156 @@ def obter_ultimo_email_avaliacao(avaliacao_id):
     email = cursor.fetchone()
     conn.close()
     return dict(email) if email else None
+
+
+# =============================================================================
+# FUNÇÕES: COTAÇÕES EXTERNAS (RENDER) - PERSISTÊNCIA PARA LINKS PÚBLICOS
+# =============================================================================
+
+def criar_cotacao_externa(token, dados_json, expira_em, ip_criacao=None):
+    """
+    Cria uma nova cotação externa no banco de dados.
+    Substitui o armazenamento em memória para garantir persistência.
+    
+    Args:
+        token: Token único gerado para a cotação
+        dados_json: Dados da cotação em formato JSON string
+        expira_em: Data/hora de expiração
+        ip_criacao: IP de onde foi criada a cotação
+    
+    Returns:
+        ID da cotação criada
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        INSERT INTO cotacoes_externas (token, dados_json, status, expira_em, ip_criacao)
+        VALUES (?, ?, 'aberta', ?, ?)
+    ''', (token, dados_json, expira_em, ip_criacao))
+    
+    cotacao_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    print(f"[DB] Cotação externa criada: ID={cotacao_id}, Token={token[:20]}...")
+    return cotacao_id
+
+
+def obter_cotacao_externa_por_token(token):
+    """
+    Busca uma cotação externa pelo token.
+    
+    Args:
+        token: Token único da cotação
+    
+    Returns:
+        Dicionário com dados da cotação ou None se não encontrada
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT * FROM cotacoes_externas WHERE token = ?
+    ''', (token,))
+    
+    cotacao = cursor.fetchone()
+    conn.close()
+    
+    if cotacao:
+        result = dict(cotacao)
+        print(f"[DB] Cotação externa encontrada: ID={result['id']}, Status={result['status']}")
+        return result
+    else:
+        print(f"[DB] Cotação externa NÃO encontrada: Token={token[:20]}...")
+        return None
+
+
+def atualizar_resposta_cotacao_externa(token, resposta_json, ip_resposta=None):
+    """
+    Atualiza uma cotação externa com a resposta do fornecedor.
+    
+    Args:
+        token: Token da cotação
+        resposta_json: Resposta em formato JSON string
+        ip_resposta: IP de onde veio a resposta
+    
+    Returns:
+        True se atualizado com sucesso, False se não encontrado
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        UPDATE cotacoes_externas 
+        SET status = 'respondida', 
+            respondido_em = CURRENT_TIMESTAMP,
+            resposta_json = ?,
+            ip_resposta = ?
+        WHERE token = ? AND status = 'aberta'
+    ''', (resposta_json, ip_resposta, token))
+    
+    rows_affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+    
+    if rows_affected > 0:
+        print(f"[DB] Cotação externa respondida: Token={token[:20]}...")
+        return True
+    else:
+        print(f"[DB] Falha ao responder cotação externa: Token={token[:20]}...")
+        return False
+
+
+def listar_cotacoes_externas(status=None, limite=100):
+    """
+    Lista cotações externas, opcionalmente filtradas por status.
+    
+    Args:
+        status: Filtrar por status ('aberta', 'respondida', 'expirada')
+        limite: Número máximo de resultados
+    
+    Returns:
+        Lista de cotações
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    if status:
+        cursor.execute('''
+            SELECT id, token, status, criado_em, expira_em, respondido_em 
+            FROM cotacoes_externas 
+            WHERE status = ?
+            ORDER BY criado_em DESC
+            LIMIT ?
+        ''', (status, limite))
+    else:
+        cursor.execute('''
+            SELECT id, token, status, criado_em, expira_em, respondido_em 
+            FROM cotacoes_externas 
+            ORDER BY criado_em DESC
+            LIMIT ?
+        ''', (limite,))
+    
+    cotacoes = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return cotacoes
+
+
+def contar_cotacoes_externas():
+    """Conta cotações externas por status"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT status, COUNT(*) as total 
+        FROM cotacoes_externas 
+        GROUP BY status
+    ''')
+    
+    resultado = {row['status']: row['total'] for row in cursor.fetchall()}
+    conn.close()
+    return resultado
 
 
 # =============================================================================
