@@ -1241,44 +1241,6 @@
         </div>
     </div>
 
-    <!-- MODAL RESPONDER COTAÇÃO (mantido para preenchimento manual) -->
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Selecione o arquivo JSON de resposta</label>
-                        <input type="file" class="form-control form-control-lg" id="inputJsonArquivo" accept=".json">
-                        <small class="text-muted mt-1 d-block">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Selecione o arquivo JSON que o fornecedor preencheu e enviou de volta
-                        </small>
-                    </div>
-                    
-                    <div id="previewJsonImport" class="d-none">
-                        <div class="alert alert-info py-2">
-                            <i class="fas fa-file-code me-2"></i>
-                            <span id="nomeArquivoJson"></span>
-                        </div>
-                    </div>
-                    
-                    <div class="alert alert-warning small">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>Atenção:</strong> O sistema validará automaticamente:
-                        <ul class="mb-0 mt-1">
-                            <li>Token de identificação</li>
-                            <li>Integridade dos dados (hash)</li>
-                            <li>Estrutura do arquivo</li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="modal-footer justify-content-center">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-warning" id="btnImportarJson">
-                        <i class="fas fa-file-import me-1"></i> Importar Resposta
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- MODAL RESPONDER COTAÇÃO (POPUP PARA EDITAR/CRIAR RESPOSTAS) -->
     <div class="modal fade" id="modalResponderCotacao" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-xl">
@@ -2467,36 +2429,12 @@
         
         // ============ COTAÇÃO EXTERNA VIA JSON ============
         
-        // Botões Gerar JSON
+        // Botões Gerar JSON (legado - mantido para compatibilidade)
         document.querySelectorAll('.btn-gerar-json').forEach(btn => {
             btn.addEventListener('click', function() {
                 abrirModalGerarJson(this);
             });
         });
-        
-        // Botões Importar JSON
-        document.querySelectorAll('.btn-importar-json').forEach(btn => {
-            btn.addEventListener('click', function() {
-                abrirModalImportarJson(this);
-            });
-        });
-        
-        // Botão Gerar JSON dentro do modal
-        document.getElementById('btnGerarJson').addEventListener('click', gerarJsonCotacao);
-        
-        // Preview arquivo JSON importado
-        document.getElementById('inputJsonArquivo').addEventListener('change', function() {
-            const arquivo = this.files[0];
-            if (arquivo) {
-                document.getElementById('nomeArquivoJson').textContent = arquivo.name;
-                document.getElementById('previewJsonImport').classList.remove('d-none');
-            } else {
-                document.getElementById('previewJsonImport').classList.add('d-none');
-            }
-        });
-        
-        // Botão Importar JSON
-        document.getElementById('btnImportarJson').addEventListener('click', importarJsonResposta);
         
         // Destaque matriz
         destacarMelhoresMatriz();
@@ -2750,103 +2688,6 @@ Departamento de Compras`;
         }).catch(() => {
             mostrarToast('Erro ao copiar. Copie manualmente.', 'warning');
         });
-    }
-    
-    function abrirModalImportarJson(btn) {
-        const fornecedorId = btn.dataset.fornecedorId;
-        const fornecedorNome = btn.dataset.fornecedorNome;
-        
-        document.getElementById('importJsonFornecedorId').value = fornecedorId;
-        document.getElementById('importJsonFornecedorNome').textContent = fornecedorNome;
-        document.getElementById('inputJsonArquivo').value = '';
-        document.getElementById('previewJsonImport').classList.add('d-none');
-        
-        new bootstrap.Modal(document.getElementById('modalImportarJson')).show();
-    }
-    
-    async function gerarJsonCotacao() {
-        const fornecedorId = document.getElementById('jsonFornecedorId').value;
-        const btn = document.getElementById('btnGerarJson');
-        
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Gerando...';
-        
-        try {
-            const response = await fetch(`/api/cotacao/fornecedor/${fornecedorId}/gerar-json`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                document.getElementById('jsonNomeArquivo').textContent = data.arquivo;
-                document.getElementById('jsonDownloadLink').href = data.download_url;
-                document.getElementById('jsonGeradoInfo').classList.remove('d-none');
-                document.getElementById('btnGerarContainer').style.display = 'none';
-                
-                mostrarToast('Arquivo HTML gerado com sucesso!', 'success');
-            } else {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-file-export me-2"></i> Gerar Arquivo HTML';
-                mostrarToast('Erro: ' + data.error, 'danger');
-            }
-        } catch (error) {
-            console.error('[HTML] Erro ao gerar:', error);
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-file-export me-2"></i> Gerar Arquivo HTML';
-            mostrarToast('Erro ao gerar arquivo HTML', 'danger');
-        }
-    }
-    
-    async function importarJsonResposta() {
-        const fornecedorId = document.getElementById('importJsonFornecedorId').value;
-        const inputArquivo = document.getElementById('inputJsonArquivo');
-        const btn = document.getElementById('btnImportarJson');
-        
-        if (!inputArquivo.files || !inputArquivo.files[0]) {
-            mostrarToast('Selecione um arquivo JSON', 'warning');
-            return;
-        }
-        
-        const arquivo = inputArquivo.files[0];
-        
-        if (!arquivo.name.endsWith('.json')) {
-            mostrarToast('O arquivo deve ser do tipo JSON', 'warning');
-            return;
-        }
-        
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Importando...';
-        
-        try {
-            const formData = new FormData();
-            formData.append('arquivo', arquivo);
-            
-            const response = await fetch(`/api/cotacao/fornecedor/${fornecedorId}/importar-json`, {
-                method: 'POST',
-                body: formData
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                bootstrap.Modal.getInstance(document.getElementById('modalImportarJson')).hide();
-                mostrarToast(data.message, 'success');
-                
-                // Recarrega página para mostrar as respostas importadas
-                setTimeout(() => location.reload(), 1500);
-            } else {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-file-import me-1"></i> Importar Resposta';
-                mostrarToast('Erro: ' + data.error, 'danger');
-            }
-        } catch (error) {
-            console.error('[JSON] Erro ao importar:', error);
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-file-import me-1"></i> Importar Resposta';
-            mostrarToast('Erro ao importar JSON', 'danger');
-        }
     }
 
 

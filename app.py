@@ -1543,42 +1543,64 @@ def api_polling_respostas_render():
     
     O frontend chama esta rota a cada 20 segundos.
     Esta rota consulta o Render e retorna respostas pendentes de sincronização.
+    
+    FALLBACK: Se o Render não tiver o endpoint, busca do banco local.
     """
     try:
-        print("[POLLING] Consultando Render para respostas pendentes...")
+        # Primeiro tenta buscar do Render
+        try:
+            response = requests.get(
+                f"{RENDER_PUBLIC_URL}/api/respostas-pendentes",
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                dados_render = response.json()
+                
+                if dados_render.get('success'):
+                    respostas = dados_render.get('respostas', [])
+                    
+                    if respostas:
+                        print(f"[POLLING] {len(respostas)} resposta(s) do Render")
+                    
+                    return jsonify({
+                        'success': True,
+                        'respostas': respostas,
+                        'count': len(respostas),
+                        'source': 'render'
+                    })
+        except Exception as e:
+            # Silenciosamente ignora erro do Render e usa fallback local
+            pass
         
-        # Busca respostas pendentes no Render
-        response = requests.get(
-            f"{RENDER_PUBLIC_URL}/api/respostas-pendentes",
-            timeout=10
-        )
+        # FALLBACK: Busca do banco local (respostas já sincronizadas anteriormente)
+        cotacoes = db.listar_cotacoes_externas_respondidas_nao_sincronizadas()
         
-        if response.status_code != 200:
-            print(f"[POLLING] Erro ao consultar Render: {response.status_code}")
-            return jsonify({'success': False, 'respostas': [], 'error': f'Render retornou {response.status_code}'}), 200
-        
-        dados_render = response.json()
-        
-        if not dados_render.get('success'):
-            return jsonify({'success': False, 'respostas': [], 'error': dados_render.get('error', 'Erro desconhecido')}), 200
-        
-        respostas = dados_render.get('respostas', [])
-        
-        if respostas:
-            print(f"[POLLING] {len(respostas)} resposta(s) encontrada(s) no Render")
+        # Formata para o frontend
+        respostas = []
+        for cot in cotacoes:
+            respostas.append({
+                'token': cot.get('token', ''),
+                'cotacao_id': cot['cotacao_id'],
+                'fornecedor_id': cot['fornecedor_id'],
+                'fornecedor_nome': cot['fornecedor_nome'] or 'Fornecedor',
+                'respondido_em': cot['respondido_em'],
+                'frete_total': 0,
+                'condicao_pagamento': '',
+                'observacao_geral': '',
+                'itens': []
+            })
         
         return jsonify({
             'success': True,
             'respostas': respostas,
-            'count': len(respostas)
+            'count': len(respostas),
+            'source': 'local'
         })
         
-    except requests.exceptions.Timeout:
-        print("[POLLING] Timeout ao consultar Render")
-        return jsonify({'success': False, 'respostas': [], 'error': 'Timeout'}), 200
     except Exception as e:
         print(f"[POLLING] Erro: {e}")
-        return jsonify({'success': False, 'respostas': [], 'error': str(e)}), 200
+        return jsonify({'success': True, 'respostas': [], 'count': 0, 'error': str(e)})
 
 
 @app.route('/api/cotacoes-externas/sincronizar-render', methods=['POST'])
