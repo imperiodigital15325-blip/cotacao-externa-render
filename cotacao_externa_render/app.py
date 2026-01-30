@@ -44,8 +44,12 @@ API_SECRET_KEY = os.environ.get('API_SECRET_KEY', 'chave-secreta-compartilhada-t
 TOKEN_EXPIRATION_HOURS = int(os.environ.get('TOKEN_EXPIRATION_HOURS', 72))
 
 # =============================================================================
-# ARMAZENAMENTO EM MEMÓRIA (para POC - em produção usar Redis ou similar)
+# ARMAZENAMENTO COM PERSISTÊNCIA EM ARQUIVO JSON
 # =============================================================================
+# Para sobreviver reinícios do Render (plano gratuito hiberna após inatividade)
+# Em produção, considere Redis ou PostgreSQL para maior confiabilidade
+
+STORAGE_FILE = os.environ.get('STORAGE_FILE', 'cotacoes_storage.json')
 
 # Dicionário para armazenar cotações ativas
 # Estrutura: { token: { dados_cotacao, created_at, expires_at, status } }
@@ -54,6 +58,104 @@ cotacoes_ativas = {}
 # Dicionário para armazenar respostas
 # Estrutura: { token: { resposta_json, submitted_at } }
 respostas_enviadas = {}
+
+
+def salvar_dados_persistentes():
+    """
+    Salva cotações e respostas em arquivo JSON para persistência.
+    Chamado após cada alteração nos dicionários.
+    """
+    try:
+        dados = {
+            'cotacoes_ativas': {},
+            'respostas_enviadas': {},
+            'salvo_em': datetime.now().isoformat()
+        }
+        
+        # Converte cotações (datetime para string)
+        for token, cotacao in cotacoes_ativas.items():
+            dados['cotacoes_ativas'][token] = {
+                'dados': cotacao['dados'],
+                'created_at': cotacao['created_at'].isoformat() if isinstance(cotacao['created_at'], datetime) else cotacao['created_at'],
+                'expires_at': cotacao['expires_at'].isoformat() if isinstance(cotacao['expires_at'], datetime) else cotacao['expires_at'],
+                'status': cotacao.get('status', 'ativa')
+            }
+        
+        # Converte respostas (datetime para string)
+        for token, resposta in respostas_enviadas.items():
+            dados['respostas_enviadas'][token] = {
+                'dados': resposta.get('dados', resposta),
+                'submitted_at': resposta['submitted_at'].isoformat() if isinstance(resposta.get('submitted_at'), datetime) else resposta.get('submitted_at', datetime.now().isoformat())
+            }
+        
+        with open(STORAGE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(dados, f, ensure_ascii=False, indent=2)
+        
+        print(f"[PERSISTÊNCIA] Dados salvos em {STORAGE_FILE}: {len(cotacoes_ativas)} cotações, {len(respostas_enviadas)} respostas")
+        return True
+        
+    except Exception as e:
+        print(f"[PERSISTÊNCIA] ERRO ao salvar dados: {e}")
+        return False
+
+
+def carregar_dados_persistentes():
+    """
+    Carrega cotações e respostas do arquivo JSON na inicialização.
+    """
+    global cotacoes_ativas, respostas_enviadas
+    
+    try:
+        if not os.path.exists(STORAGE_FILE):
+            print(f"[PERSISTÊNCIA] Arquivo {STORAGE_FILE} não existe. Iniciando vazio.")
+            return
+        
+        with open(STORAGE_FILE, 'r', encoding='utf-8') as f:
+            dados = json.load(f)
+        
+        # Carrega cotações (string para datetime)
+        cotacoes_carregadas = dados.get('cotacoes_ativas', {})
+        for token, cotacao in cotacoes_carregadas.items():
+            try:
+                cotacoes_ativas[token] = {
+                    'dados': cotacao['dados'],
+                    'created_at': datetime.fromisoformat(cotacao['created_at']) if isinstance(cotacao['created_at'], str) else cotacao['created_at'],
+                    'expires_at': datetime.fromisoformat(cotacao['expires_at']) if isinstance(cotacao['expires_at'], str) else cotacao['expires_at'],
+                    'status': cotacao.get('status', 'ativa')
+                }
+            except Exception as e:
+                print(f"[PERSISTÊNCIA] Erro ao carregar cotação {token[:20]}...: {e}")
+        
+        # Carrega respostas (string para datetime)
+        respostas_carregadas = dados.get('respostas_enviadas', {})
+        for token, resposta in respostas_carregadas.items():
+            try:
+                respostas_enviadas[token] = {
+                    'dados': resposta.get('dados', resposta),
+                    'submitted_at': datetime.fromisoformat(resposta['submitted_at']) if isinstance(resposta.get('submitted_at'), str) else datetime.now()
+                }
+            except Exception as e:
+                print(f"[PERSISTÊNCIA] Erro ao carregar resposta {token[:20]}...: {e}")
+        
+        salvo_em = dados.get('salvo_em', 'desconhecido')
+        print(f"[PERSISTÊNCIA] Dados carregados de {STORAGE_FILE}")
+        print(f"[PERSISTÊNCIA] - {len(cotacoes_ativas)} cotações ativas")
+        print(f"[PERSISTÊNCIA] - {len(respostas_enviadas)} respostas")
+        print(f"[PERSISTÊNCIA] - Último salvamento: {salvo_em}")
+        
+    except json.JSONDecodeError as e:
+        print(f"[PERSISTÊNCIA] ERRO: Arquivo JSON corrompido: {e}")
+        # Faz backup do arquivo corrompido
+        if os.path.exists(STORAGE_FILE):
+            backup_name = f"{STORAGE_FILE}.backup.{int(time.time())}"
+            os.rename(STORAGE_FILE, backup_name)
+            print(f"[PERSISTÊNCIA] Backup criado: {backup_name}")
+    except Exception as e:
+        print(f"[PERSISTÊNCIA] ERRO ao carregar dados: {e}")
+
+
+# Carrega dados ao iniciar a aplicação
+carregar_dados_persistentes()
 
 # =============================================================================
 # FUNÇÕES DE SEGURANÇA
@@ -226,6 +328,9 @@ def api_responder():
         # Atualiza status da cotação
         cotacoes_ativas[token]['status'] = 'respondida'
         
+        # *** PERSISTE DADOS APÓS RESPOSTA ***
+        salvar_dados_persistentes()
+        
         return jsonify({
             'success': True,
             'message': 'Cotação enviada com sucesso!',
@@ -279,6 +384,9 @@ def api_registrar_cotacao():
             'expires_at': expires_at,
             'status': 'ativa'
         }
+        
+        # *** PERSISTE DADOS APÓS CRIAR COTAÇÃO ***
+        salvar_dados_persistentes()
         
         # Monta URL do link
         base_url = os.environ.get('BASE_URL', request.host_url.rstrip('/'))
@@ -473,6 +581,9 @@ def api_invalidar_cotacao(token):
     if token in respostas_enviadas:
         del respostas_enviadas[token]
     
+    # *** PERSISTE DADOS APÓS INVALIDAR ***
+    salvar_dados_persistentes()
+    
     return jsonify({
         'success': True,
         'message': 'Cotação invalidada com sucesso'
@@ -579,6 +690,9 @@ def api_criar_cotacao_externa():
             'expires_at': expires_at,
             'status': 'ativa'
         }
+        
+        # *** PERSISTE DADOS APÓS CRIAR COTAÇÃO EXTERNA ***
+        salvar_dados_persistentes()
         
         # Monta URL do link usando o domínio correto
         # Usa BASE_URL do ambiente ou constrói a partir do host
@@ -805,6 +919,79 @@ def api_status_cotacao(token):
         'fornecedor_nome': cotacao['dados'].get('fornecedor', {}).get('nome', 'N/A'),
         'cotacao_id': cotacao['dados'].get('cotacao_id'),
         'fornecedor_id': cotacao['dados'].get('fornecedor', {}).get('id')
+    })
+
+
+# =============================================================================
+# ENDPOINT DE DIAGNÓSTICO
+# =============================================================================
+
+@app.route('/api/diagnostico', methods=['GET'])
+def api_diagnostico():
+    """
+    Endpoint de diagnóstico para verificar estado do servidor.
+    Útil para debug e monitoramento.
+    
+    Retorna:
+    - Número de cotações ativas
+    - Número de respostas
+    - Lista de tokens (truncados)
+    - Status da persistência
+    """
+    try:
+        # Lista cotações ativas (com tokens truncados por segurança)
+        cotacoes_info = []
+        for token, cotacao in cotacoes_ativas.items():
+            cotacoes_info.append({
+                'token_preview': token[:20] + '...',
+                'fornecedor': cotacao['dados'].get('fornecedor', {}).get('nome', 'N/A'),
+                'cotacao_id': cotacao['dados'].get('cotacao_id'),
+                'status': cotacao.get('status', 'ativa'),
+                'created_at': cotacao['created_at'].isoformat() if isinstance(cotacao['created_at'], datetime) else str(cotacao['created_at']),
+                'expires_at': cotacao['expires_at'].isoformat() if isinstance(cotacao['expires_at'], datetime) else str(cotacao['expires_at']),
+                'respondida': token in respostas_enviadas
+            })
+        
+        # Verifica arquivo de persistência
+        persistencia_ok = os.path.exists(STORAGE_FILE)
+        persistencia_tamanho = os.path.getsize(STORAGE_FILE) if persistencia_ok else 0
+        
+        return jsonify({
+            'success': True,
+            'status': 'online',
+            'timestamp': datetime.now().isoformat(),
+            'estatisticas': {
+                'cotacoes_ativas': len(cotacoes_ativas),
+                'respostas_enviadas': len(respostas_enviadas),
+                'persistencia_arquivo': STORAGE_FILE,
+                'persistencia_existe': persistencia_ok,
+                'persistencia_tamanho_bytes': persistencia_tamanho
+            },
+            'cotacoes': cotacoes_info,
+            'ambiente': {
+                'token_expiration_hours': TOKEN_EXPIRATION_HOURS,
+                'base_url': os.environ.get('BASE_URL', 'não configurado')
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/health', methods=['GET'])
+def api_health():
+    """
+    Endpoint simples de health check.
+    Usado pelo Render para verificar se a aplicação está rodando.
+    """
+    return jsonify({
+        'status': 'ok',
+        'timestamp': datetime.now().isoformat(),
+        'cotacoes_ativas': len(cotacoes_ativas),
+        'respostas_pendentes': len(respostas_enviadas)
     })
 
 
