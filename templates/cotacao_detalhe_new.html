@@ -455,13 +455,21 @@
                                     </button>
                                 </td>
                                 <td>
-                                    <!-- Botão único para gerar link externo -->
-                                    <button class="btn btn-sm btn-success btn-gerar-link-externo"
-                                            data-fornecedor-id="{{ forn.id }}"
-                                            data-fornecedor-nome="{{ forn.nome_fornecedor }}"
-                                            title="Gerar link de cotação externa para o fornecedor">
-                                        <i class="fas fa-link me-1"></i>Gerar Link
-                                    </button>
+                                    <!-- Botões de Cotação Externa -->
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-success btn-gerar-link-externo"
+                                                data-fornecedor-id="{{ forn.id }}"
+                                                data-fornecedor-nome="{{ forn.nome_fornecedor }}"
+                                                title="Gerar link de cotação externa para o fornecedor">
+                                            <i class="fas fa-link me-1"></i>Gerar Link
+                                        </button>
+                                        <button class="btn btn-outline-primary btn-importar-render"
+                                                data-fornecedor-id="{{ forn.id }}"
+                                                data-fornecedor-nome="{{ forn.nome_fornecedor }}"
+                                                title="Verificar/importar resposta do Render">
+                                            <i class="fas fa-download"></i>
+                                        </button>
+                                    </div>
                                 </td>
                                 <td class="text-center">
                                     {% if forn.tem_anexo and forn.tem_anexo > 0 %}
@@ -1216,16 +1224,6 @@
                             <small>
                                 <i class="fas fa-info-circle me-1"></i>
                                 <strong>Sincronização automática:</strong> Quando o fornecedor responder, você receberá uma notificação e os dados serão atualizados automaticamente.
-                            </small>
-                        </div>
-                        
-                        <!-- Botão de importação manual -->
-                        <div class="mt-3 pt-3 border-top">
-                            <button type="button" class="btn btn-outline-success w-100" onclick="importarRespostaRender()">
-                                <i class="fas fa-download me-2"></i>Verificar/Importar Resposta do Render
-                            </button>
-                            <small class="text-muted d-block mt-2 text-center">
-                                Use este botão para verificar se o fornecedor já respondeu e importar os dados
                             </small>
                         </div>
                     </div>
@@ -3142,53 +3140,6 @@ Departamento de Compras`;
         }
     }
     
-    // Importa resposta manualmente do Render
-    async function importarRespostaRender() {
-        const fornecedorId = document.getElementById('linkExternoFornecedorId').value;
-        
-        if (!fornecedorId) {
-            mostrarToast('Erro: ID do fornecedor não encontrado', 'danger');
-            return;
-        }
-        
-        // Mostra loading
-        const btn = event.target.closest('button');
-        const originalHtml = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Verificando...';
-        
-        try {
-            const response = await fetch(`/api/cotacao/fornecedor/${fornecedorId}/importar-resposta-render`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                mostrarToast(data.message || 'Resposta importada com sucesso!', 'success');
-                
-                // Fecha o modal e recarrega a página para mostrar os dados
-                const modal = bootstrap.Modal.getInstance(document.getElementById('modalGerarLinkExterno'));
-                if (modal) modal.hide();
-                
-                // Aguarda um pouco e recarrega
-                setTimeout(() => {
-                    location.reload();
-                }, 1500);
-            } else {
-                mostrarToast(data.error || 'Erro ao importar resposta', 'warning');
-            }
-            
-        } catch (error) {
-            console.error('[IMPORTAR] Erro:', error);
-            mostrarToast('Erro de conexão: ' + error.message, 'danger');
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
-        }
-    }
-    
     // Copia o link externo
     function copiarLinkExternoSimplificado() {
         const link = document.getElementById('linkExternoGerado');
@@ -3248,6 +3199,13 @@ Setor de Compras`;
             });
         });
         
+        // Botão de importar resposta do Render
+        document.querySelectorAll('.btn-importar-render').forEach(btn => {
+            btn.addEventListener('click', function() {
+                importarRespostaRenderDireto(this);
+            });
+        });
+        
         // Mantém compatibilidade com botão antigo (se existir)
         document.querySelectorAll('.btn-gerar-json').forEach(btn => {
             btn.addEventListener('click', function() {
@@ -3255,6 +3213,46 @@ Setor de Compras`;
             });
         });
     });
+    
+    // Importa resposta do Render diretamente (sem abrir modal)
+    async function importarRespostaRenderDireto(btn) {
+        const fornecedorId = btn.dataset.fornecedorId;
+        const fornecedorNome = btn.dataset.fornecedorNome || 'Fornecedor';
+        
+        if (!fornecedorId) {
+            mostrarToast('Erro: ID do fornecedor não encontrado', 'danger');
+            return;
+        }
+        
+        // Mostra loading
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
+        try {
+            const response = await fetch(`/api/cotacao/fornecedor/${fornecedorId}/importar-resposta-render`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                mostrarToast(`✅ ${data.message || 'Resposta importada!'}`, 'success');
+                // Recarrega após 1.5 segundos
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                mostrarToast(`⚠️ ${data.error || 'Erro ao importar'}`, 'warning');
+            }
+            
+        } catch (error) {
+            console.error('[IMPORTAR] Erro:', error);
+            mostrarToast('❌ Erro de conexão: ' + error.message, 'danger');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
 
     // ============================================================================
     // POLLING - SINCRONIZAÇÃO AUTOMÁTICA DE COTAÇÕES EXTERNAS
