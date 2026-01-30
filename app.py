@@ -17,6 +17,28 @@ import database as db
 app = Flask(__name__)
 app.secret_key = 'sua_chave_secreta_aqui'
 
+# =============================================================================
+# CONFIGURAÇÃO DO DOMÍNIO PÚBLICO (RENDER)
+# =============================================================================
+# Este é o domínio público do Render onde o sistema está hospedado.
+# SEMPRE use esta URL para gerar links externos de cotação.
+# Nunca use localhost, 127.0.0.1 ou request.host_url para links públicos.
+# =============================================================================
+RENDER_PUBLIC_URL = os.environ.get('RENDER_PUBLIC_URL', 'https://projeto-compras-2.onrender.com')
+
+def gerar_link_externo_cotacao(token):
+    """
+    Gera o link público externo para cotação.
+    SEMPRE usa o domínio do Render, nunca localhost.
+    
+    Args:
+        token: Token único da cotação
+    
+    Returns:
+        URL pública no formato: https://xxx.onrender.com/externo/<token>
+    """
+    return f"{RENDER_PUBLIC_URL}/externo/{token}"
+
 # --- FUNÇÕES AUXILIARES: DATAS PADRÃO ---
 def get_data_inicio_padrao():
     """Retorna a data de início padrão (01/01 do ano atual)"""
@@ -7055,12 +7077,15 @@ def api_gerar_link_externo(fornecedor_id):
             usuario=usuario
         )
         
-        # Gera link externo usando a rota pública /externo/<token>
-        # Esta é a única rota acessível publicamente no Render
-        link_externo = url_for('cotacao_externa_publica', token=token_envio, _external=True)
+        # Atualiza status do fornecedor para "Link Gerado"
+        db.atualizar_status_fornecedor(fornecedor_id, 'Link Gerado')
         
-        # Também gera link para download do JSON
-        link_download_json = url_for('api_download_json_cotacao', token=token_envio, _external=True)
+        # Gera link externo usando o domínio público do Render
+        # IMPORTANTE: Nunca usar url_for com _external=True pois retorna localhost
+        link_externo = gerar_link_externo_cotacao(token_envio)
+        
+        # Link para download do JSON (também usa domínio público)
+        link_download_json = f"{RENDER_PUBLIC_URL}/api/cotacao/json/download/{token_envio}"
         
         print(f"[COTAÇÃO EXTERNA] Link gerado para {fornecedor['nome_fornecedor']}: {link_externo}")
         
@@ -7989,96 +8014,159 @@ except ImportError:
 def api_gerar_link_render(fornecedor_id):
     """
     API para gerar link de cotação externa (Render/Internet).
-    Envia os dados da cotação para a aplicação externa e retorna o link.
-    """
-    if not cotacao_externa_client:
-        return jsonify({
-            'success': False, 
-            'error': 'Módulo de cotação externa não está configurado'
-        }), 500
+    Redireciona para a rota principal de geração de link externo.
     
+    Nota: Esta rota agora usa o mesmo fluxo de /gerar-link-externo,
+    gerando o token localmente e usando a rota pública /externo/<token>.
+    """
     try:
-        # Buscar dados do fornecedor e cotação
+        # Usar a mesma lógica da rota gerar-link-externo
         conn = db.get_db_connection()
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT f.*, c.id as cotacao_id, c.codigo, c.observacoes, c.informacao_fornecedor, c.data_validade
+            SELECT f.*, c.codigo as cotacao_codigo, c.id as cotacao_id,
+                   c.observacoes as cotacao_observacoes, c.informacao_fornecedor
             FROM cotacao_fornecedores f
             JOIN cotacoes c ON f.cotacao_id = c.id
             WHERE f.id = ?
         ''', (fornecedor_id,))
-        
         fornecedor = cursor.fetchone()
         
         if not fornecedor:
             conn.close()
             return jsonify({'success': False, 'error': 'Fornecedor não encontrado'}), 404
         
-        fornecedor = dict(fornecedor)
-        cotacao_id = fornecedor['cotacao_id']
-        
-        # Buscar itens da cotação
-        cursor.execute('SELECT * FROM cotacao_itens WHERE cotacao_id = ?', (cotacao_id,))
-        itens = [dict(row) for row in cursor.fetchall()]
+        # Busca itens da cotação
+        cursor.execute('''
+            SELECT i.id, i.numero_sc, i.item_sc, i.cod_produto, i.descricao_produto as descricao, 
+                   i.quantidade, i.unidade, i.observacao
+            FROM cotacao_itens i
+            WHERE i.cotacao_id = ?
+            ORDER BY i.numero_sc, i.item_sc
+        ''', (fornecedor['cotacao_id'],))
+        itens = [dict(item) for item in cursor.fetchall()]
         conn.close()
         
         if not itens:
             return jsonify({'success': False, 'error': 'Cotação sem itens'}), 400
         
-        # Formatar itens para a API externa
-        itens_formatados = []
-        for item in itens:
-            itens_formatados.append({
-                'id': item['id'],
-                'cod_produto': item.get('cod_produto', ''),
-                'descricao': item.get('descricao_produto', ''),
-                'quantidade': float(item.get('quantidade', 0)),
-                'unidade': item.get('unidade', 'UN'),
-                'observacao': item.get('observacao', '')
-            })
+        # Gera token único usando secrets.token_urlsafe
+        token_envio = gerar_token_json()
         
-        # Registrar na aplicação externa
-        resultado = cotacao_externa_client.registrar_cotacao(
-            cotacao_id=cotacao_id,
-            codigo=fornecedor['codigo'],
+        # Monta estrutura do JSON
+        dados_cotacao = {
+            'versao': '1.0',
+            'tipo': 'SOLICITACAO_COTACAO',
+            'token': token_envio,
+            'data_geracao': datetime.now().isoformat(),
+            
+            'cotacao': {
+                'codigo': fornecedor['cotacao_codigo'],
+                'observacoes': fornecedor['cotacao_observacoes'] or '',
+                'informacao_fornecedor': fornecedor['informacao_fornecedor'] or ''
+            },
+            
+            'fornecedor': {
+                'id_interno': fornecedor['id'],
+                'nome': fornecedor['nome_fornecedor'],
+                'email': fornecedor['email_fornecedor'] or '',
+                'telefone': fornecedor['telefone_fornecedor'] or ''
+            },
+            
+            'itens': [
+                {
+                    'id': item['id'],
+                    'numero_sc': item['numero_sc'],
+                    'item_sc': item['item_sc'],
+                    'codigo_produto': item['cod_produto'] or '',
+                    'descricao': item['descricao'],
+                    'quantidade': item['quantidade'],
+                    'unidade': item['unidade'] or 'UN',
+                    'observacao': item['observacao'] or '',
+                    'resposta': {
+                        'preco_unitario': None,
+                        'prazo_entrega_dias': None,
+                        'observacao': None
+                    }
+                }
+                for item in itens
+            ],
+            
+            'resposta_geral': {
+                'frete_total': None,
+                'condicao_pagamento': None,
+                'observacao_geral': None,
+                'data_resposta': None
+            },
+            
+            'instrucoes': {
+                'preenchimento': [
+                    'Preencha o campo "preco_unitario" com o valor em reais',
+                    'Preencha "prazo_entrega_dias" com o número de dias para entrega',
+                    'Informe "frete_total" se houver custo de frete'
+                ],
+                'retorno': 'Após preencher, clique em Enviar Cotação'
+            }
+        }
+        
+        # Gera hash de validação
+        dados_para_hash = {
+            'token': token_envio,
+            'cotacao_codigo': fornecedor['cotacao_codigo'],
+            'fornecedor_id': fornecedor['id'],
+            'itens_ids': [item['id'] for item in itens]
+        }
+        hash_validacao = gerar_hash_validacao(dados_para_hash)
+        dados_cotacao['hash_validacao'] = hash_validacao
+        
+        # Salva arquivo JSON
+        json_dir = os.path.join('uploads', 'json_cotacoes')
+        os.makedirs(json_dir, exist_ok=True)
+        
+        nome_arquivo = f"cotacao_{fornecedor['cotacao_codigo']}_{fornecedor['nome_fornecedor'].replace(' ', '_')}_{token_envio[:8]}.json"
+        nome_arquivo = "".join(c for c in nome_arquivo if c.isalnum() or c in ['_', '-', '.'])
+        caminho_arquivo = os.path.join(json_dir, nome_arquivo)
+        
+        with open(caminho_arquivo, 'w', encoding='utf-8') as f:
+            json.dump(dados_cotacao, f, ensure_ascii=False, indent=2)
+        
+        # Registra no banco
+        usuario = session.get('username', 'Admin')
+        db.criar_envio_json(
+            cotacao_id=fornecedor['cotacao_id'],
             fornecedor_id=fornecedor_id,
-            fornecedor_nome=fornecedor['nome_fornecedor'],
-            itens=itens_formatados,
-            fornecedor_codigo=fornecedor.get('cod_fornecedor'),
-            fornecedor_email=fornecedor.get('email_fornecedor'),
-            data_validade=fornecedor.get('data_validade'),
-            informacao_fornecedor=fornecedor.get('informacao_fornecedor'),
-            expiration_hours=72  # 3 dias
+            token_envio=token_envio,
+            hash_validacao=hash_validacao,
+            arquivo_json=caminho_arquivo,
+            usuario=usuario
         )
         
-        if resultado.get('success'):
-            # Salvar o token externo no banco local (opcional, para rastreamento)
-            conn = db.get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('''
-                UPDATE cotacao_fornecedores 
-                SET token_externo = ?, link_externo = ?, data_envio_externo = ?
-                WHERE id = ?
-            ''', (resultado['token'], resultado['link'], datetime.now(), fornecedor_id))
-            conn.commit()
-            conn.close()
-            
-            return jsonify({
-                'success': True,
-                'link': resultado['link'],
-                'token': resultado['token'],
-                'expires_at': resultado['expires_at'],
-                'message': 'Link externo gerado com sucesso!'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': resultado.get('error', 'Erro ao gerar link externo')
-            }), 500
+        # Atualiza status do fornecedor para "Link Gerado"
+        db.atualizar_status_fornecedor(fornecedor_id, 'Link Gerado')
+        
+        # Gera link externo usando o domínio público do Render
+        # IMPORTANTE: Nunca usar url_for com _external=True pois retorna localhost
+        link_externo = gerar_link_externo_cotacao(token_envio)
+        
+        # Calcular data de expiração (72 horas)
+        expires_at = (datetime.now() + timedelta(hours=72)).isoformat()
+        
+        print(f"[LINK RENDER] Link gerado para {fornecedor['nome_fornecedor']}: {link_externo}")
+        
+        return jsonify({
+            'success': True,
+            'link': link_externo,
+            'link_externo': link_externo,
+            'token': token_envio,
+            'expires_at': expires_at,
+            'message': 'Link externo gerado com sucesso!',
+            'fornecedor': fornecedor['nome_fornecedor'],
+            'cotacao': fornecedor['cotacao_codigo']
+        })
             
     except Exception as e:
-        print(f"[ERRO] api_gerar_link_externo: {e}")
+        print(f"[ERRO] api_gerar_link_render: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500

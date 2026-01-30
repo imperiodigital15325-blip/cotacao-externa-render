@@ -2616,6 +2616,19 @@
         const fornecedorNome = btn.dataset.fornecedorNome;
         const fornecedorToken = btn.dataset.token;
         
+        // Debug - mostra no console os valores capturados
+        console.log('[MODAL] Abrindo modal para fornecedor:', {
+            id: fornecedorId,
+            nome: fornecedorNome,
+            token: fornecedorToken
+        });
+        
+        if (!fornecedorId) {
+            console.error('[MODAL] ERRO: fornecedorId está vazio!');
+            alert('Erro: ID do fornecedor não encontrado. Recarregue a página.');
+            return;
+        }
+        
         document.getElementById('jsonFornecedorId').value = fornecedorId;
         document.getElementById('jsonFornecedorToken').value = fornecedorToken;
         document.getElementById('jsonFornecedorNome').textContent = fornecedorNome;
@@ -2714,21 +2727,39 @@ Atenciosamente.`;
         const fornecedorId = document.getElementById('jsonFornecedorId').value;
         const btn = document.getElementById('btnGerarLinkRender');
         
+        // Validação do fornecedorId
+        if (!fornecedorId) {
+            mostrarToast('Erro: ID do fornecedor não encontrado', 'danger');
+            console.error('[LINK EXTERNO] fornecedorId está vazio ou undefined');
+            return;
+        }
+        
+        console.log('[LINK EXTERNO] Gerando link para fornecedor ID:', fornecedorId);
+        
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Gerando...';
         
         try {
-            const response = await fetch(`/api/cotacao/fornecedor/${fornecedorId}/gerar-link-render`, {
+            // Chama endpoint correto: /api/cotacao/fornecedor/<id>/gerar-link-externo
+            const response = await fetch(`/api/cotacao/fornecedor/${fornecedorId}/gerar-link-externo`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
             
+            // Verifica se a resposta é válida antes de fazer parse
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('[LINK EXTERNO] Resposta não é JSON:', text.substring(0, 500));
+                throw new Error('Servidor retornou resposta inválida (não é JSON)');
+            }
+            
             const data = await response.json();
             
             if (data.success) {
-                // Mostrar link gerado
-                document.getElementById('linkCotacaoRender').value = data.link;
-                document.getElementById('linkRenderNoTexto').textContent = data.link;
+                // Mostrar link gerado (usa data.link_externo do backend)
+                document.getElementById('linkCotacaoRender').value = data.link_externo;
+                document.getElementById('linkRenderNoTexto').textContent = data.link_externo;
                 document.getElementById('linkRenderContainer').style.display = 'block';
                 document.getElementById('textoRenderContainer').style.display = 'block';
                 document.getElementById('btnGerarLinkRenderContainer').style.display = 'none';
@@ -2737,16 +2768,18 @@ Atenciosamente.`;
                 btn.className = 'btn btn-success btn-lg';
                 
                 mostrarToast('Link externo gerado com sucesso!', 'success');
+                console.log('[LINK EXTERNO] Token:', data.token);
+                console.log('[LINK EXTERNO] URL:', data.link_externo);
             } else {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i> Gerar Link Externo';
                 mostrarToast('Erro: ' + (data.error || 'Erro ao gerar link'), 'danger');
             }
         } catch (error) {
-            console.error('[RENDER] Erro:', error);
+            console.error('[LINK EXTERNO] Erro:', error);
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i> Gerar Link Externo';
-            mostrarToast('Erro de conexão com servidor externo', 'danger');
+            mostrarToast('Erro: ' + error.message, 'danger');
         }
     }
     
