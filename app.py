@@ -32,6 +32,17 @@ app.secret_key = 'sua_chave_secreta_aqui'
 # =============================================================================
 RENDER_PUBLIC_URL = 'https://cotacao-externa-render.onrender.com'
 
+# =============================================================================
+# ARMAZENAMENTO EM MEMÓRIA PARA COTAÇÕES EXTERNAS (RENDER)
+# =============================================================================
+# Quando executado no Render, o banco de dados local não existe.
+# Por isso, cotações externas são armazenadas em memória.
+# Estrutura: { token: { dados, created_at, expires_at, status } }
+cotacoes_externas_memoria = {}
+
+# Tempo de expiração do token em horas (padrão: 72 horas)
+TOKEN_EXPIRATION_HOURS = 72
+
 def gerar_link_externo_cotacao(token):
     """
     Gera o link público externo para cotação.
@@ -1212,7 +1223,96 @@ def debug_token(token):
 @app.route('/health')
 def health_check():
     """Health check para o Render"""
-    return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
+    return jsonify({
+        'status': 'healthy', 
+        'timestamp': datetime.now().isoformat(),
+        'cotacoes_memoria': len(cotacoes_externas_memoria)
+    })
+
+
+# =============================================================================
+# API PARA CRIAR COTAÇÃO EXTERNA (CHAMADA PELO SISTEMA LOCAL)
+# =============================================================================
+
+@app.route('/api/criar-cotacao-externa', methods=['POST'])
+def api_criar_cotacao_externa():
+    """
+    API para o sistema interno (local) criar uma cotação externa.
+    
+    Esta rota é chamada pelo sistema local quando o usuário clica em 
+    "Gerar Link Externo". O sistema local envia os dados da cotação
+    e esta rota:
+    1. Gera um token único
+    2. Salva os dados em memória
+    3. Retorna o link público para o fornecedor
+    
+    IMPORTANTE: Esta rota NÃO requer autenticação para facilitar a integração.
+    Os dados são armazenados em memória (cotacoes_externas_memoria).
+    """
+    try:
+        dados = request.get_json()
+        
+        if not dados:
+            return jsonify({'success': False, 'error': 'Dados não recebidos'}), 400
+        
+        print(f"[API CRIAR COTAÇÃO] Dados recebidos")
+        
+        # Valida campos obrigatórios
+        if 'cotacao' not in dados:
+            return jsonify({'success': False, 'error': 'Campo "cotacao" é obrigatório'}), 400
+        if 'fornecedor' not in dados:
+            return jsonify({'success': False, 'error': 'Campo "fornecedor" é obrigatório'}), 400
+        if 'itens' not in dados:
+            return jsonify({'success': False, 'error': 'Campo "itens" é obrigatório'}), 400
+        
+        # Gera token único
+        import secrets
+        token = secrets.token_urlsafe(32)
+        
+        # Define expiração (72 horas por padrão)
+        expires_at = datetime.now() + timedelta(hours=TOKEN_EXPIRATION_HOURS)
+        
+        # Estrutura os dados da cotação para armazenamento
+        # IMPORTANTE: A estrutura deve corresponder ao que o template espera
+        dados_cotacao = {
+            'cotacao_id': dados['cotacao'].get('id'),
+            'codigo': dados['cotacao'].get('codigo'),
+            'observacoes': dados['cotacao'].get('observacoes', ''),
+            'informacao_fornecedor': dados['cotacao'].get('informacao_fornecedor', ''),
+            'fornecedor': dados['fornecedor'],
+            'itens': dados['itens'],
+            'usuario': dados.get('usuario', 'Sistema')
+        }
+        
+        # Armazena cotação em memória
+        cotacoes_externas_memoria[token] = {
+            'dados': dados_cotacao,
+            'created_at': datetime.now(),
+            'expires_at': expires_at,
+            'status': 'ativa'
+        }
+        
+        # Monta URL do link
+        link_externo = f"{RENDER_PUBLIC_URL}/externo/{token}"
+        
+        print(f"[API CRIAR COTAÇÃO] Token gerado: {token[:20]}...")
+        print(f"[API CRIAR COTAÇÃO] Link: {link_externo}")
+        print(f"[API CRIAR COTAÇÃO] Total em memória: {len(cotacoes_externas_memoria)}")
+        
+        return jsonify({
+            'success': True,
+            'token': token,
+            'link_externo': link_externo,
+            'expires_at': expires_at.isoformat(),
+            'message': 'Cotação externa criada com sucesso'
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_criar_cotacao_externa: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # =============================================================================
 # ROTA PÚBLICA EXTERNA - COTAÇÃO POR TOKEN
@@ -1228,6 +1328,10 @@ def cotacao_externa_publica(token):
     - Não exibe menus ou navegação interna
     - Template independente do sistema interno
     
+    Ordem de busca:
+    1. Primeiro verifica na memória (cotacoes_externas_memoria)
+    2. Se não encontrar, tenta no banco de dados local
+    
     Parâmetros:
         token (str): Token único de acesso à cotação
     
@@ -1238,19 +1342,47 @@ def cotacao_externa_publica(token):
     try:
         print(f"[EXTERNO] Acessando /externo/{token[:20]}...")
         
-        # === VALIDAÇÃO DO TOKEN ===
-        # Busca envio pelo token no banco de dados local
+        # === PRIMEIRO: VERIFICA NA MEMÓRIA (PARA RENDER) ===
+        if token in cotacoes_externas_memoria:
+            print(f"[EXTERNO] Token encontrado na MEMÓRIA")
+            cotacao_mem = cotacoes_externas_memoria[token]
+            
+            # Verifica expiração
+            if datetime.now() > cotacao_mem['expires_at']:
+                print(f"[EXTERNO] Cotação expirada")
+                return render_template('externo/erro.html', 
+                    erro='Esta cotação expirou.',
+                    mensagem=f'A cotação expirou em {cotacao_mem["expires_at"].strftime("%d/%m/%Y às %H:%M")}.'), 400
+            
+            # Verifica se já foi respondida
+            if cotacao_mem.get('status') == 'respondida':
+                return render_template('externo/ja_respondida.html', 
+                    mensagem='Esta cotação já foi respondida.'), 200
+            
+            dados_cotacao = cotacao_mem['dados']
+            print(f"[EXTERNO] Renderizando cotação para: {dados_cotacao.get('fornecedor', {}).get('nome', 'N/A')}")
+            
+            # Renderiza usando template cotacao.html (da pasta templates/externo)
+            return render_template('externo/cotacao_externa.html', 
+                dados=dados_cotacao,
+                cotacao=dados_cotacao,  # Para compatibilidade
+                token=token,
+                expires_at=cotacao_mem['expires_at'].strftime('%d/%m/%Y às %H:%M'),
+                ano_atual=datetime.now().year)
+        
+        # === SEGUNDO: VERIFICA NO BANCO DE DADOS LOCAL ===
+        print(f"[EXTERNO] Token não está na memória, verificando banco...")
         envio = db.obter_envio_json_por_token(token)
         
-        print(f"[EXTERNO] Resultado da busca: {envio is not None}")
+        print(f"[EXTERNO] Resultado da busca no banco: {envio is not None}")
         
         if not envio:
-            print(f"[EXTERNO] Token não encontrado no banco: {token[:20]}...")
+            print(f"[EXTERNO] Token não encontrado: {token[:20]}...")
             return render_template('externo/erro.html', 
                 erro='Link de cotação inválido ou expirado.',
                 mensagem='Por favor, solicite um novo link ao comprador.'), 404
         
-        print(f"[EXTERNO] Envio encontrado: ID={envio.get('id')}, Status={envio.get('status')}")
+        print(f"[EXTERNO] Envio encontrado no banco: ID={envio.get('id')}, Status={envio.get('status')}")
         
         # Verifica se já foi respondido
         if envio.get('status') == 'Importado':
