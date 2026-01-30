@@ -1121,9 +1121,93 @@ def diagnostico_variacao():
 
 
 # --- ROTAS ---
+
+# =============================================================================
+# ROTA PÚBLICA EXTERNA - COTAÇÃO POR TOKEN
+# =============================================================================
+
+@app.route('/externo/<token>')
+def cotacao_externa_publica(token):
+    """
+    Rota pública para acesso externo de cotação via token.
+    Esta é a ÚNICA rota que deve ser acessível publicamente.
+    
+    - Não requer autenticação
+    - Não exibe menus ou navegação interna
+    - Template independente do sistema interno
+    
+    Parâmetros:
+        token (str): Token único de acesso à cotação
+    
+    Retorna:
+        - Template de cotação externa se token válido
+        - Erro 404 se token inválido ou expirado
+    """
+    try:
+        # === VALIDAÇÃO DO TOKEN ===
+        # Busca envio pelo token no banco de dados local
+        envio = db.obter_envio_json_por_token(token)
+        
+        # TODO: Futuramente, validar token em banco de dados externo
+        # Exemplo de validação futura:
+        # ---
+        # token_valido = validar_token_no_banco(token)
+        # if not token_valido:
+        #     return render_template('externo/erro.html', 
+        #         erro='Token inválido',
+        #         mensagem='O link de acesso é inválido ou expirou.'), 404
+        # ---
+        
+        if not envio:
+            return render_template('externo/erro.html', 
+                erro='Link de cotação inválido ou expirado.',
+                mensagem='Por favor, solicite um novo link ao comprador.'), 404
+        
+        # Verifica se já foi respondido
+        if envio.get('status') == 'Importado':
+            return render_template('externo/ja_respondida.html', 
+                mensagem='Esta cotação já foi respondida.'), 200
+        
+        # Carrega os dados do JSON gerado
+        arquivo_json = envio.get('arquivo_json_gerado')
+        
+        if not arquivo_json or not os.path.exists(arquivo_json):
+            return render_template('externo/erro.html', 
+                erro='Arquivo de cotação não encontrado.',
+                mensagem='Por favor, solicite um novo link ao comprador.'), 404
+        
+        with open(arquivo_json, 'r', encoding='utf-8') as f:
+            dados_cotacao = json.load(f)
+        
+        # Renderiza template independente (sem menus/navegação do sistema interno)
+        return render_template('externo/cotacao_externa.html', 
+            dados=dados_cotacao,
+            token=token,
+            ano_atual=datetime.now().year)
+        
+    except Exception as e:
+        print(f"[ERRO] cotacao_externa_publica: {e}")
+        import traceback
+        traceback.print_exc()
+        return render_template('externo/erro.html', 
+            erro='Erro ao carregar cotação.',
+            mensagem='Ocorreu um erro inesperado. Tente novamente mais tarde.'), 500
+
+
+# =============================================================================
+# ROTA RAIZ - ACESSO BLOQUEADO
+# =============================================================================
+
 @app.route('/')
 def index():
-    return redirect(url_for('dashboard'))
+    """
+    Rota raiz bloqueada para acesso público.
+    O sistema interno não deve ser acessível pela URL pública do Render.
+    
+    Para acessar cotações externas, use: /externo/<token>
+    """
+    return render_template('externo/acesso_negado.html', 
+        ano_atual=datetime.now().year), 403
 
 @app.route('/logout')
 def logout():
@@ -6971,9 +7055,9 @@ def api_gerar_link_externo(fornecedor_id):
             usuario=usuario
         )
         
-        # Gera link externo
-        # Nota: Em produção, este link pode ser de um domínio externo
-        link_externo = url_for('pagina_cotacao_externa', token=token_envio, _external=True)
+        # Gera link externo usando a rota pública /externo/<token>
+        # Esta é a única rota acessível publicamente no Render
+        link_externo = url_for('cotacao_externa_publica', token=token_envio, _external=True)
         
         # Também gera link para download do JSON
         link_download_json = url_for('api_download_json_cotacao', token=token_envio, _external=True)

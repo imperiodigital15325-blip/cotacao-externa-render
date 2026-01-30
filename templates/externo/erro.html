@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Erro - Cotação Externa</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            text-align: center;
+            padding: 40px;
+            max-width: 500px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 50px 40px;
+        }
+        
+        .icon-error {
+            width: 80px;
+            height: 80px;
+            background: #fee2e2;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 25px;
+        }
+        
+        .icon-error svg {
+            width: 40px;
+            height: 40px;
+            fill: #ef4444;
+        }
+        
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 15px;
+        }
+        
+        .erro-texto {
+            font-size: 1rem;
+            color: #ef4444;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+        
+        .mensagem {
+            font-size: 0.95rem;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+        
+        .divider {
+            height: 1px;
+            background: #e5e7eb;
+            margin: 25px 0;
+        }
+        
+        .help-text {
+            font-size: 0.85rem;
+            color: #9ca3af;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.7);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="icon-error">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+            </div>
+            
+            <h1>Ocorreu um problema</h1>
+            
+            {% if erro %}
+            <p class="erro-texto">{{ erro }}</p>
+            {% endif %}
+            
+            {% if mensagem %}
+            <p class="mensagem">{{ mensagem }}</p>
+            {% endif %}
+            
+            <div class="divider"></div>
+            
+            <p class="help-text">
+                Se o problema persistir, entre em contato com o setor de compras.
+            </p>
+        </div>
+        
+        <div class="footer">
+            Sistema de Compras Externo
+        </div>
+    </div>
+</body>
+</html>

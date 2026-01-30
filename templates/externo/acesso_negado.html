@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acesso Não Permitido</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1d21 0%, #2d3436 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+        
+        .container {
+            text-align: center;
+            padding: 40px;
+            max-width: 500px;
+        }
+        
+        .icon-block {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 107, 107, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+        }
+        
+        .icon-block svg {
+            width: 60px;
+            height: 60px;
+            fill: #ff6b6b;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .error-code {
+            font-size: 4rem;
+            font-weight: 700;
+            color: #ff6b6b;
+            margin-bottom: 20px;
+        }
+        
+        p {
+            font-size: 1.1rem;
+            color: #b2bec3;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        
+        .info-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .info-box p {
+            font-size: 0.9rem;
+            margin-bottom: 0;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            font-size: 0.85rem;
+            color: #636e72;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon-block">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+            </svg>
+        </div>
+        
+        <div class="error-code">403</div>
+        
+        <h1>Acesso Não Permitido</h1>
+        
+        <p>
+            Esta página não está disponível para acesso público.
+        </p>
+        
+        <div class="info-box">
+            <p>
+                Se você é um fornecedor e deseja responder uma cotação, 
+                utilize o link exclusivo enviado pelo comprador.
+            </p>
+        </div>
+        
+        <div class="footer">
+            Sistema de Compras &copy; {{ ano_atual if ano_atual else '2026' }}
+        </div>
+    </div>
+</body>
+</html>
