@@ -3,6 +3,7 @@ import os
 import pyodbc
 import pandas as pd
 import smtplib
+import requests  # Para chamar a API do Render
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
@@ -7118,11 +7119,19 @@ def api_responder_cotacao_externa(token):
 @app.route('/api/cotacao/fornecedor/<int:fornecedor_id>/gerar-link-externo', methods=['POST'])
 def api_gerar_link_externo(fornecedor_id):
     """
-    Gera JSON e link para cotação externa.
-    Retorna o link que pode ser enviado ao fornecedor por email.
+    Gera link para cotação externa chamando a API do Render.
+    
+    IMPORTANTE: O token é gerado e salvo no banco do RENDER, não local.
+    Isso garante que o link funcione para qualquer pessoa que acessá-lo.
+    
+    Fluxo:
+    1. Coleta dados da cotação do banco local
+    2. Envia dados para o Render via HTTP POST
+    3. Render gera token, salva no seu banco e retorna o link
+    4. Sistema local apenas repassa o link para o frontend
     """
     try:
-        # Primeiro, gera o JSON
+        # Busca dados do fornecedor e cotação no banco LOCAL
         conn = db.get_db_connection()
         cursor = conn.cursor()
         
@@ -7150,29 +7159,20 @@ def api_gerar_link_externo(fornecedor_id):
         itens = [dict(item) for item in cursor.fetchall()]
         conn.close()
         
-        # Gera token único
-        token_envio = gerar_token_json()
-        
-        # Monta estrutura do JSON
-        dados_cotacao = {
-            'versao': '1.0',
-            'tipo': 'SOLICITACAO_COTACAO',
-            'token': token_envio,
-            'data_geracao': datetime.now().isoformat(),
-            
+        # Monta dados para enviar ao Render
+        dados_para_render = {
             'cotacao': {
+                'id': fornecedor['cotacao_id'],
                 'codigo': fornecedor['cotacao_codigo'],
                 'observacoes': fornecedor['cotacao_observacoes'] or '',
                 'informacao_fornecedor': fornecedor['informacao_fornecedor'] or ''
             },
-            
             'fornecedor': {
-                'id_interno': fornecedor['id'],
+                'id': fornecedor['id'],
                 'nome': fornecedor['nome_fornecedor'],
                 'email': fornecedor['email_fornecedor'] or '',
                 'telefone': fornecedor['telefone_fornecedor'] or ''
             },
-            
             'itens': [
                 {
                     'id': item['id'],
@@ -7182,89 +7182,69 @@ def api_gerar_link_externo(fornecedor_id):
                     'descricao': item['descricao'],
                     'quantidade': item['quantidade'],
                     'unidade': item['unidade'] or 'UN',
-                    'observacao': item['observacao'] or '',
-                    'resposta': {
-                        'preco_unitario': None,
-                        'prazo_entrega_dias': None,
-                        'observacao': None
-                    }
+                    'observacao': item['observacao'] or ''
                 }
                 for item in itens
             ],
-            
-            'resposta_geral': {
-                'frete_total': None,
-                'condicao_pagamento': None,
-                'observacao_geral': None,
-                'data_resposta': None
-            },
-            
-            'instrucoes': {
-                'preenchimento': [
-                    'Preencha o campo "preco_unitario" com o valor em reais (use ponto como separador decimal)',
-                    'Preencha "prazo_entrega_dias" com o número de dias para entrega',
-                    'Informe "frete_total" se houver custo de frete',
-                    'Use os campos de "observacao" para informações adicionais'
-                ],
-                'retorno': 'Após preencher, salve o arquivo e envie de volta ao comprador'
-            }
+            'usuario': session.get('username', 'Admin')
         }
         
-        # Gera hash de validação
-        dados_para_hash = {
-            'token': token_envio,
-            'cotacao_codigo': fornecedor['cotacao_codigo'],
-            'fornecedor_id': fornecedor['id'],
-            'itens_ids': [item['id'] for item in itens]
-        }
-        hash_validacao = gerar_hash_validacao(dados_para_hash)
-        dados_cotacao['hash_validacao'] = hash_validacao
+        print(f"[COTAÇÃO EXTERNA] Chamando API do Render para {fornecedor['nome_fornecedor']}...")
+        print(f"[COTAÇÃO EXTERNA] URL: {RENDER_PUBLIC_URL}/api/criar-cotacao-externa")
         
-        # Salva arquivo JSON
-        json_dir = os.path.join('uploads', 'json_cotacoes')
-        os.makedirs(json_dir, exist_ok=True)
-        
-        nome_arquivo = f"cotacao_{fornecedor['cotacao_codigo']}_{fornecedor['nome_fornecedor'].replace(' ', '_')}_{token_envio[:8]}.json"
-        # Sanitiza nome do arquivo
-        nome_arquivo = "".join(c for c in nome_arquivo if c.isalnum() or c in ['_', '-', '.'])
-        caminho_arquivo = os.path.join(json_dir, nome_arquivo)
-        
-        with open(caminho_arquivo, 'w', encoding='utf-8') as f:
-            json.dump(dados_cotacao, f, ensure_ascii=False, indent=2)
-        
-        # Registra no banco
-        usuario = session.get('username', 'Admin')
-        db.criar_envio_json(
-            cotacao_id=fornecedor['cotacao_id'],
-            fornecedor_id=fornecedor_id,
-            token_envio=token_envio,
-            hash_validacao=hash_validacao,
-            arquivo_json=caminho_arquivo,
-            usuario=usuario
-        )
-        
-        # Atualiza status do fornecedor para "Link Gerado"
-        db.atualizar_status_fornecedor(fornecedor_id, 'Link Gerado')
-        
-        # Gera link externo usando o domínio público do Render
-        # IMPORTANTE: Nunca usar url_for com _external=True pois retorna localhost
-        link_externo = gerar_link_externo_cotacao(token_envio)
-        
-        # Link para download do JSON (também usa domínio público)
-        link_download_json = f"{RENDER_PUBLIC_URL}/api/cotacao/json/download/{token_envio}"
-        
-        print(f"[COTAÇÃO EXTERNA] Link gerado para {fornecedor['nome_fornecedor']}: {link_externo}")
-        
-        return jsonify({
-            'success': True,
-            'message': 'Link de cotação externa gerado com sucesso!',
-            'link_externo': link_externo,
-            'link_download_json': link_download_json,
-            'token': token_envio,
-            'arquivo_json': nome_arquivo,
-            'fornecedor': fornecedor['nome_fornecedor'],
-            'cotacao': fornecedor['cotacao_codigo']
-        })
+        # Chama a API do Render para criar a cotação externa
+        try:
+            response = requests.post(
+                f"{RENDER_PUBLIC_URL}/api/criar-cotacao-externa",
+                json=dados_para_render,
+                headers={'Content-Type': 'application/json'},
+                timeout=30  # 30 segundos de timeout
+            )
+            
+            print(f"[COTAÇÃO EXTERNA] Resposta do Render: status={response.status_code}")
+            
+            if response.status_code != 200:
+                print(f"[COTAÇÃO EXTERNA] Erro: {response.text}")
+                return jsonify({
+                    'success': False, 
+                    'error': f'Erro ao comunicar com servidor externo: {response.status_code}'
+                }), 500
+            
+            resultado = response.json()
+            
+            if not resultado.get('success'):
+                return jsonify({
+                    'success': False,
+                    'error': resultado.get('error', 'Erro desconhecido no servidor externo')
+                }), 500
+            
+            # Atualiza status do fornecedor LOCAL para "Link Gerado"
+            db.atualizar_status_fornecedor(fornecedor_id, 'Link Gerado')
+            
+            print(f"[COTAÇÃO EXTERNA] Link gerado com sucesso: {resultado.get('link_externo')}")
+            
+            return jsonify({
+                'success': True,
+                'message': 'Link de cotação externa gerado com sucesso!',
+                'link_externo': resultado.get('link_externo'),
+                'token': resultado.get('token'),
+                'fornecedor': fornecedor['nome_fornecedor'],
+                'cotacao': fornecedor['cotacao_codigo']
+            })
+            
+        except requests.exceptions.Timeout:
+            print(f"[COTAÇÃO EXTERNA] Timeout ao chamar Render")
+            return jsonify({
+                'success': False,
+                'error': 'Servidor externo não respondeu a tempo. Tente novamente.'
+            }), 504
+            
+        except requests.exceptions.ConnectionError as e:
+            print(f"[COTAÇÃO EXTERNA] Erro de conexão: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Não foi possível conectar ao servidor externo. Verifique sua conexão.'
+            }), 503
         
     except Exception as e:
         print(f"[ERRO] api_gerar_link_externo: {e}")

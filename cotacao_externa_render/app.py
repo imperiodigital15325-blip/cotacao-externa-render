@@ -407,6 +407,159 @@ def health_check():
     })
 
 
+# =============================================================================
+# ROTA PARA CRIAR COTAÇÃO EXTERNA (CHAMADA PELO SISTEMA LOCAL)
+# =============================================================================
+
+@app.route('/api/criar-cotacao-externa', methods=['POST'])
+def api_criar_cotacao_externa():
+    """
+    API para o sistema interno (local) criar uma cotação externa.
+    
+    Esta rota é chamada pelo sistema local quando o usuário clica em 
+    "Gerar Link Externo". O sistema local envia os dados da cotação
+    e esta rota:
+    1. Gera um token único
+    2. Salva os dados em memória
+    3. Retorna o link público para o fornecedor
+    
+    IMPORTANTE: Esta rota NÃO requer API Key para facilitar a integração.
+    Em produção, considere adicionar autenticação por IP ou secret simples.
+    """
+    try:
+        dados = request.get_json()
+        
+        if not dados:
+            return jsonify({'success': False, 'error': 'Dados não recebidos'}), 400
+        
+        print(f"[CRIAR COTAÇÃO] Dados recebidos: {json.dumps(dados, indent=2, default=str)}")
+        
+        # Valida campos obrigatórios
+        if 'cotacao' not in dados:
+            return jsonify({'success': False, 'error': 'Campo "cotacao" é obrigatório'}), 400
+        if 'fornecedor' not in dados:
+            return jsonify({'success': False, 'error': 'Campo "fornecedor" é obrigatório'}), 400
+        if 'itens' not in dados:
+            return jsonify({'success': False, 'error': 'Campo "itens" é obrigatório'}), 400
+        
+        # Gera token único
+        token = gerar_token_seguro()
+        
+        # Define expiração (72 horas por padrão)
+        expires_at = datetime.now() + timedelta(hours=TOKEN_EXPIRATION_HOURS)
+        
+        # Estrutura os dados da cotação para armazenamento
+        # IMPORTANTE: A estrutura deve corresponder ao que o template espera
+        # O template usa: cotacao.codigo, cotacao.fornecedor.nome, cotacao.itens, etc.
+        dados_cotacao = {
+            'cotacao_id': dados['cotacao'].get('id'),
+            'codigo': dados['cotacao'].get('codigo'),  # Template usa cotacao.codigo
+            'observacoes': dados['cotacao'].get('observacoes', ''),
+            'informacao_fornecedor': dados['cotacao'].get('informacao_fornecedor', ''),
+            'fornecedor': dados['fornecedor'],  # Template usa cotacao.fornecedor.nome
+            'itens': dados['itens'],  # Template usa cotacao.itens
+            'usuario': dados.get('usuario', 'Sistema')
+        }
+        
+        # Armazena cotação
+        cotacoes_ativas[token] = {
+            'dados': dados_cotacao,
+            'created_at': datetime.now(),
+            'expires_at': expires_at,
+            'status': 'ativa'
+        }
+        
+        # Monta URL do link usando o domínio correto
+        # Usa BASE_URL do ambiente ou constrói a partir do host
+        base_url = os.environ.get('BASE_URL', 'https://cotacao-externa-render.onrender.com')
+        link_externo = f"{base_url}/externo/{token}"
+        
+        print(f"[CRIAR COTAÇÃO] Token gerado: {token}")
+        print(f"[CRIAR COTAÇÃO] Link externo: {link_externo}")
+        print(f"[CRIAR COTAÇÃO] Expira em: {expires_at}")
+        
+        return jsonify({
+            'success': True,
+            'token': token,
+            'link_externo': link_externo,
+            'expires_at': expires_at.isoformat(),
+            'message': 'Cotação externa criada com sucesso'
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_criar_cotacao_externa: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/externo/<token>')
+def pagina_cotacao_externa(token):
+    """
+    Página pública para o fornecedor preencher a cotação.
+    Acesso via: /externo/<token>
+    
+    Esta é a rota que os fornecedores acessam quando recebem o link.
+    """
+    print(f"[EXTERNO] Acesso à cotação externa - Token: {token}")
+    
+    # Verifica se o token existe
+    if token not in cotacoes_ativas:
+        print(f"[EXTERNO] Token não encontrado: {token}")
+        return render_template('erro.html',
+                             titulo='Cotação Não Encontrada',
+                             mensagem='Esta cotação não existe ou o link é inválido.',
+                             detalhes='Solicite um novo link ao comprador.'), 404
+    
+    cotacao = cotacoes_ativas[token]
+    
+    # Verifica expiração
+    if datetime.now() > cotacao['expires_at']:
+        print(f"[EXTERNO] Cotação expirada: {token}")
+        return render_template('erro.html',
+                             titulo='Cotação Expirada',
+                             mensagem='O prazo para responder esta cotação expirou.',
+                             detalhes=f'A cotação expirou em {cotacao["expires_at"].strftime("%d/%m/%Y às %H:%M")}.'), 400
+    
+    # Verifica se já foi respondida
+    if token in respostas_enviadas:
+        resposta = respostas_enviadas[token]
+        return render_template('ja_respondida.html',
+                             cotacao=cotacao['dados'],
+                             resposta=resposta,
+                             data_envio=resposta['submitted_at'].strftime('%d/%m/%Y às %H:%M'))
+    
+    # Renderiza página de cotação
+    print(f"[EXTERNO] Renderizando cotação para: {cotacao['dados'].get('fornecedor', {}).get('nome', 'N/A')}")
+    return render_template('cotacao.html',
+                         token=token,
+                         cotacao=cotacao['dados'],
+                         expires_at=cotacao['expires_at'].strftime('%d/%m/%Y às %H:%M'))
+
+
+@app.route('/debug-token/<token>')
+def debug_token(token):
+    """Rota de debug para verificar se um token existe"""
+    existe = token in cotacoes_ativas
+    dados = None
+    if existe:
+        cotacao = cotacoes_ativas[token]
+        dados = {
+            'status': cotacao.get('status'),
+            'created_at': cotacao['created_at'].isoformat(),
+            'expires_at': cotacao['expires_at'].isoformat(),
+            'fornecedor': cotacao['dados'].get('fornecedor', {}).get('nome', 'N/A'),
+            'respondida': token in respostas_enviadas
+        }
+    
+    return jsonify({
+        'token': token,
+        'existe': existe,
+        'dados': dados,
+        'total_cotacoes_ativas': len(cotacoes_ativas)
+    })
+
+
 @app.route('/api/stats')
 @api_key_required
 def api_stats():
