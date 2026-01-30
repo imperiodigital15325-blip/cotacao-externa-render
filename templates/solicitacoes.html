@@ -559,6 +559,14 @@
                         </select>
                     </div>
                     <div class="col-lg-2 col-md-3">
+                        <label class="form-label-sm">FORNECEDORES</label>
+                        <select class="selectpicker form-control" name="fornecedores" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 2" data-size="8" title="Selecione..." id="fornecedores_select">
+                            {% for f in dados.opcoes_fornecedores %}
+                            <option value="{{ f }}" {% if f in filtros.fornecedores %}selected{% endif %}>{{ f }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-lg-2 col-md-3">
                         <label class="form-label-sm">BUSCA</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="fas fa-search"></i></span>
@@ -573,17 +581,17 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-lg-2 col-md-2">
+                    <div class="col-lg-1 col-md-2">
                         <label class="form-label-sm">STATUS</label>
                         <select class="form-select form-select-sm" name="status" id="status_select">
                             <option value="Todos" {% if filtros.status == 'Todos' %}selected{% endif %}>Todos</option>
                             <option value="NORMAL" {% if filtros.status == 'NORMAL' %}selected{% endif %}>Normal</option>
                             <option value="CRÍTICO" {% if filtros.status == 'CRÍTICO' %}selected{% endif %}>Crítico</option>
-                            <option value="PRAZO INCOMPATÍVEL" {% if filtros.status == 'PRAZO INCOMPATÍVEL' %}selected{% endif %}>Prazo Incompatível</option>
+                            <option value="PRAZO INCOMPATÍVEL" {% if filtros.status == 'PRAZO INCOMPATÍVEL' %}selected{% endif %}>Prazo Incomp.</option>
                         </select>
                     </div>
-                    <div class="col-lg-2 col-md-2">
-                        <label class="form-label-sm">FIRMADO/PREVISTO</label>
+                    <div class="col-lg-1 col-md-2">
+                        <label class="form-label-sm">TIPO</label>
                         <select class="form-select form-select-sm" name="tipo_operacao" id="tipo_operacao_select">
                             <option value="Todos" {% if filtros.tipo_operacao == 'Todos' %}selected{% endif %}>Todos</option>
                             <option value="F" {% if filtros.tipo_operacao == 'F' %}selected{% endif %}>Firmado</option>
@@ -737,7 +745,7 @@
                                                   style="cursor: help;"
                                                   data-bs-toggle="tooltip" 
                                                   data-bs-placement="left"
-                                                  title="Fornecedor: {{ linha.UltimoPrecoFornecedor or 'N/A' }} | Data: {{ linha.UltimoPrecoData or 'N/A' }}">
+                                                  title="{% if linha.UltimoPrecoFornecedorCod %}{{ linha.UltimoPrecoFornecedorCod }} - {% endif %}{{ linha.UltimoPrecoFornecedor or 'N/A' }} | {{ linha.UltimoPrecoData or 'N/A' }}">
                                                 R$ {{ "%.2f"|format(linha.UltimoPreco) }}
                                                 <i class="fas fa-info-circle text-muted ms-1" style="font-size: 0.7rem;"></i>
                                             </span>

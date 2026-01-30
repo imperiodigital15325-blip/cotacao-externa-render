@@ -591,7 +591,9 @@
                                 <td class="col-qtd">{{ item.quantidade }} {{ item.unidade or 'UN' }}</td>
                                 <td class="col-ultimo-preco" style="text-align: center; font-weight: 500;" 
                                     {% if item.ultimo_preco_pago %}
-                                    title="Fornecedor: {{ item.ultimo_preco_fornecedor or 'N/A' }} | Data: {{ item.ultimo_preco_data or 'N/A' }}"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-placement="top"
+                                    title="{% if item.ultimo_preco_fornecedor_cod %}{{ item.ultimo_preco_fornecedor_cod }} - {% endif %}{{ item.ultimo_preco_fornecedor or 'N/A' }} | {{ item.ultimo_preco_data or 'N/A' }}"
                                     {% endif %}>
                                     {% if item.ultimo_preco_pago %}
                                     <span style="color: #1565c0;">R$ {{ "{:,.2f}".format(item.ultimo_preco_pago).replace(',', 'X').replace('.', ',').replace('X', '.') }}</span>
@@ -1203,6 +1205,13 @@
                             <small class="text-success"><i class="fas fa-clock me-1"></i>Válido por 72 horas</small>
                         </div>
                         
+                        <!-- Botão de Sincronizar (aparece quando respondido) -->
+                        <div class="mb-4 text-center" id="btnSincronizarContainer" style="display: none;">
+                            <button type="button" class="btn btn-warning btn-lg" id="btnSincronizarResposta" onclick="sincronizarRespostaDoModal()">
+                                <i class="fas fa-sync me-2"></i> Sincronizar Resposta do Fornecedor
+                            </button>
+                        </div>
+                        
                         <!-- Texto pronto para enviar -->
                         <div class="card border-success">
                             <div class="card-header bg-success text-white py-2 d-flex justify-content-between align-items-center">
@@ -1220,11 +1229,11 @@
                             </div>
                         </div>
                         
-                        <div class="alert alert-info mt-3 mb-0">
-                            <small>
-                                <i class="fas fa-info-circle me-1"></i>
-                                <strong>Sincronização automática:</strong> Quando o fornecedor responder, você receberá uma notificação e os dados serão atualizados automaticamente.
-                            </small>
+                        <!-- Botão para gerar novo link -->
+                        <div class="mt-3 text-center">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="forcarNovoLink()">
+                                <i class="fas fa-redo me-1"></i> Gerar Novo Link (invalida o anterior)
+                            </button>
                         </div>
                     </div>
                     
@@ -1236,8 +1245,11 @@
                             <p class="mb-0 mt-2" id="mensagemErroLink"></p>
                         </div>
                         <div class="text-center">
-                            <button type="button" class="btn btn-primary" onclick="resetarModalLink()">
+                            <button type="button" class="btn btn-primary me-2" onclick="resetarModalLink()">
                                 <i class="fas fa-redo me-1"></i> Tentar Novamente
+                            </button>
+                            <button type="button" class="btn btn-warning" onclick="forcarNovoLink()">
+                                <i class="fas fa-plus me-1"></i> Gerar Novo Link
                             </button>
                         </div>
                     </div>
@@ -3069,14 +3081,22 @@ Departamento de Compras`;
         // Abre modal
         new bootstrap.Modal(document.getElementById('modalGerarJson')).show();
         
+        // Esconde botão sincronizar por padrão
+        const btnSincContainer = document.getElementById('btnSincronizarContainer');
+        if (btnSincContainer) btnSincContainer.style.display = 'none';
+        
         // Verifica se já existe link para este fornecedor
         try {
             const response = await fetch(`/api/cotacao/fornecedor/${fornecedorId}/link-externo`);
             const data = await response.json();
             
+            console.log('[MODAL LINK] Dados recebidos:', data);
+            
             if (data.success && data.tem_link) {
                 // Já existe link - mostra direto
                 console.log('[GERAR LINK] Link já existe:', data.link_externo);
+                console.log('[GERAR LINK] Status Render:', data.status_render);
+                console.log('[GERAR LINK] Precisa sincronizar:', data.precisa_sincronizar);
                 
                 document.getElementById('linkExternoGerado').value = data.link_externo;
                 document.getElementById('linkNoTextoSimplificado').textContent = data.link_externo;
@@ -3084,10 +3104,30 @@ Departamento de Compras`;
                 document.getElementById('estadoGerandoLink').style.display = 'none';
                 document.getElementById('estadoLinkGerado').style.display = 'block';
                 
-                // Mostra mensagem de que já existia
-                const alertDiv = document.querySelector('#estadoLinkGerado .alert-success');
+                // Configura mensagem e estilo baseado no status
+                const alertDiv = document.querySelector('#estadoLinkGerado .alert-success, #estadoLinkGerado .alert-info, #estadoLinkGerado .alert-warning');
                 if (alertDiv) {
-                    alertDiv.innerHTML = '<i class="fas fa-info-circle me-2"></i><strong>Link já existente recuperado!</strong>';
+                    if (data.precisa_sincronizar || data.status_render === 'respondido') {
+                        alertDiv.className = 'alert alert-warning mb-4';
+                        alertDiv.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i><strong>Cotação já foi respondida!</strong> Clique em "Sincronizar" para importar a resposta.';
+                        
+                        // Mostra botão de sincronizar
+                        if (btnSincContainer) btnSincContainer.style.display = 'block';
+                    } else if (data.status_render === 'aguardando') {
+                        alertDiv.className = 'alert alert-info mb-4';
+                        alertDiv.innerHTML = '<i class="fas fa-clock me-2"></i><strong>Aguardando resposta!</strong> O fornecedor ainda não respondeu a cotação.';
+                    } else if (data.status_render === 'expirado') {
+                        alertDiv.className = 'alert alert-secondary mb-4';
+                        alertDiv.innerHTML = '<i class="fas fa-times-circle me-2"></i><strong>Link expirado!</strong> Clique em "Gerar Novo Link" se necessário.';
+                    } else {
+                        alertDiv.className = 'alert alert-success mb-4';
+                        alertDiv.innerHTML = '<i class="fas fa-info-circle me-2"></i><strong>Link existente recuperado!</strong>';
+                    }
+                }
+                
+                // Atualiza status na tabela
+                if (data.status_render) {
+                    atualizarStatusFornecedorNaTabela(fornecedorId, data.status_render);
                 }
                 
             } else {
@@ -3123,7 +3163,7 @@ Departamento de Compras`;
     }
     
     // Gera link externo (versão simplificada)
-    async function gerarLinkExternoSimplificado() {
+    async function gerarLinkExternoSimplificado(forcarNovo = false) {
         const fornecedorId = document.getElementById('linkExternoFornecedorId').value;
         
         if (!fornecedorId) {
@@ -3131,22 +3171,25 @@ Departamento de Compras`;
             return;
         }
         
-        console.log('[GERAR LINK] Gerando link para fornecedor ID:', fornecedorId);
+        console.log('[GERAR LINK] Gerando link para fornecedor ID:', fornecedorId, 'Forçar novo:', forcarNovo);
         
         // Muda para estado "gerando"
         document.getElementById('estadoAguardandoGerar').style.display = 'none';
         document.getElementById('estadoGerandoLink').style.display = 'block';
+        document.getElementById('estadoLinkGerado').style.display = 'none';
+        document.getElementById('estadoErroLink').style.display = 'none';
         
         try {
             const response = await fetch(`/api/cotacao/fornecedor/${fornecedorId}/gerar-link-externo`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ forcar_novo: forcarNovo })
             });
             
             const data = await response.json();
             
             if (data.success) {
-                console.log('[GERAR LINK] Sucesso! Link:', data.link_externo);
+                console.log('[GERAR LINK] Sucesso! Status:', data.status_render);
                 
                 // Preenche o link gerado
                 document.getElementById('linkExternoGerado').value = data.link_externo;
@@ -3156,26 +3199,34 @@ Departamento de Compras`;
                 document.getElementById('estadoGerandoLink').style.display = 'none';
                 document.getElementById('estadoLinkGerado').style.display = 'block';
                 
-                // Atualiza mensagem baseado se era novo ou já existia
+                // Atualiza mensagem baseado no status
                 const alertDiv = document.querySelector('#estadoLinkGerado .alert-success');
                 if (alertDiv) {
-                    if (data.ja_existia) {
-                        alertDiv.innerHTML = '<i class="fas fa-info-circle me-2"></i><strong>Link existente recuperado!</strong>';
+                    if (data.precisa_sincronizar) {
+                        alertDiv.className = 'alert alert-warning mb-4';
+                        alertDiv.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i><strong>Cotação já foi respondida!</strong> Clique em "Sincronizar" para importar.';
+                    } else if (data.ja_existia && data.status_render === 'aguardando') {
+                        alertDiv.className = 'alert alert-info mb-4';
+                        alertDiv.innerHTML = '<i class="fas fa-clock me-2"></i><strong>Link ativo!</strong> Aguardando resposta do fornecedor.';
                     } else {
+                        alertDiv.className = 'alert alert-success mb-4';
                         alertDiv.innerHTML = '<i class="fas fa-check-circle me-2"></i><strong>Link gerado com sucesso!</strong>';
                     }
                 }
                 
-                mostrarToast(data.ja_existia ? 'Link recuperado!' : 'Link gerado com sucesso!', 'success');
+                // Mostra/esconde botão de sincronizar
+                const btnSincronizar = document.getElementById('btnSincronizarResposta');
+                if (btnSincronizar) {
+                    btnSincronizar.style.display = data.precisa_sincronizar ? 'inline-block' : 'none';
+                }
+                
+                const mensagem = data.precisa_sincronizar 
+                    ? 'Cotação respondida! Clique em Sincronizar.' 
+                    : (data.ja_existia ? 'Link recuperado!' : 'Link gerado com sucesso!');
+                mostrarToast(mensagem, data.precisa_sincronizar ? 'warning' : 'success');
                 
                 // Atualiza a linha do fornecedor na tabela
-                const row = document.getElementById(`row-forn-${fornecedorId}`);
-                if (row) {
-                    const statusCell = row.querySelector('td:nth-child(3)');
-                    if (statusCell) {
-                        statusCell.innerHTML = '<span class="badge bg-info"><i class="fas fa-link me-1"></i>Link Gerado</span>';
-                    }
-                }
+                atualizarStatusFornecedorNaTabela(fornecedorId, data.status_render);
                 
             } else {
                 throw new Error(data.error || 'Erro ao gerar link');
@@ -3191,6 +3242,37 @@ Departamento de Compras`;
             
             mostrarToast('Erro ao gerar link: ' + error.message, 'danger');
         }
+    }
+    
+    // Atualiza o status do fornecedor na tabela
+    function atualizarStatusFornecedorNaTabela(fornecedorId, statusRender) {
+        const row = document.getElementById(`row-forn-${fornecedorId}`);
+        if (!row) return;
+        
+        const statusCell = row.querySelector('td:nth-child(3)');
+        if (!statusCell) return;
+        
+        let badge = '';
+        switch(statusRender) {
+            case 'respondido':
+                badge = '<span class="badge bg-warning text-dark"><i class="fas fa-sync me-1"></i>Sincronizar</span>';
+                break;
+            case 'aguardando':
+                badge = '<span class="badge bg-info"><i class="fas fa-clock me-1"></i>Aguardando</span>';
+                break;
+            case 'expirado':
+            case 'nao_existe':
+                badge = '<span class="badge bg-secondary"><i class="fas fa-redo me-1"></i>Gerar Novo</span>';
+                break;
+            default:
+                badge = '<span class="badge bg-info"><i class="fas fa-link me-1"></i>Link Gerado</span>';
+        }
+        statusCell.innerHTML = badge;
+    }
+    
+    // Força geração de novo link (quando expirado/inválido)
+    function forcarNovoLink() {
+        gerarLinkExternoSimplificado(true);
     }
     
     // Copia o link externo
@@ -3255,7 +3337,7 @@ Setor de Compras`;
         // Botão de importar resposta do Render
         document.querySelectorAll('.btn-importar-render').forEach(btn => {
             btn.addEventListener('click', function() {
-                importarRespostaRenderDireto(this);
+                sincronizarRespostaFornecedor(this);
             });
         });
         
@@ -3267,8 +3349,8 @@ Setor de Compras`;
         });
     });
     
-    // Importa resposta do Render diretamente (sem abrir modal)
-    async function importarRespostaRenderDireto(btn) {
+    // Sincroniza resposta de um fornecedor específico
+    async function sincronizarRespostaFornecedor(btn) {
         const fornecedorId = btn.dataset.fornecedorId;
         const fornecedorNome = btn.dataset.fornecedorNome || 'Fornecedor';
         
@@ -3276,6 +3358,8 @@ Setor de Compras`;
             mostrarToast('Erro: ID do fornecedor não encontrado', 'danger');
             return;
         }
+        
+        console.log('[SINCRONIZAR] Iniciando para fornecedor:', fornecedorId);
         
         // Mostra loading
         const originalHtml = btn.innerHTML;
@@ -3291,15 +3375,59 @@ Setor de Compras`;
             const data = await response.json();
             
             if (data.success) {
-                mostrarToast(`✅ ${data.message || 'Resposta importada!'}`, 'success');
+                mostrarToast(`✅ ${data.message || 'Resposta sincronizada!'}`, 'success');
                 // Recarrega após 1.5 segundos
                 setTimeout(() => location.reload(), 1500);
             } else {
-                mostrarToast(`⚠️ ${data.error || 'Erro ao importar'}`, 'warning');
+                // Trata diferentes erros
+                if (data.status_render === 'nao_existe' || data.pode_gerar_novo) {
+                    mostrarToast(`⚠️ ${data.error}`, 'warning');
+                } else if (data.status_render === 'aguardando') {
+                    mostrarToast(`⏳ Aguardando resposta do fornecedor`, 'info');
+                } else {
+                    mostrarToast(`❌ ${data.error || 'Erro ao sincronizar'}`, 'danger');
+                }
             }
             
         } catch (error) {
-            console.error('[IMPORTAR] Erro:', error);
+            console.error('[SINCRONIZAR] Erro:', error);
+            mostrarToast('❌ Erro de conexão: ' + error.message, 'danger');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
+    
+    // Sincronizar resposta a partir do modal
+    async function sincronizarRespostaDoModal() {
+        const fornecedorId = document.getElementById('linkExternoFornecedorId').value;
+        
+        if (!fornecedorId) {
+            mostrarToast('Erro: ID do fornecedor não encontrado', 'danger');
+            return;
+        }
+        
+        const btn = document.getElementById('btnSincronizarResposta');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Sincronizando...';
+        
+        try {
+            const response = await fetch(`/api/cotacao/fornecedor/${fornecedorId}/importar-resposta-render`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                mostrarToast(`✅ ${data.message}`, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                mostrarToast(`❌ ${data.error}`, 'danger');
+            }
+            
+        } catch (error) {
             mostrarToast('❌ Erro de conexão: ' + error.message, 'danger');
         } finally {
             btn.disabled = false;

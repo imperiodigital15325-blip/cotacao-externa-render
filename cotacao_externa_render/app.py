@@ -325,6 +325,117 @@ def api_status_cotacao(token):
     })
 
 
+# =============================================================================
+# ENDPOINT OFICIAL DE STATUS (PARA SISTEMA LOCAL)
+# =============================================================================
+
+@app.route('/api/cotacao-externa/<token>/status', methods=['GET'])
+def api_status_cotacao_externa(token):
+    """
+    ENDPOINT OFICIAL para o sistema local verificar o status de uma cotação.
+    
+    Retorna um dos seguintes status:
+    - nao_existe: Token não encontrado no Render (expirado da memória ou inválido)
+    - aguardando: Cotação existe e está aguardando resposta do fornecedor
+    - respondido: Fornecedor já respondeu a cotação
+    - expirado: Cotação existe mas o prazo expirou
+    
+    NÃO REQUER API KEY para facilitar integração.
+    """
+    print(f"[STATUS] Verificando status do token: {token[:20]}...")
+    
+    # Token não existe no Render
+    if token not in cotacoes_ativas:
+        print(f"[STATUS] Token NÃO ENCONTRADO: {token[:20]}...")
+        return jsonify({
+            'success': True,
+            'token': token,
+            'status': 'nao_existe',
+            'mensagem': 'Token não encontrado. Pode ter expirado da memória do servidor ou ser inválido.',
+            'pode_gerar_novo': True
+        })
+    
+    cotacao = cotacoes_ativas[token]
+    
+    # Verifica se já foi respondida
+    if token in respostas_enviadas:
+        resposta = respostas_enviadas[token]
+        print(f"[STATUS] Token RESPONDIDO: {token[:20]}...")
+        return jsonify({
+            'success': True,
+            'token': token,
+            'status': 'respondido',
+            'mensagem': 'Fornecedor já respondeu esta cotação.',
+            'data_resposta': resposta['submitted_at'].isoformat(),
+            'pode_gerar_novo': False
+        })
+    
+    # Verifica expiração
+    if datetime.now() > cotacao['expires_at']:
+        print(f"[STATUS] Token EXPIRADO: {token[:20]}...")
+        return jsonify({
+            'success': True,
+            'token': token,
+            'status': 'expirado',
+            'mensagem': f'Cotação expirou em {cotacao["expires_at"].strftime("%d/%m/%Y às %H:%M")}.',
+            'expires_at': cotacao['expires_at'].isoformat(),
+            'pode_gerar_novo': True
+        })
+    
+    # Cotação ativa aguardando resposta
+    print(f"[STATUS] Token AGUARDANDO: {token[:20]}...")
+    return jsonify({
+        'success': True,
+        'token': token,
+        'status': 'aguardando',
+        'mensagem': 'Aguardando resposta do fornecedor.',
+        'created_at': cotacao['created_at'].isoformat(),
+        'expires_at': cotacao['expires_at'].isoformat(),
+        'pode_gerar_novo': False
+    })
+
+
+@app.route('/api/cotacao-externa/<token>/resposta', methods=['GET'])
+def api_obter_resposta_externa(token):
+    """
+    ENDPOINT OFICIAL para o sistema local baixar a resposta de uma cotação.
+    
+    NÃO REQUER API KEY para facilitar integração.
+    """
+    print(f"[RESPOSTA] Buscando resposta do token: {token[:20]}...")
+    
+    if token not in cotacoes_ativas:
+        return jsonify({
+            'success': False, 
+            'error': 'Token não encontrado',
+            'status': 'nao_existe'
+        }), 404
+    
+    if token not in respostas_enviadas:
+        return jsonify({
+            'success': False, 
+            'error': 'Cotação ainda não foi respondida',
+            'status': 'aguardando'
+        }), 404
+    
+    resposta = respostas_enviadas[token]
+    cotacao = cotacoes_ativas[token]
+    
+    print(f"[RESPOSTA] Resposta encontrada para token: {token[:20]}...")
+    
+    return jsonify({
+        'success': True,
+        'status': 'respondido',
+        'resposta': resposta['dados'],
+        'data_resposta': resposta['submitted_at'].isoformat(),
+        'cotacao_info': {
+            'cotacao_id': cotacao['dados'].get('cotacao_id'),
+            'fornecedor_id': cotacao['dados'].get('fornecedor', {}).get('id'),
+            'fornecedor_nome': cotacao['dados'].get('fornecedor', {}).get('nome')
+        }
+    })
+
+
 @app.route('/api/cotacao/<token>/resposta', methods=['GET'])
 @api_key_required
 def api_obter_resposta(token):
