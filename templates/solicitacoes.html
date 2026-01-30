@@ -733,11 +733,18 @@
                                     </td>
                                     <td class="text-end">
                                         {% if linha.UltimoPreco and linha.UltimoPreco > 0 %}
-                                            <span class="text-success fw-semibold" title="Último preço pago: R$ {{ '%.2f'|format(linha.UltimoPreco) }}">
+                                            <span class="text-success fw-semibold" 
+                                                  style="cursor: help;"
+                                                  data-bs-toggle="tooltip" 
+                                                  data-bs-placement="left"
+                                                  title="Fornecedor: {{ linha.UltimoPrecoFornecedor or 'N/A' }} | Data: {{ linha.UltimoPrecoData or 'N/A' }}">
                                                 R$ {{ "%.2f"|format(linha.UltimoPreco) }}
+                                                <i class="fas fa-info-circle text-muted ms-1" style="font-size: 0.7rem;"></i>
                                             </span>
                                         {% else %}
-                                            <span class="text-muted" style="font-size: 0.75rem;" title="Sem histórico de compras anteriores">N/A</span>
+                                            <span class="text-muted" style="font-size: 0.75rem;" 
+                                                  data-bs-toggle="tooltip" 
+                                                  title="Sem histórico de compras anteriores">N/A</span>
                                         {% endif %}
                                     </td>
                                     <td class="text-center">

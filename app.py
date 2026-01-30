@@ -1760,6 +1760,9 @@ def api_importar_resposta_render(fornecedor_id):
             conn.close()
             return jsonify({'success': False, 'error': 'Fornecedor não encontrado'}), 404
         
+        # Converte sqlite3.Row para dict para facilitar acesso
+        fornecedor = dict(fornecedor)
+        
         # Verifica se tem link externo gerado
         token = fornecedor.get('token_externo')
         if not token:
@@ -5537,9 +5540,15 @@ def solicitacoes():
         ultimos_precos = buscar_ultimo_preco_pago(codigos_produtos)
         print(f"[SOLICITAÇÕES] Encontrado histórico de preço para {len(ultimos_precos)} produtos")
         
-        # Adiciona coluna de último preço ao DataFrame
+        # Adiciona colunas de último preço, fornecedor e data ao DataFrame
         df['UltimoPreco'] = df['CodProduto'].apply(
             lambda cod: ultimos_precos.get(str(cod).strip(), {}).get('preco', None) if cod else None
+        )
+        df['UltimoPrecoFornecedor'] = df['CodProduto'].apply(
+            lambda cod: ultimos_precos.get(str(cod).strip(), {}).get('fornecedor', '') if cod else ''
+        )
+        df['UltimoPrecoData'] = df['CodProduto'].apply(
+            lambda cod: ultimos_precos.get(str(cod).strip(), {}).get('data', '') if cod else ''
         )
         
         # ========================================
@@ -5713,9 +5722,21 @@ def buscar_ultimo_preco_pago(codigos_produtos):
         for row in rows:
             cod_produto = row.CodProduto.strip() if row.CodProduto else ''
             if cod_produto:
+                # Formata data de YYYYMMDD para DD/MM/YYYY
+                data_formatada = ''
+                if row.DataNota:
+                    try:
+                        data_str = str(row.DataNota).strip()
+                        if len(data_str) == 8:  # Formato YYYYMMDD
+                            data_formatada = f"{data_str[6:8]}/{data_str[4:6]}/{data_str[0:4]}"
+                        else:
+                            data_formatada = data_str
+                    except:
+                        data_formatada = str(row.DataNota)
+                
                 resultado[cod_produto] = {
                     'preco': float(row.PrecoUnitario) if row.PrecoUnitario else 0,
-                    'data': row.DataNota if row.DataNota else '',
+                    'data': data_formatada,
                     'nota': row.NumeroNota.strip() if row.NumeroNota else '',
                     'fornecedor': row.NomeFornecedor.strip() if row.NomeFornecedor else ''
                 }
