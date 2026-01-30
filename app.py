@@ -1165,11 +1165,48 @@ def teste_externo():
         'rotas_disponiveis': [
             '/externo/<token> - Cotação externa pública',
             '/teste-externo - Este endpoint de teste',
+            '/debug-token/<token> - Verificar token no banco',
             '/ - Página bloqueada (403)'
         ],
         'render_public_url': RENDER_PUBLIC_URL,
         'timestamp': datetime.now().isoformat()
     })
+
+@app.route('/debug-token/<token>')
+def debug_token(token):
+    """
+    Endpoint de debug para verificar se um token existe no banco.
+    """
+    try:
+        envio = db.obter_envio_json_por_token(token)
+        if envio:
+            # Verifica se arquivo existe
+            arquivo_existe = False
+            if envio.get('arquivo_json_gerado'):
+                arquivo_existe = os.path.exists(envio['arquivo_json_gerado'])
+            
+            return jsonify({
+                'token_encontrado': True,
+                'envio_id': envio.get('id'),
+                'cotacao_id': envio.get('cotacao_id'),
+                'fornecedor_id': envio.get('fornecedor_id'),
+                'status': envio.get('status'),
+                'data_geracao': str(envio.get('data_geracao')),
+                'arquivo_json': envio.get('arquivo_json_gerado'),
+                'arquivo_existe': arquivo_existe,
+                'hash_validacao': envio.get('hash_validacao')[:20] + '...' if envio.get('hash_validacao') else None
+            })
+        else:
+            return jsonify({
+                'token_encontrado': False,
+                'token_parcial': token[:20] + '...',
+                'mensagem': 'Token não encontrado no banco de dados'
+            }), 404
+    except Exception as e:
+        return jsonify({
+            'erro': str(e),
+            'token_parcial': token[:20] + '...'
+        }), 500
 
 @app.route('/health')
 def health_check():
@@ -1198,40 +1235,51 @@ def cotacao_externa_publica(token):
         - Erro 404 se token inválido ou expirado
     """
     try:
+        print(f"[EXTERNO] Acessando /externo/{token[:20]}...")
+        
         # === VALIDAÇÃO DO TOKEN ===
         # Busca envio pelo token no banco de dados local
         envio = db.obter_envio_json_por_token(token)
         
-        # TODO: Futuramente, validar token em banco de dados externo
-        # Exemplo de validação futura:
-        # ---
-        # token_valido = validar_token_no_banco(token)
-        # if not token_valido:
-        #     return render_template('externo/erro.html', 
-        #         erro='Token inválido',
-        #         mensagem='O link de acesso é inválido ou expirou.'), 404
-        # ---
+        print(f"[EXTERNO] Resultado da busca: {envio is not None}")
         
         if not envio:
+            print(f"[EXTERNO] Token não encontrado no banco: {token[:20]}...")
             return render_template('externo/erro.html', 
                 erro='Link de cotação inválido ou expirado.',
                 mensagem='Por favor, solicite um novo link ao comprador.'), 404
+        
+        print(f"[EXTERNO] Envio encontrado: ID={envio.get('id')}, Status={envio.get('status')}")
         
         # Verifica se já foi respondido
         if envio.get('status') == 'Importado':
             return render_template('externo/ja_respondida.html', 
                 mensagem='Esta cotação já foi respondida.'), 200
         
-        # Carrega os dados do JSON gerado
-        arquivo_json = envio.get('arquivo_json_gerado')
+        # Tenta carregar os dados do JSON
+        dados_cotacao = None
         
-        if not arquivo_json or not os.path.exists(arquivo_json):
+        # Primeiro tenta do arquivo
+        arquivo_json = envio.get('arquivo_json_gerado')
+        print(f"[EXTERNO] Arquivo JSON: {arquivo_json}")
+        
+        if arquivo_json and os.path.exists(arquivo_json):
+            print(f"[EXTERNO] Arquivo existe, carregando...")
+            with open(arquivo_json, 'r', encoding='utf-8') as f:
+                dados_cotacao = json.load(f)
+        else:
+            print(f"[EXTERNO] Arquivo não existe, tentando reconstruir dados...")
+            # Arquivo não existe (comum no Render após redeploy)
+            # Tenta reconstruir os dados da cotação
+            dados_cotacao = reconstruir_dados_cotacao(envio)
+        
+        if not dados_cotacao:
+            print(f"[EXTERNO] Falha ao carregar dados da cotação")
             return render_template('externo/erro.html', 
                 erro='Arquivo de cotação não encontrado.',
                 mensagem='Por favor, solicite um novo link ao comprador.'), 404
         
-        with open(arquivo_json, 'r', encoding='utf-8') as f:
-            dados_cotacao = json.load(f)
+        print(f"[EXTERNO] Dados carregados com sucesso, renderizando template")
         
         # Renderiza template independente (sem menus/navegação do sistema interno)
         return render_template('externo/cotacao_externa.html', 
@@ -1246,6 +1294,92 @@ def cotacao_externa_publica(token):
         return render_template('externo/erro.html', 
             erro='Erro ao carregar cotação.',
             mensagem='Ocorreu um erro inesperado. Tente novamente mais tarde.'), 500
+
+
+def reconstruir_dados_cotacao(envio):
+    """
+    Reconstrói os dados da cotação a partir do banco de dados.
+    Usado quando o arquivo JSON não existe (após redeploy no Render).
+    """
+    try:
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        # Busca dados do fornecedor
+        cursor.execute('''
+            SELECT f.*, c.codigo as cotacao_codigo, c.observacoes as cotacao_observacoes,
+                   c.informacao_fornecedor
+            FROM cotacao_fornecedores f
+            JOIN cotacoes c ON f.cotacao_id = c.id
+            WHERE f.id = ?
+        ''', (envio['fornecedor_id'],))
+        fornecedor = cursor.fetchone()
+        
+        if not fornecedor:
+            conn.close()
+            return None
+        
+        # Busca itens da cotação
+        cursor.execute('''
+            SELECT i.id, i.numero_sc, i.item_sc, i.cod_produto, i.descricao_produto as descricao,
+                   i.quantidade, i.unidade, i.observacao
+            FROM cotacao_itens i
+            WHERE i.cotacao_id = ?
+            ORDER BY i.numero_sc, i.item_sc
+        ''', (envio['cotacao_id'],))
+        itens = [dict(item) for item in cursor.fetchall()]
+        conn.close()
+        
+        # Monta estrutura do JSON
+        dados_cotacao = {
+            'versao': '1.0',
+            'tipo': 'SOLICITACAO_COTACAO',
+            'token': envio['token_envio'],
+            'data_geracao': envio['data_geracao'] if envio.get('data_geracao') else datetime.now().isoformat(),
+            
+            'cotacao': {
+                'codigo': fornecedor['cotacao_codigo'],
+                'observacoes': fornecedor['cotacao_observacoes'] or '',
+                'informacao_fornecedor': fornecedor['informacao_fornecedor'] or ''
+            },
+            
+            'fornecedor': {
+                'id_interno': fornecedor['id'],
+                'nome': fornecedor['nome_fornecedor'],
+                'email': fornecedor['email_fornecedor'] or '',
+                'telefone': fornecedor['telefone_fornecedor'] or ''
+            },
+            
+            'itens': [
+                {
+                    'id': item['id'],
+                    'numero_sc': item['numero_sc'],
+                    'item_sc': item['item_sc'],
+                    'codigo_produto': item['cod_produto'] or '',
+                    'descricao': item['descricao'],
+                    'quantidade': item['quantidade'],
+                    'unidade': item['unidade'] or 'UN',
+                    'observacao': item['observacao'] or '',
+                    'resposta': {
+                        'preco_unitario': None,
+                        'prazo_entrega_dias': None,
+                        'observacao': None
+                    }
+                }
+                for item in itens
+            ],
+            
+            'hash_validacao': envio['hash_validacao']
+        }
+        
+        print(f"[EXTERNO] Dados reconstruídos com {len(itens)} itens")
+        return dados_cotacao
+        
+    except Exception as e:
+        print(f"[ERRO] reconstruir_dados_cotacao: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 # =============================================================================
