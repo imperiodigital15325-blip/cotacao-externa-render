@@ -20,22 +20,27 @@ app.secret_key = 'sua_chave_secreta_aqui'
 # =============================================================================
 # CONFIGURAÇÃO DO DOMÍNIO PÚBLICO (RENDER)
 # =============================================================================
-# Este é o domínio público do Render onde o sistema está hospedado.
-# SEMPRE use esta URL para gerar links externos de cotação.
-# Nunca use localhost, 127.0.0.1 ou request.host_url para links públicos.
+# IMPORTANTE: Este é o domínio EXATO do serviço no Render.
+# Verifique no painel do Render: Dashboard > Web Service > Settings > "Live URL"
+# O formato DEVE ser: https://NOME-DO-SERVICO.onrender.com
+# NUNCA use:
+#   - *.render.com (sem 'on')
+#   - *.1render.com
+#   - localhost ou 127.0.0.1
+#   - request.host_url ou request.url_root
 # =============================================================================
-RENDER_PUBLIC_URL = os.environ.get('RENDER_PUBLIC_URL', 'https://projeto-compras-2.onrender.com')
+RENDER_PUBLIC_URL = 'https://cotacao-externa-render.onrender.com'
 
 def gerar_link_externo_cotacao(token):
     """
     Gera o link público externo para cotação.
-    SEMPRE usa o domínio do Render, nunca localhost.
+    SEMPRE usa o domínio fixo do Render, nunca localhost.
     
     Args:
         token: Token único da cotação
     
     Returns:
-        URL pública no formato: https://xxx.onrender.com/externo/<token>
+        URL pública no formato: https://cotacao-externa-render.onrender.com/externo/<token>
     """
     return f"{RENDER_PUBLIC_URL}/externo/{token}"
 
@@ -8023,8 +8028,8 @@ def api_limpar_todos_iso():
 # COTAÇÃO EXTERNA ONLINE - INTEGRAÇÃO COM RENDER
 # =============================================================================
 
-# Configuração da aplicação externa (Render)
-COTACAO_EXTERNA_URL = os.environ.get('COTACAO_EXTERNA_URL', 'https://cotacao-externa.onrender.com')
+# Configuração da aplicação externa (Render) - MESMO domínio da constante RENDER_PUBLIC_URL
+COTACAO_EXTERNA_URL = RENDER_PUBLIC_URL  # Usa a mesma URL pública
 COTACAO_EXTERNA_API_KEY = os.environ.get('COTACAO_EXTERNA_API_KEY', 'chave-secreta-compartilhada-trocar-em-producao')
 
 # Import do cliente de integração (se disponível)
