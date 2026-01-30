@@ -1274,9 +1274,14 @@ def api_criar_cotacao_externa():
         # Define expiração (72 horas por padrão)
         expires_at = datetime.now() + timedelta(hours=TOKEN_EXPIRATION_HOURS)
         
+        # Extrai IDs para sincronização automática
+        cotacao_id_interno = dados['cotacao'].get('id')
+        fornecedor_id_interno = dados['fornecedor'].get('id')
+        fornecedor_nome = dados['fornecedor'].get('nome', 'Fornecedor')
+        
         # Estrutura os dados da cotação para armazenamento
         dados_cotacao = {
-            'cotacao_id': dados['cotacao'].get('id'),
+            'cotacao_id': cotacao_id_interno,
             'codigo': dados['cotacao'].get('codigo'),
             'observacoes': dados['cotacao'].get('observacoes', ''),
             'informacao_fornecedor': dados['cotacao'].get('informacao_fornecedor', ''),
@@ -1285,12 +1290,15 @@ def api_criar_cotacao_externa():
             'usuario': dados.get('usuario', 'Sistema')
         }
         
-        # Salva no BANCO DE DADOS (persistente)
+        # Salva no BANCO DE DADOS com IDs para sincronização
         ip_criacao = request.remote_addr
-        cotacao_id = db.criar_cotacao_externa(
+        cotacao_externa_id = db.criar_cotacao_externa_v2(
             token=token,
             dados_json=json.dumps(dados_cotacao, ensure_ascii=False),
             expira_em=expires_at.isoformat(),
+            cotacao_id=cotacao_id_interno,
+            fornecedor_id=fornecedor_id_interno,
+            fornecedor_nome=fornecedor_nome,
             ip_criacao=ip_criacao
         )
         
@@ -1299,7 +1307,8 @@ def api_criar_cotacao_externa():
         
         print(f"[API CRIAR COTAÇÃO] Token gerado: {token[:20]}...")
         print(f"[API CRIAR COTAÇÃO] Link: {link_externo}")
-        print(f"[API CRIAR COTAÇÃO] Salvo no banco com ID: {cotacao_id}")
+        print(f"[API CRIAR COTAÇÃO] Salvo no banco com ID: {cotacao_externa_id}")
+        print(f"[API CRIAR COTAÇÃO] Refs: CotacaoID={cotacao_id_interno}, FornecedorID={fornecedor_id_interno}")
         
         return jsonify({
             'success': True,
@@ -1517,6 +1526,173 @@ def enviar_cotacao_externa(token):
         print(f"[ERRO] enviar_cotacao_externa: {e}")
         import traceback
         traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================================================
+# API POLLING - SINCRONIZAÇÃO AUTOMÁTICA DE COTAÇÕES EXTERNAS
+# =============================================================================
+
+@app.route('/api/cotacoes-externas/respondidas', methods=['GET'])
+def api_cotacoes_externas_respondidas():
+    """
+    Retorna cotações externas que foram respondidas mas ainda não foram sincronizadas.
+    
+    Usado pelo sistema de polling do frontend para atualização automática.
+    O frontend chama esta rota a cada 30 segundos para verificar novas respostas.
+    
+    Returns:
+        JSON com lista de cotações pendentes de sincronização
+    """
+    try:
+        # Busca cotações respondidas não sincronizadas
+        cotacoes = db.listar_cotacoes_externas_respondidas_nao_sincronizadas()
+        
+        # Formata para o frontend
+        resultado = []
+        for cot in cotacoes:
+            resultado.append({
+                'id': cot['id'],
+                'cotacao_id': cot['cotacao_id'],
+                'fornecedor_id': cot['fornecedor_id'],
+                'fornecedor_nome': cot['fornecedor_nome'] or 'Fornecedor',
+                'resposta_json': cot['resposta_json'],
+                'respondido_em': cot['respondido_em']
+            })
+        
+        if resultado:
+            print(f"[POLLING] {len(resultado)} cotação(ões) pendente(s) de sincronização")
+        
+        return jsonify({
+            'success': True,
+            'cotacoes': resultado,
+            'count': len(resultado)
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_cotacoes_externas_respondidas: {e}")
+        return jsonify({'success': False, 'error': str(e), 'cotacoes': []}), 500
+
+
+@app.route('/api/cotacoes-externas/sincronizar', methods=['POST'])
+def api_sincronizar_cotacao_externa():
+    """
+    Sincroniza uma cotação externa com o sistema interno.
+    
+    Recebe o ID da cotação externa e processa a resposta, inserindo
+    os preços, prazos e observações na tabela interna de respostas.
+    
+    Após sincronização, marca a cotação externa como sincronizada.
+    """
+    try:
+        dados = request.get_json()
+        
+        if not dados or 'cotacao_externa_id' not in dados:
+            return jsonify({'success': False, 'error': 'cotacao_externa_id é obrigatório'}), 400
+        
+        cotacao_externa_id = dados['cotacao_externa_id']
+        
+        # Busca dados da cotação externa
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT * FROM cotacoes_externas WHERE id = ?
+        ''', (cotacao_externa_id,))
+        cotacao_ext = cursor.fetchone()
+        conn.close()
+        
+        if not cotacao_ext:
+            return jsonify({'success': False, 'error': 'Cotação externa não encontrada'}), 404
+        
+        cotacao_ext = dict(cotacao_ext)
+        
+        # Verifica se já foi sincronizada
+        if cotacao_ext.get('sincronizada') == 1:
+            return jsonify({
+                'success': True, 
+                'message': 'Cotação já foi sincronizada anteriormente',
+                'already_synced': True
+            })
+        
+        # Sincroniza a resposta
+        resposta_json = cotacao_ext.get('resposta_json')
+        if not resposta_json:
+            return jsonify({'success': False, 'error': 'Cotação não possui resposta'}), 400
+        
+        sucesso = db.sincronizar_resposta_cotacao_externa(
+            cotacao_externa_id=cotacao_externa_id,
+            cotacao_id=cotacao_ext['cotacao_id'],
+            fornecedor_id=cotacao_ext['fornecedor_id'],
+            resposta_json=resposta_json
+        )
+        
+        if sucesso:
+            print(f"[SINCRONIZAÇÃO] Cotação externa {cotacao_externa_id} sincronizada com sucesso")
+            return jsonify({
+                'success': True,
+                'message': 'Cotação sincronizada com sucesso',
+                'cotacao_id': cotacao_ext['cotacao_id'],
+                'fornecedor_id': cotacao_ext['fornecedor_id'],
+                'fornecedor_nome': cotacao_ext.get('fornecedor_nome', 'Fornecedor')
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Erro ao sincronizar cotação'}), 500
+        
+    except Exception as e:
+        print(f"[ERRO] api_sincronizar_cotacao_externa: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacoes-externas/sincronizar-todas', methods=['POST'])
+def api_sincronizar_todas_cotacoes_externas():
+    """
+    Sincroniza todas as cotações externas pendentes de uma vez.
+    
+    Útil para processar múltiplas respostas de uma só vez.
+    """
+    try:
+        # Busca todas pendentes
+        cotacoes = db.listar_cotacoes_externas_respondidas_nao_sincronizadas()
+        
+        sincronizadas = []
+        erros = []
+        
+        for cot in cotacoes:
+            try:
+                sucesso = db.sincronizar_resposta_cotacao_externa(
+                    cotacao_externa_id=cot['id'],
+                    cotacao_id=cot['cotacao_id'],
+                    fornecedor_id=cot['fornecedor_id'],
+                    resposta_json=cot['resposta_json']
+                )
+                
+                if sucesso:
+                    sincronizadas.append({
+                        'id': cot['id'],
+                        'cotacao_id': cot['cotacao_id'],
+                        'fornecedor_id': cot['fornecedor_id'],
+                        'fornecedor_nome': cot.get('fornecedor_nome', 'Fornecedor')
+                    })
+                else:
+                    erros.append({'id': cot['id'], 'erro': 'Falha na sincronização'})
+                    
+            except Exception as e:
+                erros.append({'id': cot['id'], 'erro': str(e)})
+        
+        print(f"[SINCRONIZAÇÃO EM LOTE] {len(sincronizadas)} sincronizada(s), {len(erros)} erro(s)")
+        
+        return jsonify({
+            'success': True,
+            'sincronizadas': sincronizadas,
+            'erros': erros,
+            'total_sincronizadas': len(sincronizadas),
+            'total_erros': len(erros)
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_sincronizar_todas_cotacoes_externas: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -4762,7 +4938,8 @@ def solicitacoes():
         'cod_comprador': 'SC1010.C1_X_COMPR',
         'a2_code': 'SA2010.A2_CODE',
         'observacao': 'SC1010.C1_OBS',
-        'programa': 'SC1010.C1_POLPROG'
+        'programa': 'SC1010.C1_POLPROG',
+        'ultimo_preco': 'SD1010.D1_VUNIT (última NF de entrada)'
     }
     
     if request.method == 'POST':
@@ -4805,6 +4982,9 @@ def solicitacoes():
             'kpi_total': 0,
             'kpi_urgentes': 0,
             'kpi_atrasadas': 0,
+            'kpi_prazo_incompativel': 0,
+            'kpi_valor_previsto': 0,
+            'kpi_itens_com_preco': 0,
             'tabela': [],
             'opcoes_compradores': [],
             'opcoes_solicitantes': [],
@@ -4973,10 +5153,57 @@ def solicitacoes():
     
     lista_solicitantes = sorted(df_raw['Solicitante'].dropna().astype(str).str.strip().unique().tolist())
     
+    # ========================================
+    # BUSCA ÚLTIMO PREÇO PAGO DE CADA PRODUTO
+    # ========================================
+    # Coleta todos os códigos de produtos únicos das solicitações
+    valor_previsto = 0.0
+    itens_com_preco = 0
+    ultimos_precos = {}
+    
+    try:
+        codigos_produtos = df['CodProduto'].dropna().astype(str).str.strip().unique().tolist()
+        codigos_produtos = [cod for cod in codigos_produtos if cod]  # Remove vazios
+        print(f"[SOLICITAÇÕES] Buscando último preço para {len(codigos_produtos)} produtos...")
+        
+        # Limita busca a no máximo 500 produtos para evitar timeout
+        if len(codigos_produtos) > 500:
+            print(f"[SOLICITAÇÕES] ⚠️ Limitando busca aos primeiros 500 produtos (total: {len(codigos_produtos)})")
+            codigos_produtos = codigos_produtos[:500]
+        
+        # Busca último preço pago no histórico (SD1010 - NFs de entrada)
+        ultimos_precos = buscar_ultimo_preco_pago(codigos_produtos)
+        print(f"[SOLICITAÇÕES] Encontrado histórico de preço para {len(ultimos_precos)} produtos")
+        
+        # Adiciona coluna de último preço ao DataFrame
+        df['UltimoPreco'] = df['CodProduto'].apply(
+            lambda cod: ultimos_precos.get(str(cod).strip(), {}).get('preco', None) if cod else None
+        )
+        
+        # ========================================
+        # CÁLCULO DO VALOR PREVISTO (KPI)
+        # ========================================
+        # Valor Previsto = Soma de (Quantidade * Último Preço) para todos os itens com histórico
+        for _, row in df.iterrows():
+            ultimo_preco = row.get('UltimoPreco')
+            quantidade = row.get('Quantidade', 0)
+            if ultimo_preco is not None and ultimo_preco > 0 and quantidade > 0:
+                valor_previsto += float(quantidade) * float(ultimo_preco)
+                itens_com_preco += 1
+        
+        print(f"[SOLICITAÇÕES] Valor Previsto: R$ {valor_previsto:,.2f} ({itens_com_preco} itens com histórico)")
+    
+    except Exception as e:
+        print(f"[SOLICITAÇÕES] ⚠️ Erro ao buscar últimos preços: {e}")
+        # Se der erro, continua sem os preços (coluna ficará com None/N/A)
+        df['UltimoPreco'] = None
+    
     dados = {
         'kpi_total': total_solicitacoes,
         'kpi_atrasadas': total_atrasadas,
         'kpi_prazo_incompativel': total_prazo_incompativel,
+        'kpi_valor_previsto': valor_previsto,
+        'kpi_itens_com_preco': itens_com_preco,
         'tabela': df.sort_values(by=['DiasAtraso', 'DataNecessidade'], ascending=[False, True]).head(500).to_dict(orient='records'),
         'opcoes_compradores': lista_compradores,
         'opcoes_solicitantes': lista_solicitantes,
@@ -5066,7 +5293,7 @@ def buscar_ultimo_preco_pago(codigos_produtos):
         password = 'Db_Polimaquinas'
         
         conn_str = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
-        conn = pyodbc.connect(conn_str, timeout=30)
+        conn = pyodbc.connect(conn_str, timeout=15)  # Reduzido de 30 para 15 segundos
         
         # Limpa e formata os códigos para a query
         codigos_limpos = []
@@ -5079,6 +5306,11 @@ def buscar_ultimo_preco_pago(codigos_produtos):
         if not codigos_limpos:
             conn.close()
             return {}
+        
+        # Limita a 300 produtos por consulta para evitar timeout
+        if len(codigos_limpos) > 300:
+            print(f"[ULTIMO_PRECO] ⚠️ Limitando busca aos primeiros 300 de {len(codigos_limpos)} produtos")
+            codigos_limpos = codigos_limpos[:300]
         
         # Cria lista para IN clause
         codigos_str = "'" + "','".join(codigos_limpos) + "'"
@@ -5126,11 +5358,16 @@ def buscar_ultimo_preco_pago(codigos_produtos):
                     'fornecedor': row.NomeFornecedor.strip() if row.NomeFornecedor else ''
                 }
         
+        cursor.close()
         conn.close()
         print(f"[ULTIMO_PRECO] Encontrado histórico para {len(resultado)} de {len(codigos_limpos)} produtos")
         
+    except pyodbc.OperationalError as e:
+        print(f"[ULTIMO_PRECO] ⚠️ Erro de conexão com banco de dados: {e}")
+    except pyodbc.ProgrammingError as e:
+        print(f"[ULTIMO_PRECO] ⚠️ Erro na query SQL: {e}")
     except Exception as e:
-        print(f"[ULTIMO_PRECO] Erro ao buscar último preço: {e}")
+        print(f"[ULTIMO_PRECO] ⚠️ Erro inesperado ao buscar último preço: {e}")
     
     return resultado
 

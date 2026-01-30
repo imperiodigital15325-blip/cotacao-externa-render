@@ -3294,6 +3294,281 @@ Departamento de Compras`;
             });
     }
 
+    // ============================================================================
+    // POLLING - SINCRONIZAÇÃO AUTOMÁTICA DE COTAÇÕES EXTERNAS
+    // ============================================================================
+    // Este sistema verifica a cada 30 segundos se há novas respostas de 
+    // fornecedores em cotações externas e atualiza automaticamente a página.
+    
+    /**
+     * ID da cotação atual (para filtrar apenas respostas relevantes)
+     */
+    const COTACAO_ID_ATUAL = {{ cotacao.id }};
+    
+    /**
+     * Intervalo de polling em milissegundos (30 segundos)
+     */
+    const POLLING_INTERVAL = 30000;
+    
+    /**
+     * Flag para evitar múltiplas requisições simultâneas
+     */
+    let pollingEmAndamento = false;
+    
+    /**
+     * Mostra toast de notificação especial para respostas de cotações
+     */
+    function mostrarToastResposta(fornecedorNome, codigoCotacao) {
+        // Cria um toast especial com ícone e animação
+        const toastHtml = `
+            <div class="toast-resposta-cotacao" id="toastRespostaCotacao">
+                <div class="toast-resposta-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="toast-resposta-content">
+                    <div class="toast-resposta-title">Nova Resposta Recebida!</div>
+                    <div class="toast-resposta-message">
+                        <strong>${fornecedorNome}</strong> respondeu a cotação
+                    </div>
+                </div>
+                <button class="toast-resposta-close" onclick="fecharToastResposta()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        
+        // Remove toast anterior se existir
+        const toastExistente = document.getElementById('toastRespostaCotacao');
+        if (toastExistente) {
+            toastExistente.remove();
+        }
+        
+        // Adiciona o toast ao body
+        document.body.insertAdjacentHTML('beforeend', toastHtml);
+        
+        // Adiciona animação de entrada
+        setTimeout(() => {
+            const toast = document.getElementById('toastRespostaCotacao');
+            if (toast) toast.classList.add('show');
+        }, 100);
+        
+        // Remove automaticamente após 8 segundos
+        setTimeout(() => {
+            fecharToastResposta();
+        }, 8000);
+        
+        // Toca som de notificação (opcional)
+        try {
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleSkdfpO83NlsQBgqgsXa3oFYLRtcmcbTi14yFlWKvNHJgVowGEyCuM7EdGQ5IVyNvczDhWY3IViFuM/Edmo6IVqJuczDhWo4IFeFuNDDdWw8IVqJuc3EhWs4IFiFt9DDdWw8IVqIuM3FhWs4H1eFt9DDdWw8IVqIuM3FhWs4IFiFt9DEdWw8IVqIuM3FhWs4IFiFt9DDdWw8IVqIuM3FhWs4IFiFt9DEdWw8IVqIuM3Fh2s4IFiFt9DEd2w8IVqIuM3EhWs4IFmGt9DEd2w8IVqIuM3EhWs4IFmGt9DEd2w8IVqIuM3EhWs4');
+            audio.volume = 0.3;
+            audio.play().catch(() => {}); // Ignora erro se autoplay bloqueado
+        } catch (e) {}
+    }
+    
+    /**
+     * Fecha o toast de resposta
+     */
+    function fecharToastResposta() {
+        const toast = document.getElementById('toastRespostaCotacao');
+        if (toast) {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }
+    }
+    
+    /**
+     * Atualiza a linha do fornecedor na tabela após sincronização
+     */
+    function atualizarLinhaFornecedor(fornecedorId) {
+        const row = document.getElementById(`row-forn-${fornecedorId}`);
+        if (!row) return;
+        
+        // Atualiza badge de status para "Respondido"
+        const statusCell = row.querySelector('td:nth-child(3)');
+        if (statusCell) {
+            statusCell.innerHTML = '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Respondido</span>';
+        }
+        
+        // Adiciona efeito de highlight na linha
+        row.classList.add('row-updated');
+        setTimeout(() => row.classList.remove('row-updated'), 3000);
+    }
+    
+    /**
+     * Função principal de polling
+     * Verifica cotações externas respondidas e sincroniza automaticamente
+     */
+    async function verificarRespostasExternas() {
+        // Evita múltiplas requisições simultâneas
+        if (pollingEmAndamento) return;
+        pollingEmAndamento = true;
+        
+        try {
+            // Busca cotações respondidas não sincronizadas
+            const response = await fetch('/api/cotacoes-externas/respondidas');
+            
+            if (!response.ok) {
+                console.warn('[POLLING] Erro ao buscar respostas:', response.status);
+                return;
+            }
+            
+            const data = await response.json();
+            
+            if (!data.success || !data.cotacoes || data.cotacoes.length === 0) {
+                return; // Nada para sincronizar
+            }
+            
+            console.log(`[POLLING] ${data.cotacoes.length} resposta(s) pendente(s) de sincronização`);
+            
+            // Filtra apenas respostas desta cotação
+            const respostasDaCotacao = data.cotacoes.filter(c => c.cotacao_id === COTACAO_ID_ATUAL);
+            
+            if (respostasDaCotacao.length === 0) {
+                return; // Nenhuma resposta para esta cotação
+            }
+            
+            // Sincroniza cada resposta
+            for (const cotacao of respostasDaCotacao) {
+                try {
+                    const syncResponse = await fetch('/api/cotacoes-externas/sincronizar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cotacao_externa_id: cotacao.id })
+                    });
+                    
+                    const syncData = await syncResponse.json();
+                    
+                    if (syncData.success) {
+                        console.log(`[POLLING] Cotação ${cotacao.id} sincronizada com sucesso`);
+                        
+                        // Mostra notificação toast
+                        mostrarToastResposta(
+                            cotacao.fornecedor_nome || 'Fornecedor',
+                            '{{ cotacao.codigo }}'
+                        );
+                        
+                        // Atualiza a linha do fornecedor na tabela
+                        atualizarLinhaFornecedor(cotacao.fornecedor_id);
+                        
+                        // Agenda reload da página após 3 segundos para mostrar dados atualizados
+                        setTimeout(() => {
+                            location.reload();
+                        }, 3000);
+                    }
+                } catch (syncError) {
+                    console.error('[POLLING] Erro ao sincronizar:', syncError);
+                }
+            }
+            
+        } catch (error) {
+            console.error('[POLLING] Erro no polling:', error);
+        } finally {
+            pollingEmAndamento = false;
+        }
+    }
+    
+    /**
+     * Inicia o sistema de polling
+     */
+    function iniciarPolling() {
+        console.log('[POLLING] Sistema de sincronização automática iniciado');
+        console.log(`[POLLING] Verificando a cada ${POLLING_INTERVAL/1000} segundos`);
+        console.log(`[POLLING] Monitorando cotação ID: ${COTACAO_ID_ATUAL}`);
+        
+        // Executa imediatamente na primeira vez
+        verificarRespostasExternas();
+        
+        // Agenda verificações periódicas
+        setInterval(verificarRespostasExternas, POLLING_INTERVAL);
+    }
+    
+    // Inicia o polling quando a página carregar
+    document.addEventListener('DOMContentLoaded', function() {
+        // Pequeno delay para não sobrecarregar o carregamento inicial
+        setTimeout(iniciarPolling, 2000);
+    });
+
     </script>
+    
+    <!-- ESTILOS DO TOAST DE RESPOSTA -->
+    <style>
+        /* Toast de notificação de resposta de cotação */
+        .toast-resposta-cotacao {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            min-width: 320px;
+            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(40, 167, 69, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            z-index: 10000;
+            transform: translateX(400px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .toast-resposta-cotacao.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        
+        .toast-resposta-icon {
+            font-size: 2rem;
+            animation: pulseIcon 1s ease infinite;
+        }
+        
+        @keyframes pulseIcon {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .toast-resposta-content {
+            flex: 1;
+        }
+        
+        .toast-resposta-title {
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 4px;
+        }
+        
+        .toast-resposta-message {
+            font-size: 0.875rem;
+            opacity: 0.95;
+        }
+        
+        .toast-resposta-close {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        
+        .toast-resposta-close:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        /* Efeito de highlight na linha atualizada */
+        .row-updated {
+            animation: highlightRow 3s ease;
+        }
+        
+        @keyframes highlightRow {
+            0% { background-color: rgba(40, 167, 69, 0.3); }
+            100% { background-color: transparent; }
+        }
+    </style>
 </body>
 </html>

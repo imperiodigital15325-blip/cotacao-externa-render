@@ -392,6 +392,32 @@ def init_database():
     except:
         pass  # Coluna já existe
     
+    # ==========================================================================
+    # MIGRATION: Campos para sincronização de cotações externas (Polling)
+    # ==========================================================================
+    try:
+        cursor.execute("ALTER TABLE cotacoes_externas ADD COLUMN cotacao_id INTEGER")
+    except:
+        pass  # Coluna já existe
+    
+    try:
+        cursor.execute("ALTER TABLE cotacoes_externas ADD COLUMN fornecedor_id INTEGER")
+    except:
+        pass  # Coluna já existe
+    
+    try:
+        cursor.execute("ALTER TABLE cotacoes_externas ADD COLUMN fornecedor_nome TEXT")
+    except:
+        pass  # Coluna já existe
+    
+    try:
+        cursor.execute("ALTER TABLE cotacoes_externas ADD COLUMN sincronizada INTEGER DEFAULT 0")
+    except:
+        pass  # Coluna já existe
+    
+    # Índice para busca rápida de cotações não sincronizadas
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacoes_externas_sync ON cotacoes_externas(sincronizada, status)')
+
     conn.commit()
     conn.close()
     print("[DB] Banco de dados inicializado com sucesso!")
@@ -1872,6 +1898,232 @@ def contar_cotacoes_externas():
     resultado = {row['status']: row['total'] for row in cursor.fetchall()}
     conn.close()
     return resultado
+
+
+def criar_cotacao_externa_v2(token, dados_json, expira_em, cotacao_id, fornecedor_id, fornecedor_nome, ip_criacao=None):
+    """
+    Cria uma nova cotação externa com referência à cotação interna.
+    Versão 2 - Inclui cotacao_id e fornecedor_id para sincronização automática.
+    
+    Args:
+        token: Token único gerado para a cotação
+        dados_json: Dados da cotação em formato JSON string
+        expira_em: Data/hora de expiração
+        cotacao_id: ID da cotação interna
+        fornecedor_id: ID do fornecedor na tabela cotacao_fornecedores
+        fornecedor_nome: Nome do fornecedor para exibição
+        ip_criacao: IP de onde foi criada a cotação
+    
+    Returns:
+        ID da cotação externa criada
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        INSERT INTO cotacoes_externas 
+        (token, dados_json, status, expira_em, ip_criacao, cotacao_id, fornecedor_id, fornecedor_nome, sincronizada)
+        VALUES (?, ?, 'aberta', ?, ?, ?, ?, ?, 0)
+    ''', (token, dados_json, expira_em, ip_criacao, cotacao_id, fornecedor_id, fornecedor_nome))
+    
+    cotacao_externa_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    print(f"[DB] Cotação externa V2 criada: ID={cotacao_externa_id}, CotacaoID={cotacao_id}, FornecedorID={fornecedor_id}")
+    return cotacao_externa_id
+
+
+def listar_cotacoes_externas_respondidas_nao_sincronizadas(limite=50):
+    """
+    Lista cotações externas que foram respondidas mas ainda não foram sincronizadas.
+    Usado pelo sistema de polling para atualizar automaticamente as cotações internas.
+    
+    Returns:
+        Lista de dicionários com dados das cotações pendentes de sincronização
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT 
+            id,
+            token,
+            cotacao_id,
+            fornecedor_id,
+            fornecedor_nome,
+            resposta_json,
+            respondido_em,
+            dados_json
+        FROM cotacoes_externas 
+        WHERE status = 'respondida' 
+          AND (sincronizada = 0 OR sincronizada IS NULL)
+          AND cotacao_id IS NOT NULL
+          AND fornecedor_id IS NOT NULL
+        ORDER BY respondido_em ASC
+        LIMIT ?
+    ''', (limite,))
+    
+    cotacoes = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    print(f"[DB] Cotações externas pendentes de sincronização: {len(cotacoes)}")
+    return cotacoes
+
+
+def marcar_cotacao_externa_sincronizada(cotacao_externa_id):
+    """
+    Marca uma cotação externa como sincronizada após processar os dados.
+    
+    Args:
+        cotacao_externa_id: ID da cotação externa
+    
+    Returns:
+        True se atualizado com sucesso
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        UPDATE cotacoes_externas 
+        SET sincronizada = 1
+        WHERE id = ?
+    ''', (cotacao_externa_id,))
+    
+    rows_affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+    
+    if rows_affected > 0:
+        print(f"[DB] Cotação externa {cotacao_externa_id} marcada como sincronizada")
+        return True
+    return False
+
+
+def sincronizar_resposta_cotacao_externa(cotacao_externa_id, cotacao_id, fornecedor_id, resposta_json):
+    """
+    Sincroniza a resposta de uma cotação externa com o sistema interno.
+    Insere os preços, prazos e observações na tabela de respostas.
+    
+    Args:
+        cotacao_externa_id: ID da cotação externa
+        cotacao_id: ID da cotação interna
+        fornecedor_id: ID do fornecedor
+        resposta_json: Resposta em formato JSON (já parseado como dict)
+    
+    Returns:
+        True se sincronizado com sucesso
+    """
+    import json
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Parse resposta se for string
+        if isinstance(resposta_json, str):
+            resposta = json.loads(resposta_json)
+        else:
+            resposta = resposta_json
+        
+        # Dados gerais do fornecedor
+        frete_total = float(resposta.get('frete_total', 0) or 0)
+        condicao_pagamento = resposta.get('condicao_pagamento', '')
+        observacao_geral = resposta.get('observacao_geral', '')
+        
+        # Atualiza dados do fornecedor
+        cursor.execute('''
+            UPDATE cotacao_fornecedores 
+            SET status = 'Respondido',
+                data_resposta = CURRENT_TIMESTAMP,
+                frete_total = ?,
+                condicao_pagamento = ?,
+                observacao_geral = ?
+            WHERE id = ?
+        ''', (frete_total, condicao_pagamento, observacao_geral, fornecedor_id))
+        
+        # Processa itens da resposta
+        itens = resposta.get('itens', [])
+        for item in itens:
+            item_id = item.get('item_id')
+            preco_unitario = float(item.get('preco_unitario', 0) or 0)
+            prazo_entrega = int(item.get('prazo_entrega', 0) or 0)
+            observacao_item = item.get('observacao', '')
+            
+            if not item_id:
+                continue
+            
+            # Verifica se já existe resposta para este item
+            cursor.execute('''
+                SELECT id FROM cotacao_respostas 
+                WHERE cotacao_id = ? AND fornecedor_id = ? AND item_id = ?
+            ''', (cotacao_id, fornecedor_id, item_id))
+            
+            existe = cursor.fetchone()
+            
+            if existe:
+                # Atualiza resposta existente
+                cursor.execute('''
+                    UPDATE cotacao_respostas 
+                    SET preco_unitario = ?,
+                        prazo_entrega = ?,
+                        observacao = ?,
+                        data_resposta = CURRENT_TIMESTAMP
+                    WHERE cotacao_id = ? AND fornecedor_id = ? AND item_id = ?
+                ''', (preco_unitario, prazo_entrega, observacao_item, cotacao_id, fornecedor_id, item_id))
+            else:
+                # Insere nova resposta
+                cursor.execute('''
+                    INSERT INTO cotacao_respostas 
+                    (cotacao_id, fornecedor_id, item_id, preco_unitario, prazo_entrega, observacao)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (cotacao_id, fornecedor_id, item_id, preco_unitario, prazo_entrega, observacao_item))
+        
+        # Marca a cotação externa como sincronizada
+        cursor.execute('''
+            UPDATE cotacoes_externas 
+            SET sincronizada = 1
+            WHERE id = ?
+        ''', (cotacao_externa_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        print(f"[DB] Resposta sincronizada: CotacaoExterna={cotacao_externa_id}, Cotacao={cotacao_id}, Fornecedor={fornecedor_id}, Itens={len(itens)}")
+        return True
+        
+    except Exception as e:
+        print(f"[DB] Erro ao sincronizar resposta: {e}")
+        if conn:
+            conn.rollback()
+            conn.close()
+        return False
+
+
+def atualizar_cotacao_externa_com_ids(token, cotacao_id, fornecedor_id, fornecedor_nome):
+    """
+    Atualiza uma cotação externa existente com os IDs de referência.
+    Usado quando o token já foi criado mas sem os IDs de sincronização.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        UPDATE cotacoes_externas 
+        SET cotacao_id = ?,
+            fornecedor_id = ?,
+            fornecedor_nome = ?
+        WHERE token = ?
+    ''', (cotacao_id, fornecedor_id, fornecedor_nome, token))
+    
+    rows_affected = cursor.rowcount
+    conn.commit()
+    conn.close()
+    
+    if rows_affected > 0:
+        print(f"[DB] Cotação externa atualizada com IDs: Token={token[:20]}..., Cotacao={cotacao_id}, Fornecedor={fornecedor_id}")
+        return True
+    return False
 
 
 # =============================================================================

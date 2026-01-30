@@ -604,22 +604,29 @@
 
         <!-- KPIs -->
         <div class="row g-3 mb-4 fade-in">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="kpi-card border-blue" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Origem: SC1010 - Total de SCs em aberto">
                     <div class="kpi-value text-primary">{{ dados.kpi_total }}</div>
                     <div class="kpi-label">Total Solicitações</div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="kpi-card border-red" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Cálculo automático - Data atual > Data necessidade">
                     <div class="kpi-value text-danger">{{ dados.kpi_atrasadas }}</div>
                     <div class="kpi-label">Críticas</div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="kpi-card border-orange" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Cálculo automático - Prazo solicitado < Lead Time do produto">
                     <div class="kpi-value text-warning">{{ dados.kpi_prazo_incompativel }}</div>
                     <div class="kpi-label">Prazo Incompatível</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card border-green" data-bs-toggle="tooltip" data-bs-placement="bottom" title="📊 Soma de (Quantidade × Último Preço Pago) para itens com histórico. {{ dados.kpi_itens_com_preco }} itens com histórico de preço.">
+                    <div class="kpi-value text-success" style="font-size: 1.5rem;">R$ {{ "{:,.2f}".format(dados.kpi_valor_previsto).replace(',', 'X').replace('.', ',').replace('X', '.') }}</div>
+                    <div class="kpi-label">Valor Previsto</div>
+                    <div class="kpi-subtitle">{{ dados.kpi_itens_com_preco }} itens com histórico</div>
                 </div>
             </div>
         </div>
@@ -668,7 +675,8 @@
                                     <th class="sortable" onclick="sortTable('tabelaSolicitacoes', 9, 'text')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.cod_comprador }}"><span class="sql-origin">Comprador <i class="fas fa-sort"></i></span></th>
                                     <th class="sortable" onclick="sortTable('tabelaSolicitacoes', 10, 'text')" data-bs-toggle="tooltip" title="📊 SA2010.A2_COD / SA2010.A2_NOME"><span class="sql-origin">Fornecedor <i class="fas fa-sort"></i></span></th>
                                     <th class="sortable" onclick="sortTable('tabelaSolicitacoes', 11, 'obs')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.observacao }}" style="max-width: 80px;"><span class="sql-origin">OBS TOTVS <i class="fas fa-sort"></i></span></th>
-                                    <th class="text-center sortable" onclick="sortTable('tabelaSolicitacoes', 12, 'status')" data-bs-toggle="tooltip" title="Status calculado automaticamente: Normal / Crítico / Prazo Incompatível"><span class="sql-origin">Status <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-end sortable" onclick="sortTable('tabelaSolicitacoes', 12, 'currency')" data-bs-toggle="tooltip" title="📊 {{ sql_meta.ultimo_preco }} - Último preço pago em compras anteriores"><span class="sql-origin">Últ. Preço <i class="fas fa-sort"></i></span></th>
+                                    <th class="text-center sortable" onclick="sortTable('tabelaSolicitacoes', 13, 'status')" data-bs-toggle="tooltip" title="Status calculado automaticamente: Normal / Crítico / Prazo Incompatível"><span class="sql-origin">Status <i class="fas fa-sort"></i></span></th>
                                     <th style="width: 60px;" data-bs-toggle="tooltip" title="Anotações internas do comprador">Anotação</th>
                                 </tr>
                             </thead>
@@ -723,6 +731,15 @@
                                             <span class="text-muted" style="font-size: 0.75rem;">-</span>
                                         {% endif %}
                                     </td>
+                                    <td class="text-end">
+                                        {% if linha.UltimoPreco and linha.UltimoPreco > 0 %}
+                                            <span class="text-success fw-semibold" title="Último preço pago: R$ {{ '%.2f'|format(linha.UltimoPreco) }}">
+                                                R$ {{ "%.2f"|format(linha.UltimoPreco) }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted" style="font-size: 0.75rem;" title="Sem histórico de compras anteriores">N/A</span>
+                                        {% endif %}
+                                    </td>
                                     <td class="text-center">
                                         {% if linha.Status == 'CRÍTICO' %}
                                             <span class="badge badge-critico"><i class="fas fa-exclamation-circle me-1"></i>Crítico</span>
@@ -741,7 +758,7 @@
                                     </td>
                                 </tr>
                                 {% else %}
-                                <tr><td colspan="14" class="text-center py-4 text-muted"><i class="fas fa-check-circle fa-2x mb-2 d-block text-success"></i>Nenhuma solicitação em aberto encontrada.</td></tr>
+                                <tr><td colspan="15" class="text-center py-4 text-muted"><i class="fas fa-check-circle fa-2x mb-2 d-block text-success"></i>Nenhuma solicitação em aberto encontrada.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -1196,6 +1213,15 @@
                 aVal = parseFloat(aVal.replace(/[^\d.-]/g, '')) || 0;
                 bVal = parseFloat(bVal.replace(/[^\d.-]/g, '')) || 0;
                 return (aVal - bVal) * direction;
+            } else if (type === 'currency') {
+                // Ordenação de valores monetários (R$ 1.234,56 ou N/A)
+                const parseCurrency = (str) => {
+                    if (!str || str === 'N/A' || str === '-') return -1; // N/A fica no final
+                    // Remove "R$", espaços, pontos de milhar e converte vírgula para ponto
+                    const num = str.replace(/R\$\s*/g, '').replace(/\./g, '').replace(',', '.');
+                    return parseFloat(num) || 0;
+                };
+                return (parseCurrency(aVal) - parseCurrency(bVal)) * direction;
             } else if (type === 'date') {
                 // Formato DD/MM/YY
                 const parseDate = (str) => {
