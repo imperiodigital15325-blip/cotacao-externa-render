@@ -773,7 +773,20 @@
                                     </td>
                                 </tr>
                                 {% else %}
-                                <tr><td colspan="15" class="text-center py-4 text-muted"><i class="fas fa-check-circle fa-2x mb-2 d-block text-success"></i>Nenhuma solicitação em aberto encontrada.</td></tr>
+                                <tr>
+                                    <td colspan="15" class="text-center py-5 text-muted">
+                                        <i class="fas fa-search fa-3x mb-3 d-block" style="opacity: 0.3;"></i>
+                                        <h5 class="mb-2">Nenhuma solicitação encontrada</h5>
+                                        {% if filtros.fornecedores or filtros.compradores or filtros.solicitantes or filtros.busca_geral %}
+                                        <p class="mb-0" style="font-size: 0.9rem;">Não existem solicitações em aberto para os filtros selecionados.</p>
+                                        <a href="{{ url_for('limpar_filtros_solicitacoes') }}" class="btn btn-outline-primary btn-sm mt-3">
+                                            <i class="fas fa-eraser me-1"></i> Limpar Filtros
+                                        </a>
+                                        {% else %}
+                                        <p class="mb-0" style="font-size: 0.9rem;">Não existem solicitações de compra em aberto no momento.</p>
+                                        {% endif %}
+                                    </td>
+                                </tr>
                                 {% endfor %}
                             </tbody>
                         </table>

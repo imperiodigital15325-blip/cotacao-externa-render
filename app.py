@@ -5238,6 +5238,49 @@ def deletar_anotacao_otd(chave):
 # =============================================================================
 # SOLICITAÇÕES EM ABERTO (SC1010)
 # =============================================================================
+
+@cache.cached(timeout=1800, key_prefix='todos_fornecedores_cadastrados_v1')  # 30 minutos de cache
+def get_todos_fornecedores_cadastrados():
+    """
+    Busca TODOS os fornecedores cadastrados na tabela SA2010 (TOTVS).
+    Esta função é usada para popular o filtro de fornecedores em Solicitações em Aberto,
+    permitindo pesquisar qualquer fornecedor cadastrado, independente de ter solicitação aberta.
+    
+    Retorna: Lista ordenada de nomes de fornecedores
+    """
+    try:
+        server = r'172.16.45.117\TOTVS' 
+        database = 'TOTVSDB'
+        username = 'excel'
+        password = 'Db_Polimaquinas'
+        
+        conn_str = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
+        conn = pyodbc.connect(conn_str, timeout=30)
+        
+        query = """
+        SELECT DISTINCT
+            RTRIM(LTRIM(A2_NOME)) AS NomeFornecedor
+        FROM SA2010
+        WHERE D_E_L_E_T_ = ''
+          AND A2_MSBLQL <> '1'
+          AND RTRIM(LTRIM(ISNULL(A2_NOME, ''))) <> ''
+        ORDER BY NomeFornecedor
+        """
+        
+        df = pd.read_sql(query, conn)
+        conn.close()
+        
+        # Converte para lista e remove vazios
+        fornecedores = [f.strip() for f in df['NomeFornecedor'].tolist() if f and f.strip()]
+        
+        print(f"[FORNECEDORES CADASTRADOS] Carregados {len(fornecedores)} fornecedores do SA2010")
+        return fornecedores
+        
+    except Exception as e:
+        print(f"[ERRO] Falha ao buscar fornecedores cadastrados: {e}")
+        return []
+
+
 @cache.cached(timeout=600, key_prefix='solicitacoes_aberto_v3')  # 10 minutos de cache
 def get_solicitacoes_aberto_data():
     """
@@ -5624,9 +5667,10 @@ def solicitacoes():
     
     lista_solicitantes = sorted(df_raw['Solicitante'].dropna().astype(str).str.strip().unique().tolist())
     
-    # Lista de fornecedores para filtro
-    lista_fornecedores = sorted([f for f in df_raw['NomeFornecedor'].dropna().astype(str).str.strip().unique().tolist() if f])
-    print(f"[SOLICITAÇÕES] Lista de fornecedores para filtro: {len(lista_fornecedores)} fornecedores")
+    # Lista de fornecedores para filtro - TODOS os fornecedores cadastrados no SA2010
+    # Isso permite filtrar por qualquer fornecedor, mesmo que não tenha solicitação aberta
+    lista_fornecedores = get_todos_fornecedores_cadastrados()
+    print(f"[SOLICITAÇÕES] Lista de fornecedores cadastrados para filtro: {len(lista_fornecedores)} fornecedores")
     
     # ========================================
     # BUSCA ÚLTIMO PREÇO PAGO DE CADA PRODUTO
