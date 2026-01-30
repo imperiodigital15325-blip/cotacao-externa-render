@@ -1429,6 +1429,101 @@ def cotacao_externa_publica(token):
             mensagem='Ocorreu um erro inesperado. Tente novamente mais tarde.'), 500
 
 
+@app.route('/externo/<token>/enviar', methods=['POST'])
+def enviar_cotacao_externa(token):
+    """
+    Rota POST para receber a resposta da cotação externa.
+    O token é recebido pela URL para garantir consistência.
+    
+    Verifica PRIMEIRO na memória (cotacoes_externas_memoria),
+    depois no banco de dados local.
+    """
+    print("="*60)
+    print("TOKEN NO POST:", token)
+    print("="*60)
+    
+    try:
+        # Obtém dados do formulário (JSON)
+        dados = request.get_json()
+        print(f"[ENVIAR COTAÇÃO] Dados recebidos: {dados is not None}")
+        
+        if not dados:
+            return jsonify({'success': False, 'error': 'Dados não recebidos'}), 400
+        
+        # === PRIMEIRO: VERIFICA NA MEMÓRIA ===
+        if token in cotacoes_externas_memoria:
+            print(f"[ENVIAR COTAÇÃO] Token encontrado na MEMÓRIA")
+            cotacao_mem = cotacoes_externas_memoria[token]
+            
+            # Log do status atual
+            print(f"[ENVIAR COTAÇÃO] Status atual: {cotacao_mem.get('status')}")
+            print(f"[ENVIAR COTAÇÃO] Expira em: {cotacao_mem.get('expires_at')}")
+            
+            # Processa a resposta
+            itens_processados = 0
+            for item in dados.get('itens', []):
+                preco = item.get('preco_unitario', 0)
+                if preco and preco > 0:
+                    itens_processados += 1
+            
+            # Marca como respondida
+            cotacoes_externas_memoria[token]['status'] = 'respondida'
+            cotacoes_externas_memoria[token]['resposta'] = {
+                'dados': dados,
+                'data_resposta': datetime.now().isoformat(),
+                'itens_processados': itens_processados
+            }
+            
+            print(f"[ENVIAR COTAÇÃO] Cotação marcada como respondida. {itens_processados} itens.")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Cotação enviada com sucesso! {itens_processados} item(ns) processado(s).',
+                'itens_processados': itens_processados
+            })
+        
+        # === SEGUNDO: VERIFICA NO BANCO DE DADOS LOCAL ===
+        print(f"[ENVIAR COTAÇÃO] Token não na memória, verificando banco...")
+        envio = db.obter_envio_json_por_token(token)
+        
+        if not envio:
+            print(f"[ENVIAR COTAÇÃO] Token NÃO encontrado em nenhum lugar!")
+            return jsonify({'success': False, 'error': 'Token inválido ou expirado'}), 400
+        
+        print(f"[ENVIAR COTAÇÃO] Encontrado no banco. ID={envio.get('id')}")
+        
+        # Processa resposta do banco
+        cotacao_id = envio['cotacao_id']
+        fornecedor_id = envio['fornecedor_id']
+        itens_processados = 0
+        
+        for item in dados.get('itens', []):
+            preco = item.get('preco_unitario', 0)
+            prazo = item.get('prazo_entrega', 0)
+            
+            if preco and preco > 0:
+                # Busca o ID real do item baseado no índice
+                # Por enquanto apenas conta
+                itens_processados += 1
+        
+        # Atualiza status
+        db.atualizar_status_fornecedor(fornecedor_id, 'Respondido')
+        
+        print(f"[ENVIAR COTAÇÃO] Processado do banco. {itens_processados} itens.")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Cotação enviada com sucesso! {itens_processados} item(ns) processado(s).',
+            'itens_processados': itens_processados
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] enviar_cotacao_externa: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 def reconstruir_dados_cotacao(envio):
     """
     Reconstrói os dados da cotação a partir do banco de dados.

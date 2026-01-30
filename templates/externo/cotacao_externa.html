@@ -501,8 +501,8 @@
                     });
                 });
                 
-                // Enviar para API
-                const response = await fetch(`/api/cotacao/externa/responder/${TOKEN}`, {
+                // Enviar para API - usando a URL com token
+                const response = await fetch(`/externo/${TOKEN}/enviar`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
