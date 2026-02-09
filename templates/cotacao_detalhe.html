@@ -44,6 +44,8 @@
             background: rgba(0,0,0,0.2);
         }
         
+        .sidebar .sidebar-header h4 { font-weight: 700; letter-spacing: -0.5px; }
+        
         .sidebar ul li a {
             color: rgba(255,255,255,0.7);
             padding: 14px 20px;
@@ -190,6 +192,20 @@
         .melhor-preco { background-color: rgba(25, 135, 84, 0.2) !important; font-weight: 600; }
         .melhor-prazo { background-color: rgba(255, 193, 7, 0.2) !important; font-weight: 600; }
         .melhor-condicao { background-color: rgba(13, 110, 253, 0.15) !important; }
+        
+        /* Células com observação - indicador visual sutil */
+        .tem-observacao { cursor: help; position: relative; }
+        .tem-observacao::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 6px;
+            height: 6px;
+            background-color: #0dcaf0;
+            border-radius: 50%;
+        }
+        .melhor-preco.tem-observacao i.fa-comment-alt { opacity: 0.8; }
         
         .badge-melhor-preco { background-color: #198754; }
         .badge-melhor-prazo { background-color: #ffc107; color: #000; }
@@ -608,7 +624,7 @@
             <!-- RESPOSTAS DOS FORNECEDORES - FORMATO MATRIZ -->
             {% if cotacao.respostas %}
             <div class="card-section">
-                <h5><i class="fas fa-th me-2"></i>Comparativo de Respostas</h5>
+                <h5><i class="fas fa-th me-2"></i>Comparativo de Propostas</h5>
                 
                 <!-- Legenda -->
                 <div class="legenda">
@@ -678,7 +694,10 @@
                                     {% if resposta_encontrada.found %}
                                         {# CORREÇÃO: Exibição diferenciada para respostas sem preço/prazo (limpas) #}
                                         {% if resposta_encontrada.tem_cotacao %}
-                                <td class="celula-preco" data-preco="{{ resposta_encontrada.preco }}" data-item="{{ item.id }}">R$ {{ "%.2f"|format(resposta_encontrada.preco) }}</td>
+                                <td class="celula-preco{% if resposta_encontrada.obs %} tem-observacao{% endif %}" data-preco="{{ resposta_encontrada.preco }}" data-item="{{ item.id }}"
+                                    {% if resposta_encontrada.obs %}data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="<i class='fas fa-comment-alt me-1'></i>{{ resposta_encontrada.obs|e }}"{% endif %}>
+                                    R$ {{ "%.2f"|format(resposta_encontrada.preco) }}{% if resposta_encontrada.obs %}<i class="fas fa-comment-alt ms-1 text-info" style="font-size: 0.7rem;"></i>{% endif %}
+                                </td>
                                 <td class="celula-frete">{% if resposta_encontrada.frete > 0 %}R$ {{ "%.2f"|format(resposta_encontrada.frete) }}{% else %}-{% endif %}</td>
                                 <td class="celula-total fw-bold text-success" data-total="{{ resposta_encontrada.total }}" data-item="{{ item.id }}">R$ {{ "%.2f"|format(resposta_encontrada.total) }}</td>
                                 <td class="celula-prazo" data-prazo="{{ resposta_encontrada.prazo }}" data-item="{{ item.id }}">{% if resposta_encontrada.prazo > 0 %}{{ resposta_encontrada.prazo }} dias{% else %}-{% endif %}</td>
@@ -2191,6 +2210,15 @@
         // Destaque de melhores propostas na matriz
         document.addEventListener('DOMContentLoaded', function() {
             destacarMelhoresMatriz();
+            
+            // Inicializa tooltips do Bootstrap (para observações no comparativo)
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl, {
+                    html: true,
+                    trigger: 'hover focus'
+                });
+            });
         });
         
         function destacarMelhoresMatriz() {

@@ -36,6 +36,63 @@
         ======================================== */
         * { box-sizing: border-box; }
 
+        /* ========================================
+           CÉLULA COPIÁVEL (SC)
+        ======================================== */
+        .copiavel {
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+            padding: 2px 6px;
+            margin: -2px -6px;
+            display: inline-block;
+        }
+        
+        .copiavel:hover {
+            background-color: rgba(13, 110, 253, 0.1);
+            text-decoration: underline;
+        }
+        
+        .copiavel::after {
+            content: '\f0c5';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 400;
+            font-size: 0.65rem;
+            margin-left: 6px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            color: #6c757d;
+        }
+        
+        .copiavel:hover::after {
+            opacity: 1;
+        }
+        
+        /* Toast de confirmação de cópia */
+        .copy-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .copy-toast.show {
+            opacity: 1;
+        }
+
         body {
             background-color: var(--bg-color);
             font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
@@ -604,6 +661,7 @@
                             <button type="submit" class="btn btn-primary btn-sm flex-grow-1" title="Filtrar"><i class="fas fa-filter me-1"></i>Filtrar</button>
                             <a href="{{ url_for('limpar_filtros_solicitacoes') }}" class="btn btn-outline-secondary btn-sm" title="Limpar"><i class="fas fa-eraser"></i></a>
                             <button type="button" class="btn btn-success btn-sm" onclick="exportarExcel()" title="Exportar para Excel"><i class="fas fa-file-excel"></i></button>
+                            <button type="button" class="btn btn-info btn-sm" onclick="abrirHistoricoPedidos()" title="Histórico de Pedidos"><i class="fas fa-shopping-cart"></i></button>
                         </div>
                     </div>
                 </div>
@@ -699,11 +757,18 @@
                                                data-descricao="{{ linha.DescricaoProduto }}"
                                                data-quantidade="{{ linha.Quantidade }}"
                                                data-unidade="{{ linha.UnidadeMedida }}"
-                                               data-necessidade="{{ linha.DataNecessidade }}">
+                                               data-necessidade="{{ linha.DataNecessidade }}"
+                                               data-fornecedor-cod="{{ linha.A2CodeFornecedor or '' }}"
+                                               data-fornecedor-nome="{{ linha.NomeFornecedor or '' }}"
+                                               data-ultimo-preco="{{ linha.UltimoPreco or 0 }}">
                                     </td>
-                                    <td class="fw-bold text-primary">{{ linha.NumeroSC }}</td>
+                                    <td class="fw-bold text-primary">
+                                        <span class="copiavel" onclick="copiarSCParaClipboard('{{ linha.NumeroSC }}', event)" title="Clique para copiar o código da SC">{{ linha.NumeroSC }}</span>
+                                    </td>
                                     <td class="text-truncate" style="max-width: 120px;" title="{{ linha.Solicitante }}">{{ linha.Solicitante }}</td>
-                                    <td class="fw-bold">{{ linha.CodProduto }}</td>
+                                    <td class="fw-bold">
+                                        <span class="copiavel" onclick="copiarSCParaClipboard('{{ linha.CodProduto }}', event)" title="Clique para copiar o código do produto">{{ linha.CodProduto }}</span>
+                                    </td>
                                     <td class="text-truncate" style="max-width: 180px;" title="{{ linha.DescricaoProduto }}">{{ linha.DescricaoProduto }}</td>
                                     <td class="text-center">{{ "%.2f"|format(linha.Quantidade) }}</td>
                                     <td class="text-truncate" style="max-width: 100px;" title="{{ linha.Programa if linha.Programa else '' }}">{{ linha.Programa if linha.Programa else '' }}</td>
@@ -800,10 +865,13 @@
             <div class="d-flex align-items-center gap-3">
                 <span id="contadorSelecionados" class="badge bg-primary px-3 py-2">0 selecionados</span>
                 <div class="btn-group">
+                    <button class="btn btn-danger btn-sm" onclick="abrirModalGerarPedido()" title="Gerar Pedido de Compra">
+                        <i class="fas fa-shopping-cart me-1"></i> Gerar Pedido
+                    </button>
                     <button class="btn btn-success btn-sm" onclick="criarCotacao()">
                         <i class="fas fa-file-invoice-dollar me-1"></i> Criar Cotação
                     </button>
-                    <button class="btn btn-primary btn-sm" onclick="abrirModalAtribuicao()">
+                    <button class="btn btn-secondary btn-sm" onclick="abrirModalAtribuicao()">
                         <i class="fas fa-user-tag me-1"></i> Atribuir Comprador
                     </button>
                     <button class="btn btn-warning btn-sm" onclick="aplicarCor('amarelo')">
@@ -1008,6 +1076,241 @@
                         <button type="button" class="btn btn-success" onclick="confirmarCriacaoCotacao()">
                             <i class="fas fa-check me-1"></i> Criar Cotação
                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL GERAR PEDIDO DE COMPRA -->
+        <div class="modal fade" id="modalGerarPedido" tabindex="-1" data-bs-backdrop="static">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width: 1250px;">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-primary text-white py-2">
+                        <h5 class="modal-title">Gerar Pedido de Compra</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-3" style="background: #f8f9fa;">
+                        <!-- Mensagem de Erro -->
+                        <div class="alert alert-danger d-none mb-3 py-2" id="erroPedido">
+                            <span id="erroPedidoTexto"></span>
+                        </div>
+
+                        <!-- CABEÇALHO DO PEDIDO -->
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-header bg-light border-bottom py-2">
+                                <span class="fw-semibold text-dark">Dados do Pedido</span>
+                            </div>
+                            <div class="card-body py-3">
+                                <div class="row g-2 align-items-end">
+                                    <!-- Número do Pedido -->
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-semibold mb-1">Nº Pedido</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control" id="pedidoNumero" placeholder="Auto">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="buscarProximoNumeroPedido()" title="Buscar próximo">
+                                                <i class="fas fa-sync-alt"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Data de Emissão -->
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-semibold mb-1">Data Emissão <span class="text-danger">*</span></label>
+                                        <input type="date" class="form-control form-control-sm" id="pedidoData" required>
+                                    </div>
+
+                                    <!-- Fornecedor - Campo único de busca -->
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-semibold mb-1">Fornecedor <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control form-control-sm" id="pedidoFornecedorBusca" 
+                                               placeholder="Digite código, CNPJ ou nome..." 
+                                               oninput="buscarFornecedorUnificado(this.value)"
+                                               list="listaFornecedoresPedido" autocomplete="off">
+                                        <datalist id="listaFornecedoresPedido"></datalist>
+                                        <input type="hidden" id="pedidoFornecedorCod">
+                                        <input type="hidden" id="pedidoFornecedorCNPJ">
+                                        <input type="hidden" id="pedidoFornecedorNome">
+                                    </div>
+
+                                    <!-- Condição de Pagamento -->
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-semibold mb-1">Cond. Pagamento</label>
+                                        <input type="text" class="form-control form-control-sm" id="pedidoCondicaoBusca" 
+                                               placeholder="Código ou descrição..." list="listaCondicoesPagamento"
+                                               oninput="buscarCondicaoPagamento(this.value)">
+                                        <datalist id="listaCondicoesPagamento"></datalist>
+                                        <input type="hidden" id="pedidoCondicao">
+                                    </div>
+
+                                    <!-- Contato -->
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-semibold mb-1">Contato</label>
+                                        <input type="text" class="form-control form-control-sm" id="pedidoContato" placeholder="Opcional">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ITENS DO PEDIDO -->
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-header bg-light border-bottom py-2 d-flex justify-content-between align-items-center">
+                                <span class="fw-semibold text-dark">Itens do Pedido <span class="badge bg-primary text-white ms-2" id="qtdItensPedido">0</span></span>
+                                <small class="text-muted">Editáveis: Valor Unit., Valor Total, Data Entrega, IPI</small>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                    <table class="table table-sm table-hover table-bordered mb-0" id="tabelaItensPedido">
+                                        <thead class="table-light sticky-top" style="z-index: 10;">
+                                            <tr>
+                                                <th class="text-center" style="width: 30px;">#</th>
+                                                <th style="width: 75px;">SC</th>
+                                                <th style="width: 85px;">Produto</th>
+                                                <th>Descrição</th>
+                                                <th class="text-center" style="width: 65px;">Qtd</th>
+                                                <th class="text-center" style="width: 45px;">UM</th>
+                                                <th class="text-center" style="width: 100px;">Vlr Unit.</th>
+                                                <th class="text-end" style="width: 100px;">Vlr Total</th>
+                                                <th class="text-center" style="width: 105px;">Dt Entrega</th>
+                                                <th class="text-center" style="width: 60px;">IPI %</th>
+                                                <th class="text-center" style="width: 35px;">Obs</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tbodyItensPedido"></tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Alerta de itens sem preço -->
+                                <div class="alert alert-warning m-2 py-2 small" id="alertaItensSemPreco" style="display: none;">
+                                    <strong>Atenção:</strong> Alguns itens estão sem preço definido.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- INFORMAÇÕES ADICIONAIS -->
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-header bg-light border-bottom py-2">
+                                <span class="fw-semibold text-dark">Informações Adicionais</span>
+                            </div>
+                            <div class="card-body py-2">
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-semibold mb-1">Pedido Urgente</label>
+                                        <select class="form-select form-select-sm" id="pedidoUrgente">
+                                            <option value="N">Não</option>
+                                            <option value="S">Sim</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-semibold mb-1">Tipo Frete</label>
+                                        <select class="form-select form-select-sm" id="pedidoTipoFrete">
+                                            <option value="C">CIF</option>
+                                            <option value="F">FOB</option>
+                                            <option value="T">Terceiros</option>
+                                            <option value="S">Sem frete</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-semibold mb-1">Valor Frete</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">R$</span>
+                                            <input type="number" class="form-control" id="pedidoValorFrete" value="0.00" step="0.01" min="0" onchange="calcularTotalPedido()">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-semibold mb-1">Desconto</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">R$</span>
+                                            <input type="number" class="form-control" id="pedidoDesconto" value="0.00" step="0.01" min="0" onchange="calcularTotalPedido()">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-semibold mb-1">Observações Gerais</label>
+                                        <input type="text" class="form-control form-control-sm" id="pedidoObs" placeholder="Observações do pedido...">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RESUMO FINAL -->
+                        <div class="card border shadow-sm">
+                            <div class="card-body py-3 bg-light">
+                                <div class="row text-center align-items-center">
+                                    <div class="col">
+                                        <small class="text-muted d-block">Nº Pedido</small>
+                                        <strong class="text-primary" id="previewNumeroPedido">Auto</strong>
+                                    </div>
+                                    <div class="col">
+                                        <small class="text-muted d-block">Fornecedor</small>
+                                        <strong class="text-dark" id="previewFornecedor" class="text-truncate d-block" style="max-width: 150px; margin: 0 auto;">-</strong>
+                                    </div>
+                                    <div class="col">
+                                        <small class="text-muted d-block">Itens</small>
+                                        <strong class="text-dark" id="previewTotalItens">0</strong>
+                                    </div>
+                                    <div class="col">
+                                        <small class="text-muted d-block">Subtotal</small>
+                                        <strong class="text-dark" id="previewSubtotal">R$ 0,00</strong>
+                                    </div>
+                                    <div class="col">
+                                        <small class="text-muted d-block">Frete</small>
+                                        <strong id="previewFrete" class="text-info">R$ 0,00</strong>
+                                    </div>
+                                    <div class="col">
+                                        <small class="text-muted d-block">Desconto</small>
+                                        <strong id="previewDesconto" class="text-danger">R$ 0,00</strong>
+                                    </div>
+                                    <div class="col">
+                                        <small class="text-muted d-block fw-bold">TOTAL</small>
+                                        <strong class="text-success fs-4" id="previewValorTotal">R$ 0,00</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Campos ocultos -->
+                        <input type="hidden" id="pedidoLoja" value="01">
+                        <input type="hidden" id="pedidoFluxoCaixa" value="">
+                    </div>
+                    <div class="modal-footer bg-light py-2 border-top">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-success" onclick="confirmarGeracaoPedido()">Gerar Pedido</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL HISTÓRICO DE PEDIDOS -->
+        <div class="modal fade" id="modalHistoricoPedidos" tabindex="-1">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header bg-secondary text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-history me-2"></i>Histórico de Pedidos de Compra
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover" id="tabelaHistoricoPedidos">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Nº Pedido</th>
+                                        <th>Data</th>
+                                        <th>Fornecedor</th>
+                                        <th>Itens</th>
+                                        <th class="text-end">Valor Total</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyHistoricoPedidos">
+                                    <!-- Será preenchido via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                     </div>
                 </div>
             </div>
@@ -1531,6 +1834,547 @@
     }
     
     // ========================================
+    // GERAR PEDIDO DE COMPRA
+    // ========================================
+    
+    let itensSelecionadosPedido = [];
+    
+    // Buscar próximo número de pedido
+    function buscarProximoNumeroPedido() {
+        fetch('/api/ultimo-numero-pedido')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('pedidoNumero').value = data.proximo_sugerido;
+                document.getElementById('previewNumeroPedido').textContent = data.proximo_sugerido;
+            }
+        })
+        .catch(err => console.error('Erro ao buscar número:', err));
+    }
+    
+    // Formatar valor como moeda
+    function formatarMoeda(valor) {
+        return 'R$ ' + (parseFloat(valor) || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    
+    // Calcular total do pedido (com frete e desconto)
+    function calcularTotalPedido() {
+        let subtotalItens = 0;
+        const linhas = document.querySelectorAll('#tbodyItensPedido tr');
+        
+        linhas.forEach((linha, index) => {
+            const qtd = itensSelecionadosPedido[index]?.quantidade || 0; // Quantidade fixa
+            const preco = parseFloat(linha.querySelector('.input-preco')?.value) || 0;
+            const ipi = parseFloat(linha.querySelector('.input-ipi')?.value) || 0;
+            
+            const totalItem = qtd * preco * (1 + ipi / 100);
+            subtotalItens += totalItem;
+            
+            // Atualiza total da linha
+            const tdTotal = linha.querySelector('.td-total');
+            if (tdTotal) {
+                tdTotal.textContent = formatarMoeda(totalItem);
+            }
+            
+            // Atualiza dados no array
+            if (itensSelecionadosPedido[index]) {
+                itensSelecionadosPedido[index].valor_unitario = preco;
+                itensSelecionadosPedido[index].ipi = ipi;
+                // Pegar data de entrega do input
+                const inputDataEntrega = linha.querySelector('.input-data-entrega');
+                if (inputDataEntrega) {
+                    itensSelecionadosPedido[index].data_entrega = inputDataEntrega.value;
+                }
+            }
+        });
+        
+        // Pegar valores de frete e desconto
+        const valorFrete = parseFloat(document.getElementById('pedidoValorFrete')?.value) || 0;
+        const valorDesconto = parseFloat(document.getElementById('pedidoDesconto')?.value) || 0;
+        
+        // Calcular total final
+        const totalFinal = subtotalItens + valorFrete - valorDesconto;
+        
+        // Atualizar displays (totalPedido não existe mais no novo layout)
+        const totalPedidoEl = document.getElementById('totalPedido');
+        if (totalPedidoEl) totalPedidoEl.textContent = formatarMoeda(totalFinal);
+        
+        // Atualizar preview
+        document.getElementById('previewSubtotal').textContent = formatarMoeda(subtotalItens);
+        document.getElementById('previewFrete').textContent = formatarMoeda(valorFrete);
+        document.getElementById('previewDesconto').textContent = formatarMoeda(valorDesconto);
+        document.getElementById('previewValorTotal').textContent = formatarMoeda(totalFinal);
+        
+        return totalFinal;
+    }
+    
+    // Funções de busca unificada de fornecedor (preparadas para API)
+    let timeoutBuscaFornecedor = null;
+    function buscarFornecedorUnificado(termo) {
+        if (!termo || termo.trim().length < 2) {
+            document.getElementById('listaFornecedoresPedido').innerHTML = '';
+            return;
+        }
+        
+        // Debounce para não fazer muitas requisições
+        clearTimeout(timeoutBuscaFornecedor);
+        timeoutBuscaFornecedor = setTimeout(() => {
+            // TODO: Implementar busca via API
+            // fetch(`/api/fornecedores/buscar?termo=${encodeURIComponent(termo)}`)
+            //     .then(r => r.json())
+            //     .then(data => {
+            //         const datalist = document.getElementById('listaFornecedoresPedido');
+            //         datalist.innerHTML = data.map(f => 
+            //             `<option value="${f.codigo} - ${f.nome}" data-codigo="${f.codigo}" data-cnpj="${f.cnpj}" data-nome="${f.nome}">`
+            //         ).join('');
+            //     });
+            
+            console.log('Buscar fornecedor por termo:', termo);
+            
+            // Ao selecionar, preencher campos ocultos
+            const input = document.getElementById('pedidoFornecedorBusca');
+            const valor = input.value;
+            
+            // Tentar extrair código e nome se formato "CODIGO - NOME"
+            const match = valor.match(/^(\d+)\s*-\s*(.+)$/);
+            if (match) {
+                document.getElementById('pedidoFornecedorCod').value = match[1];
+                document.getElementById('pedidoFornecedorNome').value = match[2].trim();
+                document.getElementById('previewFornecedor').textContent = match[2].trim();
+            } else {
+                document.getElementById('pedidoFornecedorNome').value = valor;
+                document.getElementById('previewFornecedor').textContent = valor;
+            }
+        }, 300);
+    }
+    
+    // Função de busca de condição de pagamento
+    let timeoutBuscaCondicao = null;
+    function buscarCondicaoPagamento(termo) {
+        if (!termo || termo.trim().length < 1) {
+            document.getElementById('listaCondicoesPagamento').innerHTML = '';
+            return;
+        }
+        
+        clearTimeout(timeoutBuscaCondicao);
+        timeoutBuscaCondicao = setTimeout(() => {
+            // TODO: Implementar busca via API
+            // fetch(`/api/condicoes-pagamento/buscar?termo=${encodeURIComponent(termo)}`)
+            //     .then(r => r.json())
+            //     .then(data => {
+            //         const datalist = document.getElementById('listaCondicoesPagamento');
+            //         datalist.innerHTML = data.map(c => 
+            //             `<option value="${c.codigo} - ${c.descricao}" data-codigo="${c.codigo}">`
+            //         ).join('');
+            //     });
+            
+            console.log('Buscar condição por termo:', termo);
+            
+            // Extrair código se formato "CODIGO - DESCRICAO"
+            const input = document.getElementById('pedidoCondicaoBusca');
+            const valor = input.value;
+            const match = valor.match(/^(\d+)/);
+            if (match) {
+                document.getElementById('pedidoCondicao').value = match[1];
+            }
+        }, 300);
+    }
+    
+    // Abrir observação do item
+    function abrirObsItemPedido(idx) {
+        const obsAtual = itensSelecionadosPedido[idx]?.obs_item || '';
+        const item = itensSelecionadosPedido[idx];
+        
+        const novaObs = prompt(`Observação para o item ${idx + 1} (${item.cod_produto}):\n\n`, obsAtual);
+        
+        if (novaObs !== null) {
+            itensSelecionadosPedido[idx].obs_item = novaObs;
+            
+            // Atualizar ícone do botão
+            const tr = document.querySelector(`#tbodyItensPedido tr[data-index="${idx}"]`);
+            if (tr) {
+                const btn = tr.querySelector('button i');
+                if (btn) {
+                    btn.className = novaObs ? 'fas fa-comment small' : 'fas fa-comment-slash small';
+                }
+                const inputObs = tr.querySelector('.input-obs-item');
+                if (inputObs) {
+                    inputObs.value = novaObs;
+                }
+            }
+        }
+    }
+    
+    // Manter compatibilidade com funções antigas (deprecadas)
+    function buscarFornecedorPorCodigo(codigo) {
+        if (codigo) {
+            document.getElementById('pedidoFornecedorBusca').value = codigo;
+            buscarFornecedorUnificado(codigo);
+        }
+    }
+    
+    function buscarFornecedorPorCNPJ(cnpj) {
+        if (cnpj) {
+            document.getElementById('pedidoFornecedorBusca').value = cnpj;
+            buscarFornecedorUnificado(cnpj);
+        }
+    }
+    
+    // Abrir modal de gerar pedido
+    function abrirModalGerarPedido() {
+        const selecionados = document.querySelectorAll('.sc-checkbox:checked');
+        
+        if (selecionados.length === 0) {
+            alert('Selecione pelo menos uma solicitação');
+            return;
+        }
+        
+        // Limpar erros
+        document.getElementById('erroPedido').classList.add('d-none');
+        
+        // Coletar itens selecionados com dados completos
+        itensSelecionadosPedido = [];
+        let fornecedorCodigo = '';
+        let fornecedorNome = '';
+        
+        selecionados.forEach(cb => {
+            // Pegar dados do fornecedor da primeira linha (ou usar o mesmo para todas)
+            if (!fornecedorCodigo && cb.dataset.fornecedorCod) {
+                fornecedorCodigo = cb.dataset.fornecedorCod;
+                fornecedorNome = cb.dataset.fornecedorNome || '';
+            }
+            
+            // Pegar último preço do data attribute
+            let ultimoPreco = parseFloat(cb.dataset.ultimoPreco) || 0;
+            
+            itensSelecionadosPedido.push({
+                numero_sc: cb.dataset.sc,
+                item_sc: cb.dataset.item,
+                cod_produto: cb.dataset.produto,
+                descricao_produto: cb.dataset.descricao,
+                quantidade: parseFloat(cb.dataset.quantidade) || 0,
+                unidade: cb.dataset.unidade || 'UN',
+                data_necessidade: cb.dataset.necessidade,
+                valor_unitario: ultimoPreco,
+                ipi: 0,
+                data_entrega: cb.dataset.necessidade || '',
+                obs_item: ''
+            });
+        });
+        
+        // Preencher dados do modal
+        document.getElementById('pedidoNumero').value = '';
+        document.getElementById('pedidoNumero').placeholder = 'Carregando...';
+        
+        const hoje = new Date();
+        document.getElementById('pedidoData').value = hoje.toISOString().split('T')[0];
+        
+        // Campo único de fornecedor
+        const fornecedorDisplay = fornecedorCodigo ? `${fornecedorCodigo} - ${fornecedorNome}` : fornecedorNome;
+        document.getElementById('pedidoFornecedorBusca').value = fornecedorDisplay;
+        document.getElementById('pedidoFornecedorCod').value = fornecedorCodigo;
+        document.getElementById('pedidoFornecedorCNPJ').value = '';
+        document.getElementById('pedidoFornecedorNome').value = fornecedorNome;
+        document.getElementById('pedidoCondicaoBusca').value = '';
+        document.getElementById('pedidoCondicao').value = '';
+        document.getElementById('pedidoContato').value = '';
+        document.getElementById('pedidoObs').value = '';
+        document.getElementById('pedidoUrgente').value = 'N';
+        document.getElementById('pedidoTipoFrete').value = 'C';
+        document.getElementById('pedidoValorFrete').value = '0.00';
+        document.getElementById('pedidoDesconto').value = '0.00';
+        
+        // Atualizar preview
+        document.getElementById('previewFornecedor').textContent = fornecedorNome || '-';
+        document.getElementById('previewTotalItens').textContent = itensSelecionadosPedido.length;
+        document.getElementById('qtdItensPedido').textContent = itensSelecionadosPedido.length;
+        
+        // Preencher tabela de itens com novo layout (nova ordem de colunas)
+        const tbody = document.getElementById('tbodyItensPedido');
+        let html = '';
+        let temItensSemPreco = false;
+        
+        itensSelecionadosPedido.forEach((item, idx) => {
+            if (!item.valor_unitario || item.valor_unitario === 0) {
+                temItensSemPreco = true;
+            }
+            
+            const totalItem = item.quantidade * item.valor_unitario * (1 + item.ipi / 100);
+            
+            // Formatar data de entrega para input date
+            let dataEntregaFormatada = '';
+            if (item.data_entrega) {
+                // Converter de dd/mm/yy ou dd/mm/yyyy para yyyy-mm-dd
+                const partes = item.data_entrega.split('/');
+                if (partes.length === 3) {
+                    let ano = partes[2];
+                    if (ano.length === 2) ano = '20' + ano;
+                    dataEntregaFormatada = `${ano}-${partes[1].padStart(2,'0')}-${partes[0].padStart(2,'0')}`;
+                }
+            }
+            
+            html += `
+                <tr data-index="${idx}">
+                    <td class="text-center text-muted small">${idx + 1}</td>
+                    <td class="fw-semibold small">${item.numero_sc}</td>
+                    <td class="small">${item.cod_produto}</td>
+                    <td class="text-truncate small" style="max-width: 180px;" title="${item.descricao_produto}">${item.descricao_produto}</td>
+                    <td class="text-center fw-semibold">${item.quantidade.toFixed(2)}</td>
+                    <td class="text-center text-muted small">${item.unidade}</td>
+                    <td class="text-center">
+                        <input type="number" class="form-control form-control-sm text-end input-preco" 
+                               value="${item.valor_unitario.toFixed(2)}" step="0.01" min="0" 
+                               style="width: 90px;" onchange="calcularTotalPedido()">
+                    </td>
+                    <td class="text-end fw-semibold td-total">${formatarMoeda(totalItem)}</td>
+                    <td class="text-center">
+                        <input type="date" class="form-control form-control-sm input-data-entrega" 
+                               value="${dataEntregaFormatada}" style="width: 100px;">
+                    </td>
+                    <td class="text-center">
+                        <input type="number" class="form-control form-control-sm text-center input-ipi" 
+                               value="${item.ipi}" step="0.1" min="0" max="100" 
+                               style="width: 55px;" onchange="calcularTotalPedido()">
+                    </td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" 
+                                onclick="abrirObsItemPedido(${idx})" title="Observação do item">
+                            <i class="fas fa-comment${item.obs_item ? '' : '-slash'} small"></i>
+                        </button>
+                        <input type="hidden" class="input-obs-item" value="${item.obs_item || ''}">
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tbody.innerHTML = html;
+        
+        // Mostrar/ocultar alerta de itens sem preço
+        document.getElementById('alertaItensSemPreco').style.display = temItensSemPreco ? 'block' : 'none';
+        
+        // Calcular total
+        calcularTotalPedido();
+        
+        // Buscar próximo número
+        buscarProximoNumeroPedido();
+        
+        // Abrir modal
+        new bootstrap.Modal(document.getElementById('modalGerarPedido')).show();
+    }
+    
+    // Confirmar geração do pedido
+    function confirmarGeracaoPedido() {
+        const erroDiv = document.getElementById('erroPedido');
+        const erroTexto = document.getElementById('erroPedidoTexto');
+        
+        // Validações
+        const dataPedido = document.getElementById('pedidoData').value;
+        const fornecedorBusca = document.getElementById('pedidoFornecedorBusca').value.trim();
+        const fornecedorNome = document.getElementById('pedidoFornecedorNome').value.trim() || fornecedorBusca;
+        
+        if (!dataPedido) {
+            erroTexto.textContent = 'Informe a data do pedido!';
+            erroDiv.classList.remove('d-none');
+            document.getElementById('pedidoData').focus();
+            return;
+        }
+        
+        if (!fornecedorBusca) {
+            erroTexto.textContent = 'Informe o fornecedor!';
+            erroDiv.classList.remove('d-none');
+            document.getElementById('pedidoFornecedorBusca').focus();
+            return;
+        }
+        
+        // Atualizar valores dos itens a partir dos inputs (quantidade é fixa)
+        document.querySelectorAll('#tbodyItensPedido tr').forEach((linha, idx) => {
+            if (itensSelecionadosPedido[idx]) {
+                itensSelecionadosPedido[idx].valor_unitario = parseFloat(linha.querySelector('.input-preco')?.value) || 0;
+                itensSelecionadosPedido[idx].ipi = parseFloat(linha.querySelector('.input-ipi')?.value) || 0;
+                itensSelecionadosPedido[idx].data_entrega = linha.querySelector('.input-data-entrega')?.value || '';
+                itensSelecionadosPedido[idx].obs_item = linha.querySelector('.input-obs-item')?.value || '';
+            }
+        });
+        
+        erroDiv.classList.add('d-none');
+        
+        // Fechar modal
+        bootstrap.Modal.getInstance(document.getElementById('modalGerarPedido')).hide();
+        
+        mostrarSpinner('Gerando pedido de compra...');
+        
+        // Montar payload completo para futura integração com API
+        const payload = {
+            numero_pedido: document.getElementById('pedidoNumero').value.trim() || null,
+            data_pedido: dataPedido,
+            fornecedor: {
+                codigo: document.getElementById('pedidoFornecedorCod').value.trim(),
+                cnpj: document.getElementById('pedidoFornecedorCNPJ').value.trim(),
+                nome: fornecedorNome
+            },
+            condicao_pagamento: document.getElementById('pedidoCondicao').value,
+            contato: document.getElementById('pedidoContato').value.trim(),
+            observacoes: document.getElementById('pedidoObs').value.trim(),
+            urgente: document.getElementById('pedidoUrgente').value,
+            tipo_frete: document.getElementById('pedidoTipoFrete').value,
+            valor_frete: parseFloat(document.getElementById('pedidoValorFrete').value) || 0,
+            desconto: parseFloat(document.getElementById('pedidoDesconto').value) || 0,
+            loja: document.getElementById('pedidoLoja').value || '01',
+            fluxo_caixa: document.getElementById('pedidoFluxoCaixa').value || '',
+            itens: itensSelecionadosPedido
+        };
+        
+        fetch('/api/gerar-pedido', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            esconderSpinner();
+            
+            if (data.success) {
+                // Mostrar toast de sucesso
+                mostrarToast(`Pedido ${data.numero_pedido} gerado com sucesso! Valor: ${formatarMoeda(data.valor_total)}`);
+                
+                // Limpar seleção
+                limparSelecao();
+                
+                // Exibir detalhes em um alert
+                alert(`✅ Pedido de Compra Gerado!\n\nNúmero: ${data.numero_pedido}\nItens: ${data.total_itens}\nValor Total: ${formatarMoeda(data.valor_total)}\n\nO pedido foi salvo no sistema e está pronto para integração com o TOTVS.`);
+                
+            } else {
+                // Mostrar erro
+                if (data.itens_com_pedido && data.itens_com_pedido.length > 0) {
+                    let msg = 'As seguintes solicitações já possuem pedido:\n\n';
+                    data.itens_com_pedido.forEach(item => {
+                        msg += `• SC ${item.sc} - Pedido ${item.pedido}\n`;
+                    });
+                    alert('❌ ' + msg);
+                } else {
+                    alert('❌ Erro: ' + (data.error || 'Erro desconhecido'));
+                }
+            }
+        })
+        .catch(err => {
+            esconderSpinner();
+            alert('❌ Erro ao gerar pedido');
+            console.error(err);
+        });
+    }
+    
+    // Abrir histórico de pedidos
+    function abrirHistoricoPedidos() {
+        mostrarSpinner('Carregando histórico...');
+        
+        fetch('/api/pedidos')
+        .then(r => r.json())
+        .then(data => {
+            esconderSpinner();
+            
+            if (data.success) {
+                const tbody = document.getElementById('tbodyHistoricoPedidos');
+                let html = '';
+                
+                if (data.pedidos.length === 0) {
+                    html = '<tr><td colspan="7" class="text-center text-muted py-4">Nenhum pedido encontrado</td></tr>';
+                } else {
+                    data.pedidos.forEach(p => {
+                        const statusBadge = p.status === 'Gerado' 
+                            ? '<span class="badge bg-primary">Gerado</span>'
+                            : p.status === 'Enviado' 
+                                ? '<span class="badge bg-success">Enviado</span>'
+                                : '<span class="badge bg-secondary">' + p.status + '</span>';
+                        
+                        // Botão de excluir só aparece se não foi enviado ao TOTVS
+                        const btnExcluir = p.enviado_totvs !== 1 
+                            ? `<button class="btn btn-sm btn-outline-danger" onclick="excluirPedido(${p.id}, '${p.numero_pedido}')" title="Excluir pedido">
+                                <i class="fas fa-trash"></i>
+                               </button>`
+                            : '';
+                        
+                        html += `
+                            <tr>
+                                <td class="fw-bold text-info">${p.numero_pedido}</td>
+                                <td>${p.data_pedido || '-'}</td>
+                                <td>${p.nome_fornecedor || '-'}</td>
+                                <td class="text-center">${p.total_itens || 0}</td>
+                                <td class="text-end">${formatarMoeda(p.valor_total)}</td>
+                                <td>${statusBadge}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-info" onclick="verDetalhesPedido(${p.id})" title="Ver detalhes">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        ${btnExcluir}
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+                
+                tbody.innerHTML = html;
+                new bootstrap.Modal(document.getElementById('modalHistoricoPedidos')).show();
+            }
+        })
+        .catch(err => {
+            esconderSpinner();
+            console.error(err);
+        });
+    }
+    
+    // Excluir pedido
+    function excluirPedido(pedidoId, numeroPedido) {
+        if (!confirm(`⚠️ Tem certeza que deseja excluir o pedido ${numeroPedido}?\n\nEsta ação não pode ser desfeita!`)) {
+            return;
+        }
+        
+        mostrarSpinner('Excluindo pedido...');
+        
+        fetch(`/api/pedido/${pedidoId}`, {
+            method: 'DELETE'
+        })
+        .then(r => r.json())
+        .then(data => {
+            esconderSpinner();
+            
+            if (data.success) {
+                mostrarToast('✅ ' + data.message);
+                // Recarrega a lista de pedidos
+                setTimeout(() => {
+                    bootstrap.Modal.getInstance(document.getElementById('modalHistoricoPedidos')).hide();
+                    abrirHistoricoPedidos();
+                }, 1000);
+            } else {
+                alert('❌ Erro ao excluir: ' + (data.error || 'Erro desconhecido'));
+            }
+        })
+        .catch(err => {
+            esconderSpinner();
+            alert('❌ Erro ao excluir pedido');
+            console.error(err);
+        });
+    }
+    
+    // Ver detalhes de um pedido
+    function verDetalhesPedido(pedidoId) {
+        fetch(`/api/pedido/${pedidoId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const p = data.pedido;
+                let itensHtml = '';
+                p.itens.forEach(item => {
+                    itensHtml += `• SC ${item.numero_sc}: ${item.cod_produto} - ${item.descricao_produto} (${item.quantidade} x ${formatarMoeda(item.valor_unitario)})\n`;
+                });
+                
+                alert(`📋 Detalhes do Pedido ${p.numero_pedido}\n\nData: ${p.data_pedido}\nFornecedor: ${p.nome_fornecedor}\nCondição: ${p.condicao_pagamento || '-'}\nValor Total: ${formatarMoeda(p.valor_total)}\nStatus: ${p.status}\n\nItens:\n${itensHtml}`);
+            }
+        });
+    }
+
+    // ========================================
     // ATRIBUIÇÃO MANUAL DE COMPRADOR
     // ========================================
     
@@ -1881,6 +2725,53 @@
     
     // Carregar anotações ao iniciar a página
     document.addEventListener('DOMContentLoaded', carregarAnotacoes);
+    
+    // ========================================
+    // COPIAR CÓDIGO SC PARA CLIPBOARD
+    // ========================================
+    function copiarSCParaClipboard(codigo, event) {
+        // Impede que o clique propague para elementos pai
+        event.stopPropagation();
+        
+        // Copia para o clipboard usando a API moderna
+        navigator.clipboard.writeText(codigo).then(() => {
+            mostrarToastCopia(`SC ${codigo} copiada!`);
+        }).catch(err => {
+            // Fallback para navegadores mais antigos
+            const textArea = document.createElement('textarea');
+            textArea.value = codigo;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-9999px';
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            mostrarToastCopia(`SC ${codigo} copiada!`);
+        });
+    }
+    
+    function mostrarToastCopia(mensagem) {
+        // Remove toast anterior se existir
+        const toastExistente = document.querySelector('.copy-toast');
+        if (toastExistente) {
+            toastExistente.remove();
+        }
+        
+        // Cria novo toast
+        const toast = document.createElement('div');
+        toast.className = 'copy-toast';
+        toast.innerHTML = `<i class="fas fa-check-circle"></i> ${mensagem}`;
+        document.body.appendChild(toast);
+        
+        // Mostra o toast
+        setTimeout(() => toast.classList.add('show'), 10);
+        
+        // Remove após 2 segundos
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 2000);
+    }
 </script>
 </body>
 </html>

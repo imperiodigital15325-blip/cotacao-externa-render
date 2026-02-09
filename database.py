@@ -257,22 +257,39 @@ def init_database():
     ''')
     
     # ==========================================================================
-    # TABELA: DOCUMENTOS DA AVALIAÇÃO ISO (PDFs)
+    # TABELA: DOCUMENTOS DA AVALIAÇÃO ISO (PDFs, Word, etc.)
     # ==========================================================================
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS avaliacao_iso_documentos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             avaliacao_id INTEGER NOT NULL,
             tipo_documento TEXT NOT NULL,
+            nome_documento TEXT,
             nome_original TEXT NOT NULL,
             nome_arquivo TEXT NOT NULL,
             caminho_arquivo TEXT NOT NULL,
+            extensao TEXT,
+            tamanho_bytes INTEGER,
             data_upload TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             usuario_upload TEXT,
             ativo INTEGER DEFAULT 1,
             FOREIGN KEY (avaliacao_id) REFERENCES avaliacao_fornecedores_iso(id) ON DELETE CASCADE
         )
     ''')
+    
+    # Migração: adicionar novas colunas se não existirem
+    try:
+        cursor.execute("ALTER TABLE avaliacao_iso_documentos ADD COLUMN nome_documento TEXT")
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE avaliacao_iso_documentos ADD COLUMN extensao TEXT")
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE avaliacao_iso_documentos ADD COLUMN tamanho_bytes INTEGER")
+    except:
+        pass
     
     # ==========================================================================
     # TABELA: HISTÓRICO DE ENVIO DE E-MAILS ISO
@@ -322,6 +339,18 @@ def init_database():
     # Migration: Adicionar coluna desconto_percentual nas rodadas de negociação
     try:
         cursor.execute("ALTER TABLE cotacao_rodadas_negociacao ADD COLUMN desconto_percentual REAL DEFAULT 0")
+    except:
+        pass  # Coluna já existe
+    
+    # Migration: Adicionar coluna frete_negociado nas rodadas de negociação
+    try:
+        cursor.execute("ALTER TABLE cotacao_rodadas_negociacao ADD COLUMN frete_negociado REAL DEFAULT 0")
+    except:
+        pass  # Coluna já existe
+    
+    # Migration: Adicionar coluna arquivo_anexo_r2 nas rodadas de negociação (anexo da segunda rodada)
+    try:
+        cursor.execute("ALTER TABLE cotacao_rodadas_negociacao ADD COLUMN arquivo_anexo_r2 TEXT")
     except:
         pass  # Coluna já existe
     
@@ -392,6 +421,11 @@ def init_database():
     except:
         pass  # Coluna já existe
     
+    try:
+        cursor.execute("ALTER TABLE cotacao_fornecedores ADD COLUMN arquivo_anexo TEXT")
+    except:
+        pass  # Coluna já existe
+    
     # ==========================================================================
     # MIGRATION: Campos para sincronização de cotações externas (Polling)
     # ==========================================================================
@@ -417,6 +451,94 @@ def init_database():
     
     # Índice para busca rápida de cotações não sincronizadas
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_cotacoes_externas_sync ON cotacoes_externas(sincronizada, status)')
+
+    # ==========================================================================
+    # TABELA: PEDIDOS DE COMPRA
+    # ==========================================================================
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS pedidos_compra (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero_pedido TEXT UNIQUE NOT NULL,
+            data_pedido DATE NOT NULL,
+            cod_fornecedor TEXT,
+            nome_fornecedor TEXT,
+            condicao_pagamento TEXT,
+            contato TEXT,
+            observacoes TEXT,
+            valor_total REAL DEFAULT 0,
+            status TEXT DEFAULT 'Gerado',
+            enviado_totvs INTEGER DEFAULT 0,
+            data_envio_totvs TIMESTAMP,
+            resposta_totvs TEXT,
+            criado_por TEXT,
+            criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            atualizado_em TIMESTAMP
+        )
+    ''')
+    
+    # ==========================================================================
+    # TABELA: ITENS DO PEDIDO DE COMPRA
+    # ==========================================================================
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS pedido_itens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pedido_id INTEGER NOT NULL,
+            numero_sc TEXT NOT NULL,
+            item_sc TEXT,
+            cod_produto TEXT,
+            descricao_produto TEXT,
+            quantidade REAL,
+            unidade TEXT,
+            valor_unitario REAL DEFAULT 0,
+            ipi REAL DEFAULT 0,
+            valor_total REAL DEFAULT 0,
+            data_necessidade DATE,
+            observacao TEXT,
+            FOREIGN KEY (pedido_id) REFERENCES pedidos_compra(id) ON DELETE CASCADE
+        )
+    ''')
+    
+    # ==========================================================================
+    # TABELA: HISTÓRICO/LOG DOS PEDIDOS (Auditoria)
+    # ==========================================================================
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS pedido_historico (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pedido_id INTEGER NOT NULL,
+            acao TEXT NOT NULL,
+            descricao TEXT,
+            usuario TEXT,
+            data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            dados_json TEXT,
+            FOREIGN KEY (pedido_id) REFERENCES pedidos_compra(id) ON DELETE CASCADE
+        )
+    ''')
+    
+    # ==========================================================================
+    # TABELA: HISTÓRICO DE ENVIOS DE E-MAIL (Controle 24h)
+    # ==========================================================================
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS email_envios_historico (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo TEXT NOT NULL,
+            identificador TEXT NOT NULL,
+            email_destinatario TEXT NOT NULL,
+            assunto TEXT,
+            corpo TEXT,
+            data_envio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            enviado_por TEXT,
+            sucesso INTEGER DEFAULT 1
+        )
+    ''')
+    
+    # Índices para performance
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_pedido_numero ON pedidos_compra(numero_pedido)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_pedido_status ON pedidos_compra(status)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_pedido_fornecedor ON pedidos_compra(cod_fornecedor)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_pedido_itens_pedido ON pedido_itens(pedido_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_pedido_itens_sc ON pedido_itens(numero_sc, item_sc)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_email_envio_tipo_id ON email_envios_historico(tipo, identificador)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_email_envio_data ON email_envios_historico(data_envio)')
 
     conn.commit()
     conn.close()
@@ -642,6 +764,10 @@ def obter_cotacao(cotacao_id):
     cotacao['rodadas_negociacao'] = [dict(r) for r in cursor.fetchall()]
     
     conn.close()
+    
+    # Adicionar dados agrupados por fornecedor (para nova interface)
+    cotacao['rodadas_agrupadas'] = obter_rodadas_agrupadas_por_fornecedor(cotacao_id)
+    
     return cotacao
 
 def atualizar_status_cotacao(cotacao_id, novo_status, usuario='Admin'):
@@ -1198,6 +1324,114 @@ def criar_rodada_negociacao(cotacao_id, fornecedor_id, item_id, preco_original, 
     print(f"[NEGOCIAÇÃO] Rodada criada: ID={rodada_id}, Fornecedor={fornecedor_id}, Item={item_id}, Desconto={desconto_percentual}%")
     return rodada_id
 
+
+def obter_rodadas_agrupadas_por_fornecedor(cotacao_id):
+    """
+    Obtém rodadas de negociação agrupadas por fornecedor com cálculos de totais e economia.
+    Retorna estrutura otimizada para exibição de múltiplos fornecedores na segunda rodada.
+    Inclui frete negociado no cálculo.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Buscar todas as rodadas com dados completos
+    cursor.execute('''
+        SELECT rn.*, f.nome_fornecedor, f.id as forn_id, f.frete_total as frete_original,
+               i.cod_produto, i.descricao_produto, i.quantidade, i.unidade
+        FROM cotacao_rodadas_negociacao rn
+        JOIN cotacao_fornecedores f ON rn.fornecedor_id = f.id
+        JOIN cotacao_itens i ON rn.item_id = i.id
+        WHERE rn.cotacao_id = ?
+        ORDER BY rn.fornecedor_id, rn.item_id
+    ''', (cotacao_id,))
+    
+    rodadas_raw = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    
+    if not rodadas_raw:
+        return {'fornecedores': [], 'melhor_proposta': None, 'total_economia': 0, 'total_fornecedores': 0}
+    
+    # Agrupar por fornecedor
+    fornecedores_dict = {}
+    for rodada in rodadas_raw:
+        forn_id = rodada['fornecedor_id']
+        if forn_id not in fornecedores_dict:
+            # Pegar frete negociado do primeiro registro (é o mesmo para todos os itens do fornecedor)
+            frete_negociado = rodada.get('frete_negociado') or 0
+            frete_original = rodada.get('frete_original') or 0
+            
+            fornecedores_dict[forn_id] = {
+                'fornecedor_id': forn_id,
+                'nome_fornecedor': rodada['nome_fornecedor'],
+                'itens': [],
+                'total_original': 0,
+                'total_negociado': 0,
+                'frete_original': frete_original,
+                'frete_negociado': frete_negociado,
+                'economia_absoluta': 0,
+                'economia_percentual': 0,
+                'desconto_medio': 0,
+                'data_negociacao': rodada['data_negociacao']
+            }
+        
+        # Calcular valores do item
+        preco_original = rodada['preco_unitario_original'] or 0
+        preco_negociado = rodada['preco_unitario_negociado'] or 0
+        quantidade = rodada['quantidade'] or 0
+        
+        total_item_original = preco_original * quantidade
+        total_item_negociado = preco_negociado * quantidade
+        economia_item = total_item_original - total_item_negociado
+        
+        rodada['total_original'] = total_item_original
+        rodada['total_negociado'] = total_item_negociado
+        rodada['economia'] = economia_item
+        
+        fornecedores_dict[forn_id]['itens'].append(rodada)
+        fornecedores_dict[forn_id]['total_original'] += total_item_original
+        fornecedores_dict[forn_id]['total_negociado'] += total_item_negociado
+    
+    # Calcular economia e desconto médio por fornecedor (incluindo frete)
+    fornecedores_lista = []
+    for forn_id, forn_data in fornecedores_dict.items():
+        # Adicionar frete aos totais para cálculo de economia
+        total_original_com_frete = forn_data['total_original'] + forn_data['frete_original']
+        total_negociado_com_frete = forn_data['total_negociado'] + forn_data['frete_negociado']
+        
+        forn_data['total_original_com_frete'] = total_original_com_frete
+        forn_data['total_negociado_com_frete'] = total_negociado_com_frete
+        forn_data['economia_absoluta'] = total_original_com_frete - total_negociado_com_frete
+        
+        if total_original_com_frete > 0:
+            forn_data['economia_percentual'] = (forn_data['economia_absoluta'] / total_original_com_frete) * 100
+        
+        # Desconto médio
+        descontos = [item.get('desconto_percentual', 0) or 0 for item in forn_data['itens']]
+        forn_data['desconto_medio'] = sum(descontos) / len(descontos) if descontos else 0
+        
+        fornecedores_lista.append(forn_data)
+    
+    # Ordenar por total negociado com frete (menor = melhor)
+    fornecedores_lista.sort(key=lambda x: x['total_negociado_com_frete'])
+    
+    # Identificar melhor proposta
+    melhor_proposta = fornecedores_lista[0] if fornecedores_lista else None
+    
+    # Marcar melhor proposta
+    for forn in fornecedores_lista:
+        forn['is_melhor'] = (forn['fornecedor_id'] == melhor_proposta['fornecedor_id']) if melhor_proposta else False
+    
+    # Total de economia considerando a melhor proposta
+    total_economia = melhor_proposta['economia_absoluta'] if melhor_proposta else 0
+    
+    return {
+        'fornecedores': fornecedores_lista,
+        'melhor_proposta': melhor_proposta,
+        'total_economia': total_economia,
+        'total_fornecedores': len(fornecedores_lista)
+    }
+
+
 def obter_rodadas_negociacao(cotacao_id):
     """Obtém todas as rodadas de negociação de uma cotação"""
     conn = get_db_connection()
@@ -1216,7 +1450,25 @@ def obter_rodadas_negociacao(cotacao_id):
     conn.close()
     return rodadas
 
-def atualizar_rodada_negociacao(rodada_id, preco_negociado=None, prazo_negociado=None, observacao=None, desconto_percentual=None):
+
+def excluir_rodadas_fornecedor(cotacao_id, fornecedor_id):
+    """Exclui todas as rodadas de um fornecedor específico em uma cotação"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        DELETE FROM cotacao_rodadas_negociacao 
+        WHERE cotacao_id = ? AND fornecedor_id = ?
+    ''', (cotacao_id, fornecedor_id))
+    
+    linhas_excluidas = cursor.rowcount
+    conn.commit()
+    conn.close()
+    
+    print(f"[NEGOCIAÇÃO] Excluídas {linhas_excluidas} rodadas do fornecedor {fornecedor_id} na cotação {cotacao_id}")
+    return linhas_excluidas
+
+def atualizar_rodada_negociacao(rodada_id, preco_negociado=None, prazo_negociado=None, observacao=None, desconto_percentual=None, frete_negociado=None):
     """Atualiza uma rodada de negociação existente"""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1240,6 +1492,10 @@ def atualizar_rodada_negociacao(rodada_id, preco_negociado=None, prazo_negociado
         campos.append('desconto_percentual = ?')
         valores.append(desconto_percentual)
     
+    if frete_negociado is not None:
+        campos.append('frete_negociado = ?')
+        valores.append(frete_negociado)
+    
     if not campos:
         conn.close()
         return
@@ -1250,6 +1506,25 @@ def atualizar_rodada_negociacao(rodada_id, preco_negociado=None, prazo_negociado
     cursor.execute(query, valores)
     conn.commit()
     conn.close()
+
+
+def atualizar_frete_fornecedor_rodada2(cotacao_id, fornecedor_id, frete_negociado):
+    """Atualiza o frete negociado para todos os itens de um fornecedor na rodada 2"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        UPDATE cotacao_rodadas_negociacao 
+        SET frete_negociado = ?
+        WHERE cotacao_id = ? AND fornecedor_id = ?
+    ''', (frete_negociado, cotacao_id, fornecedor_id))
+    
+    linhas_atualizadas = cursor.rowcount
+    conn.commit()
+    conn.close()
+    
+    print(f"[NEGOCIAÇÃO] Frete atualizado para R${frete_negociado} - Fornecedor {fornecedor_id}, Cotação {cotacao_id}")
+    return linhas_atualizadas
 
 def excluir_rodada_negociacao(rodada_id):
     """Exclui uma rodada de negociação"""
@@ -1612,17 +1887,21 @@ def listar_documentos_avaliacao_iso(avaliacao_id):
 
 
 def criar_documento_avaliacao_iso(avaliacao_id, tipo_documento, nome_original, 
-                                   nome_arquivo, caminho_arquivo, usuario=None):
+                                   nome_arquivo, caminho_arquivo, usuario=None,
+                                   nome_documento=None, extensao=None, tamanho_bytes=None):
     """
     Registra um novo documento de avaliação ISO.
     
     Args:
         avaliacao_id: ID da avaliação
-        tipo_documento: 'avaliacao' ou 'certificado_iso'
+        tipo_documento: 'iso', 'relatorio_avaliacao', 'contrato', 'outro'
         nome_original: Nome original do arquivo
         nome_arquivo: Nome único gerado para o arquivo
         caminho_arquivo: Caminho completo do arquivo no sistema
         usuario: Usuário que fez o upload
+        nome_documento: Nome personalizado definido pelo usuário
+        extensao: Extensão do arquivo (pdf, doc, docx)
+        tamanho_bytes: Tamanho do arquivo em bytes
     
     Returns:
         ID do documento criado
@@ -1632,9 +1911,11 @@ def criar_documento_avaliacao_iso(avaliacao_id, tipo_documento, nome_original,
     
     cursor.execute('''
         INSERT INTO avaliacao_iso_documentos 
-        (avaliacao_id, tipo_documento, nome_original, nome_arquivo, caminho_arquivo, usuario_upload)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (avaliacao_id, tipo_documento, nome_original, nome_arquivo, caminho_arquivo, usuario))
+        (avaliacao_id, tipo_documento, nome_documento, nome_original, nome_arquivo, 
+         caminho_arquivo, extensao, tamanho_bytes, usuario_upload)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (avaliacao_id, tipo_documento, nome_documento, nome_original, nome_arquivo, 
+          caminho_arquivo, extensao, tamanho_bytes, usuario))
     
     doc_id = cursor.lastrowid
     conn.commit()
@@ -2124,6 +2405,636 @@ def atualizar_cotacao_externa_com_ids(token, cotacao_id, fornecedor_id, forneced
         print(f"[DB] Cotação externa atualizada com IDs: Token={token[:20]}..., Cotacao={cotacao_id}, Fornecedor={fornecedor_id}")
         return True
     return False
+
+
+# =============================================================================
+# FUNÇÕES: PEDIDOS DE COMPRA
+# =============================================================================
+
+def gerar_numero_pedido():
+    """
+    Gera o próximo número sequencial de pedido de compra.
+    Formato: PC + ANO + Sequencial (ex: PC2026001)
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    ano_atual = datetime.now().year
+    prefixo = f"PC{ano_atual}"
+    
+    # Busca o maior número do ano atual
+    cursor.execute("""
+        SELECT numero_pedido FROM pedidos_compra 
+        WHERE numero_pedido LIKE ? 
+        ORDER BY numero_pedido DESC LIMIT 1
+    """, (f"{prefixo}%",))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result:
+        # Extrai o número sequencial do último pedido
+        ultimo = result[0]
+        try:
+            seq_atual = int(ultimo.replace(prefixo, ''))
+            proximo = seq_atual + 1
+        except:
+            proximo = 1
+    else:
+        proximo = 1
+    
+    return f"{prefixo}{str(proximo).zfill(4)}"
+
+
+def obter_ultimo_numero_pedido():
+    """
+    Retorna o último número de pedido usado e o próximo sugerido.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT numero_pedido, data_pedido, nome_fornecedor 
+        FROM pedidos_compra 
+        ORDER BY id DESC LIMIT 1
+    """)
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    proximo = gerar_numero_pedido()
+    
+    if result:
+        return {
+            'ultimo_pedido': result['numero_pedido'],
+            'data_ultimo': result['data_pedido'],
+            'fornecedor_ultimo': result['nome_fornecedor'],
+            'proximo_sugerido': proximo
+        }
+    else:
+        return {
+            'ultimo_pedido': None,
+            'data_ultimo': None,
+            'fornecedor_ultimo': None,
+            'proximo_sugerido': proximo
+        }
+
+
+def criar_pedido_compra(dados, itens, usuario='Admin'):
+    """
+    Cria um novo pedido de compra com seus itens.
+    
+    Args:
+        dados: Dict com campos do pedido {
+            numero_pedido: opcional (auto-gera se não informado),
+            data_pedido: YYYY-MM-DD,
+            cod_fornecedor, nome_fornecedor,
+            condicao_pagamento, contato, observacoes
+        }
+        itens: Lista de dicts [{
+            numero_sc, item_sc, cod_produto, descricao_produto,
+            quantidade, unidade, valor_unitario, ipi, data_necessidade
+        }]
+        usuario: Usuário que criou
+    
+    Returns:
+        Dict com id, numero_pedido e success
+    """
+    import json
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Gera número se não informado
+        numero = dados.get('numero_pedido') or gerar_numero_pedido()
+        
+        # Calcula valor total
+        valor_total = 0
+        for item in itens:
+            qtd = float(item.get('quantidade', 0) or 0)
+            preco = float(item.get('valor_unitario', 0) or 0)
+            ipi = float(item.get('ipi', 0) or 0)
+            valor_item = qtd * preco * (1 + ipi / 100)
+            valor_total += valor_item
+        
+        # Insere o pedido
+        cursor.execute('''
+            INSERT INTO pedidos_compra (
+                numero_pedido, data_pedido, cod_fornecedor, nome_fornecedor,
+                condicao_pagamento, contato, observacoes, valor_total, criado_por, atualizado_em
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            numero,
+            dados.get('data_pedido'),
+            dados.get('cod_fornecedor'),
+            dados.get('nome_fornecedor'),
+            dados.get('condicao_pagamento'),
+            dados.get('contato'),
+            dados.get('observacoes'),
+            valor_total,
+            usuario,
+            datetime.now()
+        ))
+        
+        pedido_id = cursor.lastrowid
+        
+        # Insere os itens
+        for item in itens:
+            qtd = float(item.get('quantidade', 0) or 0)
+            preco = float(item.get('valor_unitario', 0) or 0)
+            ipi = float(item.get('ipi', 0) or 0)
+            valor_item = qtd * preco * (1 + ipi / 100)
+            
+            cursor.execute('''
+                INSERT INTO pedido_itens (
+                    pedido_id, numero_sc, item_sc, cod_produto, descricao_produto,
+                    quantidade, unidade, valor_unitario, ipi, valor_total,
+                    data_necessidade, observacao
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                pedido_id,
+                item.get('numero_sc'),
+                item.get('item_sc'),
+                item.get('cod_produto'),
+                item.get('descricao_produto'),
+                qtd,
+                item.get('unidade'),
+                preco,
+                ipi,
+                valor_item,
+                item.get('data_necessidade'),
+                item.get('observacao')
+            ))
+        
+        # Registrar histórico
+        cursor.execute('''
+            INSERT INTO pedido_historico (pedido_id, acao, descricao, usuario, dados_json)
+            VALUES (?, 'CRIACAO', ?, ?, ?)
+        ''', (
+            pedido_id, 
+            f'Pedido criado com {len(itens)} item(ns)', 
+            usuario,
+            json.dumps({'itens': len(itens), 'valor_total': valor_total})
+        ))
+        
+        conn.commit()
+        conn.close()
+        
+        print(f"[DB] Pedido criado: {numero} com {len(itens)} itens, Valor: R${valor_total:.2f}")
+        
+        return {
+            'success': True,
+            'pedido_id': pedido_id,
+            'numero_pedido': numero,
+            'valor_total': valor_total
+        }
+        
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        print(f"[DB] Erro ao criar pedido: {e}")
+        return {'success': False, 'error': str(e)}
+
+
+def listar_pedidos_compra(filtros=None):
+    """
+    Lista todos os pedidos de compra com opção de filtros.
+    
+    Args:
+        filtros: Dict opcional com {
+            data_inicio, data_fim, fornecedor, status
+        }
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    query = """
+        SELECT 
+            p.*,
+            (SELECT COUNT(*) FROM pedido_itens WHERE pedido_id = p.id) as total_itens
+        FROM pedidos_compra p
+        WHERE 1=1
+    """
+    params = []
+    
+    if filtros:
+        if filtros.get('data_inicio'):
+            query += " AND p.data_pedido >= ?"
+            params.append(filtros['data_inicio'])
+        if filtros.get('data_fim'):
+            query += " AND p.data_pedido <= ?"
+            params.append(filtros['data_fim'])
+        if filtros.get('fornecedor'):
+            query += " AND (p.cod_fornecedor LIKE ? OR p.nome_fornecedor LIKE ?)"
+            params.extend([f"%{filtros['fornecedor']}%", f"%{filtros['fornecedor']}%"])
+        if filtros.get('status'):
+            query += " AND p.status = ?"
+            params.append(filtros['status'])
+    
+    query += " ORDER BY p.id DESC"
+    
+    cursor.execute(query, params)
+    pedidos = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    return pedidos
+
+
+def obter_pedido_detalhado(pedido_id):
+    """
+    Obtém um pedido completo com seus itens e histórico.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Pedido principal
+    cursor.execute("SELECT * FROM pedidos_compra WHERE id = ?", (pedido_id,))
+    pedido = cursor.fetchone()
+    
+    if not pedido:
+        conn.close()
+        return None
+    
+    pedido = dict(pedido)
+    
+    # Itens do pedido
+    cursor.execute("SELECT * FROM pedido_itens WHERE pedido_id = ? ORDER BY id", (pedido_id,))
+    pedido['itens'] = [dict(row) for row in cursor.fetchall()]
+    
+    # Histórico
+    cursor.execute("SELECT * FROM pedido_historico WHERE pedido_id = ? ORDER BY data_hora DESC", (pedido_id,))
+    pedido['historico'] = [dict(row) for row in cursor.fetchall()]
+    
+    conn.close()
+    return pedido
+
+
+def atualizar_pedido_compra(pedido_id, dados, usuario='Admin'):
+    """
+    Atualiza campos do pedido de compra.
+    """
+    import json
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        campos_update = []
+        params = []
+        
+        for campo in ['data_pedido', 'cod_fornecedor', 'nome_fornecedor', 
+                      'condicao_pagamento', 'contato', 'observacoes', 'status']:
+            if campo in dados:
+                campos_update.append(f"{campo} = ?")
+                params.append(dados[campo])
+        
+        if not campos_update:
+            return {'success': False, 'error': 'Nenhum campo para atualizar'}
+        
+        campos_update.append("atualizado_em = ?")
+        params.append(datetime.now())
+        params.append(pedido_id)
+        
+        cursor.execute(f"""
+            UPDATE pedidos_compra 
+            SET {', '.join(campos_update)}
+            WHERE id = ?
+        """, params)
+        
+        # Registrar histórico
+        cursor.execute('''
+            INSERT INTO pedido_historico (pedido_id, acao, descricao, usuario, dados_json)
+            VALUES (?, 'ATUALIZACAO', 'Pedido atualizado', ?, ?)
+        ''', (pedido_id, usuario, json.dumps(dados)))
+        
+        conn.commit()
+        conn.close()
+        
+        return {'success': True}
+        
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return {'success': False, 'error': str(e)}
+
+
+def verificar_solicitacao_tem_pedido(numero_sc, item_sc):
+    """
+    Verifica se uma solicitação já foi vinculada a um pedido.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT pi.id, p.numero_pedido, p.status
+        FROM pedido_itens pi
+        JOIN pedidos_compra p ON p.id = pi.pedido_id
+        WHERE pi.numero_sc = ? AND pi.item_sc = ?
+    """, (numero_sc, item_sc))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result:
+        return {
+            'tem_pedido': True,
+            'pedido_id': result['id'],
+            'numero_pedido': result['numero_pedido'],
+            'status': result['status']
+        }
+    
+    return {'tem_pedido': False}
+
+
+def gerar_payload_totvs(pedido_id):
+    """
+    Gera o payload no formato esperado pela API do TOTVS para envio futuro.
+    """
+    pedido = obter_pedido_detalhado(pedido_id)
+    
+    if not pedido:
+        return None
+    
+    payload = {
+        "numero_pedido": pedido['numero_pedido'],
+        "data_pedido": pedido['data_pedido'],
+        "fornecedor": {
+            "codigo": pedido['cod_fornecedor'],
+            "nome": pedido['nome_fornecedor']
+        },
+        "condicao_pagamento": pedido['condicao_pagamento'],
+        "contato": pedido['contato'],
+        "observacoes": pedido['observacoes'],
+        "itens": []
+    }
+    
+    for item in pedido['itens']:
+        payload['itens'].append({
+            "solicitacao_id": item['numero_sc'],
+            "item_sc": item['item_sc'],
+            "produto_id": item['cod_produto'],
+            "descricao": item['descricao_produto'],
+            "quantidade": item['quantidade'],
+            "unidade": item['unidade'],
+            "valor_unitario": item['valor_unitario'],
+            "ipi": item['ipi'],
+            "data_necessidade": item['data_necessidade']
+        })
+    
+    return payload
+
+
+def registrar_envio_totvs(pedido_id, resposta, usuario='Admin'):
+    """
+    Registra o envio do pedido para o TOTVS.
+    """
+    import json
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        UPDATE pedidos_compra 
+        SET enviado_totvs = 1, data_envio_totvs = ?, resposta_totvs = ?, atualizado_em = ?
+        WHERE id = ?
+    """, (datetime.now(), json.dumps(resposta), datetime.now(), pedido_id))
+    
+    cursor.execute('''
+        INSERT INTO pedido_historico (pedido_id, acao, descricao, usuario, dados_json)
+        VALUES (?, 'ENVIO_TOTVS', 'Pedido enviado ao TOTVS', ?, ?)
+    ''', (pedido_id, usuario, json.dumps(resposta)))
+    
+    conn.commit()
+    conn.close()
+    
+    return True
+
+
+def excluir_pedido_compra(pedido_id, usuario='Admin'):
+    """
+    Exclui um pedido de compra e seus itens.
+    Apenas pedidos que não foram enviados ao TOTVS podem ser excluídos.
+    
+    Args:
+        pedido_id: ID do pedido a ser excluído
+        usuario: Usuário que está excluindo
+    
+    Returns:
+        Dict com success e mensagem
+    """
+    import json
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Verifica se o pedido existe e se foi enviado ao TOTVS
+        cursor.execute("""
+            SELECT numero_pedido, enviado_totvs, status 
+            FROM pedidos_compra 
+            WHERE id = ?
+        """, (pedido_id,))
+        
+        pedido = cursor.fetchone()
+        
+        if not pedido:
+            return {'success': False, 'error': 'Pedido não encontrado'}
+        
+        # Não permite excluir pedidos já enviados ao TOTVS
+        if pedido['enviado_totvs'] == 1:
+            return {
+                'success': False, 
+                'error': 'Não é possível excluir pedidos já enviados ao TOTVS'
+            }
+        
+        numero_pedido = pedido['numero_pedido']
+        
+        # Registra exclusão no histórico antes de excluir
+        cursor.execute('''
+            INSERT INTO pedido_historico (pedido_id, acao, descricao, usuario, dados_json)
+            VALUES (?, 'EXCLUSAO', 'Pedido excluído', ?, ?)
+        ''', (pedido_id, usuario, json.dumps({'numero_pedido': numero_pedido})))
+        
+        # Exclui itens (CASCADE deve funcionar, mas fazemos explícito para garantir)
+        cursor.execute("DELETE FROM pedido_itens WHERE pedido_id = ?", (pedido_id,))
+        
+        # Exclui histórico
+        cursor.execute("DELETE FROM pedido_historico WHERE pedido_id = ?", (pedido_id,))
+        
+        # Exclui pedido
+        cursor.execute("DELETE FROM pedidos_compra WHERE id = ?", (pedido_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        print(f"[DB] Pedido excluído: {numero_pedido} (ID: {pedido_id})")
+        
+        return {
+            'success': True,
+            'message': f'Pedido {numero_pedido} excluído com sucesso'
+        }
+        
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        print(f"[DB] Erro ao excluir pedido: {e}")
+        return {'success': False, 'error': str(e)}
+
+
+# =============================================================================
+# FUNÇÕES: HISTÓRICO DE ENVIO DE E-MAILS (Controle 24h)
+# =============================================================================
+
+def registrar_envio_email(tipo, identificador, email_destinatario, assunto=None, corpo=None, enviado_por=None):
+    """
+    Registra um envio de e-mail no histórico.
+    
+    Args:
+        tipo: 'pedido' ou 'item' ou 'terceiros'
+        identificador: número do pedido ou pedido-item (ex: '123456' ou '123456-001')
+        email_destinatario: e-mail do fornecedor
+        assunto: assunto do e-mail
+        corpo: corpo do e-mail
+        enviado_por: usuário que enviou
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO email_envios_historico 
+            (tipo, identificador, email_destinatario, assunto, corpo, enviado_por)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (tipo, identificador, email_destinatario, assunto, corpo, enviado_por))
+        
+        conn.commit()
+        envio_id = cursor.lastrowid
+        conn.close()
+        
+        print(f"[DB] E-mail registrado: {tipo}/{identificador} -> {email_destinatario}")
+        return {'success': True, 'id': envio_id}
+        
+    except Exception as e:
+        print(f"[DB] Erro ao registrar envio de e-mail: {e}")
+        return {'success': False, 'error': str(e)}
+
+
+def verificar_ultimo_envio_email(tipo, identificador):
+    """
+    Verifica o último envio de e-mail para um pedido/item.
+    Retorna informações sobre se pode reenviar (regra 24h).
+    
+    Args:
+        tipo: 'pedido' ou 'item' ou 'terceiros'
+        identificador: número do pedido ou pedido-item
+        
+    Returns:
+        dict com: pode_enviar, ultimo_envio, horas_passadas, minutos_restantes
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Busca o último envio bem-sucedido
+        cursor.execute('''
+            SELECT data_envio, email_destinatario, assunto
+            FROM email_envios_historico
+            WHERE tipo = ? AND identificador = ? AND sucesso = 1
+            ORDER BY data_envio DESC
+            LIMIT 1
+        ''', (tipo, identificador))
+        
+        resultado = cursor.fetchone()
+        conn.close()
+        
+        if not resultado:
+            return {
+                'pode_enviar': True,
+                'ultimo_envio': None,
+                'horas_passadas': None,
+                'minutos_restantes': 0
+            }
+        
+        # Calcula diferença de tempo
+        data_envio_str = resultado['data_envio']
+        
+        # Parse da data (formato SQLite: YYYY-MM-DD HH:MM:SS)
+        data_envio = datetime.strptime(data_envio_str, '%Y-%m-%d %H:%M:%S')
+        agora = datetime.now()
+        diferenca = agora - data_envio
+        
+        horas_passadas = diferenca.total_seconds() / 3600
+        pode_enviar = horas_passadas >= 24
+        
+        # Calcula minutos restantes para poder enviar
+        if pode_enviar:
+            minutos_restantes = 0
+        else:
+            segundos_restantes = (24 * 3600) - diferenca.total_seconds()
+            minutos_restantes = int(segundos_restantes / 60)
+        
+        return {
+            'pode_enviar': pode_enviar,
+            'ultimo_envio': data_envio_str,
+            'ultimo_envio_formatado': data_envio.strftime('%d/%m/%Y às %H:%M'),
+            'email_ultimo': resultado['email_destinatario'],
+            'horas_passadas': round(horas_passadas, 1),
+            'minutos_restantes': minutos_restantes
+        }
+        
+    except Exception as e:
+        print(f"[DB] Erro ao verificar último envio: {e}")
+        # Em caso de erro, permite enviar
+        return {
+            'pode_enviar': True,
+            'ultimo_envio': None,
+            'horas_passadas': None,
+            'minutos_restantes': 0,
+            'error': str(e)
+        }
+
+
+def listar_historico_envios(tipo=None, identificador=None, limite=50):
+    """
+    Lista o histórico de envios de e-mail.
+    
+    Args:
+        tipo: filtrar por tipo (opcional)
+        identificador: filtrar por identificador (opcional)
+        limite: número máximo de registros
+        
+    Returns:
+        Lista de envios
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        query = 'SELECT * FROM email_envios_historico WHERE 1=1'
+        params = []
+        
+        if tipo:
+            query += ' AND tipo = ?'
+            params.append(tipo)
+            
+        if identificador:
+            query += ' AND identificador = ?'
+            params.append(identificador)
+            
+        query += ' ORDER BY data_envio DESC LIMIT ?'
+        params.append(limite)
+        
+        cursor.execute(query, params)
+        
+        resultados = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        return resultados
+        
+    except Exception as e:
+        print(f"[DB] Erro ao listar histórico de envios: {e}")
+        return []
 
 
 # =============================================================================

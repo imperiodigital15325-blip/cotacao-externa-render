@@ -396,7 +396,8 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fadeIn 0.4s ease-out; }
         
-        /* Spinner e Loading */
+        /* Shimmer Loading Effect (pseudo-element helper) */
+        .loading-shimmer::after {
             content: '';
             position: absolute;
             top: 0;
@@ -787,6 +788,286 @@
         .top-variacoes-card .item-variacao .valor-var.negativo {
             color: #198754;
         }
+
+        /* ========================================
+           AVALIAÇÃO CORPORATIVA POR FORNECEDOR
+        ======================================== */
+        .avaliacao-corp-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .avaliacao-corp-header .titulo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .avaliacao-corp-header .titulo h5 {
+            margin: 0;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .avaliacao-corp-header .titulo .badge-novo {
+            background: linear-gradient(135deg, #198754, #20c997);
+            color: white;
+            font-size: 0.65rem;
+            padding: 3px 8px;
+            border-radius: 12px;
+        }
+        
+        /* Seção de filtros da Avaliação Corporativa */
+        .secao-avaliacao-filtros {
+            background: #f8fdf9;
+            border: 1px solid #c3e6cb;
+            border-radius: var(--radius-md);
+            padding: 16px;
+            border-left: 3px solid #198754;
+        }
+        
+        /* Cards KPIs Avaliação Corporativa - PADRONIZADOS */
+        .kpi-corp-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .kpi-corp-card {
+            flex: 1;
+            min-width: 180px;
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            text-align: center;
+            transition: var(--transition);
+        }
+        
+        .kpi-corp-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+        
+        .kpi-corp-card .corp-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        
+        .kpi-corp-card .corp-valor {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .kpi-corp-card .corp-valor.verde { color: #198754; }
+        .kpi-corp-card .corp-valor.azul { color: #0d6efd; }
+        .kpi-corp-card .corp-valor.laranja { color: #fd7e14; }
+        .kpi-corp-card .corp-valor.roxo { color: #6f42c1; }
+        
+        .kpi-corp-card .corp-subtitulo {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        
+        /* Container de Gráficos Lado a Lado */
+        .graficos-corp-container {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        @media (max-width: 992px) {
+            .graficos-corp-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .grafico-corp-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+        }
+        
+        .grafico-corp-card .grafico-titulo {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .grafico-corp-canvas {
+            height: 280px;
+            position: relative;
+        }
+        
+        /* Tabela de Detalhes Fornecedores */
+        .tabela-corp-detalhe {
+            margin-top: 20px;
+            max-height: 350px;
+            overflow-y: auto;
+        }
+        
+        .tabela-corp-detalhe .badge-participacao {
+            font-size: 0.8rem;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        
+        .tabela-corp-detalhe .badge-participacao.alta {
+            background: rgba(25, 135, 84, 0.15);
+            color: #198754;
+        }
+        
+        .tabela-corp-detalhe .badge-participacao.media {
+            background: rgba(253, 126, 20, 0.15);
+            color: #fd7e14;
+        }
+        
+        .tabela-corp-detalhe .badge-participacao.baixa {
+            background: rgba(108, 117, 125, 0.15);
+            color: #6c757d;
+        }
+        
+        /* Barra de Progresso Visual */
+        .barra-participacao {
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            min-width: 100px;
+        }
+        
+        .barra-participacao .barra-preenchida {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        /* ========================================
+           CORREÇÕES ANÁLISE CORPORATIVA TEMPORAL
+        ======================================== */
+        /* KPIs Comparativos - PADRONIZAÇÃO DE TAMANHO */
+        .kpi-comparativo {
+            background: var(--card-bg);
+            border-radius: var(--radius-md);
+            padding: 16px 12px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            text-align: center;
+            position: relative;
+            transition: var(--transition);
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .kpi-comparativo .periodo-label {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .kpi-comparativo .valor-periodo {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .kpi-comparativo .variacao {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            margin-top: 6px;
+        }
+        
+        .kpi-comparativo .diferenca {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 6px;
+        }
+        
+        /* Ordem correta: Período Anterior (esquerda) → Período Atual (direita) */
+        .periodos-ordenados {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: stretch !important;
+        }
+        
+        .periodos-ordenados .periodo-anterior {
+            order: 1;
+        }
+        
+        .periodos-ordenados .periodo-vs {
+            order: 2;
+        }
+        
+        .periodos-ordenados .periodo-atual {
+            order: 3;
+        }
+        
+        /* Garantir visibilidade total dos filtros de período */
+        .secao-comparativa-periodos {
+            overflow: visible !important;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .secao-comparativa-periodos .periodo-box {
+            position: relative;
+            z-index: 2;
+        }
+        
+        .secao-comparativa-filtros {
+            overflow: visible !important;
+            position: relative;
+            z-index: 1;
+        }
+        
+        #secaoComparativa.collapse.show {
+            overflow: visible !important;
+        }
+        
+        /* Durante a transição do collapse, manter layout correto */
+        #secaoComparativa.collapsing {
+            overflow: hidden;
+        }
+        
+        /* Corrigir possível sobreposição de bootstrap-select dentro do collapse */
+        .secao-comparativa-filtros .bootstrap-select {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .secao-comparativa-filtros .bootstrap-select .dropdown-menu {
+            z-index: 1050;
+        }
     </style>
 </head>
 <body>
@@ -1165,36 +1446,13 @@
                     </div>
                     
                     <div class="collapse" id="secaoComparativa">
-                        <!-- Seleção de Períodos -->
+                        <!-- Seleção de Períodos - ORDEM CORRIGIDA: Anterior (esq) → Atual (dir) -->
                         <div class="secao-comparativa-periodos mb-3">
                             <div class="secao-header">
                                 <i class="fas fa-calendar-alt me-2"></i>Selecione os Períodos
                             </div>
-                            <div class="row g-3 align-items-end">
-                                <div class="col-md-5">
-                                    <div class="periodo-box periodo-atual">
-                                        <div class="periodo-titulo" style="color: #fd7e14;">
-                                            <i class="fas fa-calendar-check"></i> Período Atual (Analisado)
-                                        </div>
-                                        <div class="row g-2">
-                                            <div class="col-6">
-                                                <label class="form-label-sm">DE:</label>
-                                                <select class="form-select form-select-sm" id="compPeriodo1Inicio"></select>
-                                            </div>
-                                            <div class="col-6">
-                                                <label class="form-label-sm">ATÉ:</label>
-                                                <select class="form-select form-select-sm" id="compPeriodo1Fim"></select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-2 d-flex align-items-center justify-content-center">
-                                    <div class="text-center py-2">
-                                        <i class="fas fa-arrows-alt-h fa-lg text-muted"></i>
-                                        <div class="small text-muted fw-bold">vs</div>
-                                    </div>
-                                </div>
-                                <div class="col-md-5">
+                            <div class="row gx-3 periodos-ordenados">
+                                <div class="col-md-5 periodo-anterior">
                                     <div class="periodo-box periodo-comparacao">
                                         <div class="periodo-titulo" style="color: #20c997;">
                                             <i class="fas fa-history"></i> Período Anterior (Referência)
@@ -1207,6 +1465,29 @@
                                             <div class="col-6">
                                                 <label class="form-label-sm">ATÉ:</label>
                                                 <select class="form-select form-select-sm" id="compPeriodo2Fim"></select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-center justify-content-center periodo-vs">
+                                    <div class="text-center py-2">
+                                        <i class="fas fa-arrow-right fa-lg text-muted"></i>
+                                        <div class="small text-muted fw-bold">comparado com</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-5 periodo-atual">
+                                    <div class="periodo-box periodo-atual">
+                                        <div class="periodo-titulo" style="color: #fd7e14;">
+                                            <i class="fas fa-calendar-check"></i> Período Atual (Analisado)
+                                        </div>
+                                        <div class="row g-2">
+                                            <div class="col-6">
+                                                <label class="form-label-sm">DE:</label>
+                                                <select class="form-select form-select-sm" id="compPeriodo1Inicio"></select>
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label-sm">ATÉ:</label>
+                                                <select class="form-select form-select-sm" id="compPeriodo1Fim"></select>
                                             </div>
                                         </div>
                                     </div>
@@ -1270,25 +1551,37 @@
                         
                         <!-- Resultado da Análise -->
                         <div id="resultadoComparativa" style="display: none;">
-                            <!-- Legenda de Períodos -->
+                            <!-- Legenda de Períodos - ORDEM CORRIGIDA -->
                             <div class="legenda-periodos">
-                                <div class="legenda-item">
-                                    <div class="cor-periodo periodo1"></div>
-                                    <span id="legendaPeriodo1">Período Atual</span>
-                                </div>
                                 <div class="legenda-item">
                                     <div class="cor-periodo periodo2"></div>
                                     <span id="legendaPeriodo2">Período Anterior</span>
                                 </div>
+                                <div class="legenda-item">
+                                    <i class="fas fa-arrow-right text-muted mx-2"></i>
+                                </div>
+                                <div class="legenda-item">
+                                    <div class="cor-periodo periodo1"></div>
+                                    <span id="legendaPeriodo1">Período Atual</span>
+                                </div>
                             </div>
                             
-                            <!-- KPIs Comparativos -->
+                            <!-- KPIs Comparativos - PADRONIZADOS E COM ORDEM CORRIGIDA -->
                             <div class="row g-3 mb-4">
                                 <div class="col-md-4">
                                     <div class="kpi-comparativo">
-                                        <div class="periodo-label">Total Gasto</div>
-                                        <div class="valor-periodo periodo1" id="compTotalP1">R$ 0,00</div>
-                                        <div class="valor-periodo periodo2" id="compTotalP2">R$ 0,00</div>
+                                        <div class="periodo-label">Total de Gasto</div>
+                                        <div class="d-flex justify-content-center gap-3 align-items-center mb-2">
+                                            <div class="text-center">
+                                                <div class="small text-muted">Anterior</div>
+                                                <div class="valor-periodo periodo2" id="compTotalP2">R$ 0,00</div>
+                                            </div>
+                                            <i class="fas fa-arrow-right text-muted"></i>
+                                            <div class="text-center">
+                                                <div class="small text-muted">Atual</div>
+                                                <div class="valor-periodo periodo1" id="compTotalP1">R$ 0,00</div>
+                                            </div>
+                                        </div>
                                         <div class="variacao neutra" id="compVariacaoTotal">
                                             <i class="fas fa-equals"></i> 0%
                                         </div>
@@ -1298,8 +1591,17 @@
                                 <div class="col-md-4">
                                     <div class="kpi-comparativo">
                                         <div class="periodo-label">Quantidade de Pedidos</div>
-                                        <div class="valor-periodo periodo1" id="compPedidosP1">0</div>
-                                        <div class="valor-periodo periodo2" id="compPedidosP2">0</div>
+                                        <div class="d-flex justify-content-center gap-3 align-items-center mb-2">
+                                            <div class="text-center">
+                                                <div class="small text-muted">Anterior</div>
+                                                <div class="valor-periodo periodo2" id="compPedidosP2">0</div>
+                                            </div>
+                                            <i class="fas fa-arrow-right text-muted"></i>
+                                            <div class="text-center">
+                                                <div class="small text-muted">Atual</div>
+                                                <div class="valor-periodo periodo1" id="compPedidosP1">0</div>
+                                            </div>
+                                        </div>
                                         <div class="variacao neutra" id="compVariacaoPedidos">
                                             <i class="fas fa-equals"></i> 0%
                                         </div>
@@ -1308,8 +1610,17 @@
                                 <div class="col-md-4">
                                     <div class="kpi-comparativo">
                                         <div class="periodo-label">Itens Comprados</div>
-                                        <div class="valor-periodo periodo1" id="compItensP1">0</div>
-                                        <div class="valor-periodo periodo2" id="compItensP2">0</div>
+                                        <div class="d-flex justify-content-center gap-3 align-items-center mb-2">
+                                            <div class="text-center">
+                                                <div class="small text-muted">Anterior</div>
+                                                <div class="valor-periodo periodo2" id="compItensP2">0</div>
+                                            </div>
+                                            <i class="fas fa-arrow-right text-muted"></i>
+                                            <div class="text-center">
+                                                <div class="small text-muted">Atual</div>
+                                                <div class="valor-periodo periodo1" id="compItensP1">0</div>
+                                            </div>
+                                        </div>
                                         <div class="variacao neutra" id="compVariacaoItens">
                                             <i class="fas fa-equals"></i> 0%
                                         </div>
@@ -1356,7 +1667,7 @@
                                 </div>
                             </div>
                             
-                            <!-- Tabela Detalhada -->
+                            <!-- Tabela Detalhada - ORDEM CORRIGIDA: Anterior → Atual -->
                             <div class="row">
                                 <div class="col-12">
                                     <h6 class="text-secondary mb-3">
@@ -1367,8 +1678,8 @@
                                             <thead>
                                                 <tr>
                                                     <th class="text-start">Mês</th>
-                                                    <th class="text-end"><span class="text-warning">Período Atual</span></th>
                                                     <th class="text-end"><span style="color: #20c997;">Período Anterior</span></th>
+                                                    <th class="text-end"><span class="text-warning">Período Atual</span></th>
                                                     <th class="text-end">Diferença (R$)</th>
                                                     <th class="text-center">Variação (%)</th>
                                                 </tr>
@@ -1385,6 +1696,165 @@
                             <i class="fas fa-exchange-alt fa-3x mb-3 d-block opacity-50"></i>
                             <p class="mb-2">Compare períodos equivalentes para análise de tendências</p>
                             <small>Selecione os períodos e clique em "Analisar" para ver a comparação detalhada</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== AVALIAÇÃO CORPORATIVA POR FORNECEDOR ========== -->
+        <div class="row fade-in mt-4">
+            <div class="col-12">
+                <div class="card-modern">
+                    <div class="card-title" style="color: #198754;">
+                        <i class="fas fa-handshake me-2"></i>Avaliação Corporativa por Fornecedor
+                        <span class="badge-novo ms-2">NOVO</span>
+                        <button class="btn btn-sm btn-outline-success float-end" type="button" data-bs-toggle="collapse" data-bs-target="#secaoAvaliacaoCorp" aria-expanded="false">
+                            <i class="fas fa-chevron-down"></i> Expandir
+                        </button>
+                    </div>
+                    
+                    <div class="collapse" id="secaoAvaliacaoCorp">
+                        <p class="text-muted small mb-3">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Compare a participação de fornecedores nas suas compras. Selecione 2 ou mais fornecedores para análise comparativa de volume, valor e evolução temporal.
+                        </p>
+                        
+                        <!-- Filtros da Avaliação Corporativa -->
+                        <div class="secao-avaliacao-filtros mb-3">
+                            <div class="secao-header">
+                                <i class="fas fa-filter me-2" style="color: #198754;"></i>Filtros de Análise
+                            </div>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="form-label-sm">FORNECEDORES (selecione 2+)</label>
+                                    <select class="selectpicker form-control" id="corpFiltroFornecedores" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 2" data-size="10" title="Selecione fornecedores...">
+                                        {% for f in dados.opcoes_fornecedores %}
+                                        <option value="{{ f }}">{{ f }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label-sm">CATEGORIA (TIPO)</label>
+                                    <select class="form-select form-select-sm" id="corpFiltroCategoria">
+                                        <option value="">Todas</option>
+                                        {% for tipo in dados.opcoes_tipos_produto %}
+                                        <option value="{{ tipo }}">{{ tipo }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label-sm">PERÍODO DE:</label>
+                                    <select class="form-select form-select-sm" id="corpPeriodoInicio"></select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label-sm">ATÉ:</label>
+                                    <select class="form-select form-select-sm" id="corpPeriodoFim"></select>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-success btn-sm flex-grow-1" onclick="executarAvaliacaoCorporativa()">
+                                            <i class="fas fa-chart-pie me-1"></i> Analisar
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-sm" onclick="limparFiltrosAvaliacaoCorp()" title="Limpar Filtros">
+                                            <i class="fas fa-eraser"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Resultado da Avaliação Corporativa -->
+                        <div id="resultadoAvaliacaoCorp" style="display: none;">
+                            <!-- Tags de filtros ativos -->
+                            <div id="filtrosAtivosCorp" class="filtros-ativos-tags mb-3" style="display: none;"></div>
+                            
+                            <!-- KPIs Corporativos -->
+                            <div class="kpi-corp-row mb-4">
+                                <div class="kpi-corp-card">
+                                    <div class="corp-label">Total Analisado</div>
+                                    <div class="corp-valor verde" id="corpTotalGeral">R$ 0,00</div>
+                                    <div class="corp-subtitulo" id="corpQtdFornecedores">0 fornecedores</div>
+                                </div>
+                                <div class="kpi-corp-card">
+                                    <div class="corp-label">Maior Participação</div>
+                                    <div class="corp-valor azul" id="corpMaiorPart">-</div>
+                                    <div class="corp-subtitulo" id="corpMaiorPartPct">0%</div>
+                                </div>
+                                <div class="kpi-corp-card">
+                                    <div class="corp-label">Total de Pedidos</div>
+                                    <div class="corp-valor laranja" id="corpTotalPedidos">0</div>
+                                    <div class="corp-subtitulo">no período</div>
+                                </div>
+                                <div class="kpi-corp-card">
+                                    <div class="corp-label">Itens Comprados</div>
+                                    <div class="corp-valor roxo" id="corpTotalItens">0</div>
+                                    <div class="corp-subtitulo">únicos</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Gráficos -->
+                            <div class="graficos-corp-container">
+                                <!-- Gráfico de Pizza - Participação -->
+                                <div class="grafico-corp-card">
+                                    <div class="grafico-titulo">
+                                        <i class="fas fa-chart-pie text-success"></i>
+                                        Participação nas Compras (%)
+                                    </div>
+                                    <div class="grafico-corp-canvas">
+                                        <canvas id="chartCorpPizza"></canvas>
+                                    </div>
+                                </div>
+                                
+                                <!-- Gráfico de Linhas - Evolução Temporal -->
+                                <div class="grafico-corp-card">
+                                    <div class="grafico-titulo">
+                                        <i class="fas fa-chart-line text-primary"></i>
+                                        Evolução Mensal por Fornecedor
+                                    </div>
+                                    <div class="grafico-corp-canvas">
+                                        <canvas id="chartCorpEvolucao"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Tabela Detalhada de Fornecedores -->
+                            <div class="tabela-corp-detalhe mt-4">
+                                <h6 class="text-secondary mb-3">
+                                    <i class="fas fa-list-ul me-2"></i>Detalhamento por Fornecedor
+                                </h6>
+                                <table class="table table-modern table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-start">Fornecedor</th>
+                                            <th class="text-end">Valor Total</th>
+                                            <th class="text-center">Participação</th>
+                                            <th class="text-center" style="min-width: 150px;">Visual</th>
+                                            <th class="text-center">Qtd Itens</th>
+                                            <th class="text-center">Qtd Pedidos</th>
+                                            <th class="text-center">Ticket Médio</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="corpoTabelaCorp"></tbody>
+                                </table>
+                            </div>
+                            
+                            <!-- Insights para Negociação -->
+                            <div class="mt-4 p-3 bg-light border-start border-success border-4 rounded">
+                                <h6 class="text-success mb-2">
+                                    <i class="fas fa-lightbulb me-2"></i>Insights para Negociação
+                                </h6>
+                                <div id="insightsNegociacao" class="small text-muted">
+                                    Selecione fornecedores para ver insights de negociação.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Mensagem Inicial -->
+                        <div id="msgInicialAvaliacaoCorp" class="text-center py-5 text-muted">
+                            <i class="fas fa-handshake fa-3x mb-3 d-block opacity-50"></i>
+                            <p class="mb-2">Selecione 2 ou mais fornecedores para comparar participação</p>
+                            <small>Utilize esta análise para apoiar decisões de negociação e distribuição de compras</small>
                         </div>
                     </div>
                 </div>
@@ -2395,8 +2865,13 @@
     });
 
     // ==========================================
-    // FUNÇÃO PARA EXPORTAR PARA EXCEL (AGRUPADO)
-    // ==========================================
+    // FUNÇÃO PARA EXPORTAR PARA EXCEL (CONSOLIDADO POR ITEM)
+    // ========================================================
+    // Cada item aparece UMA ÚNICA VEZ, com:
+    // - Todos os fornecedores utilizados
+    // - Todos os pedidos (sem limite)
+    // - Quantidade e valor totais consolidados
+    // ========================================================
     function exportarExcelDashboard() {
         // Coleta os filtros atuais
         const filtros = {
@@ -2408,7 +2883,7 @@
             busca_geral: document.getElementById('busca_geral')?.value || ''
         };
         
-        mostrarSpinner('Preparando exportação...');
+        mostrarSpinner('Preparando exportação consolidada por item...');
         
         // Chama a API para buscar todos os dados agrupados
         fetch('/api/exportar_dashboard', {
@@ -2432,8 +2907,24 @@
                 return;
             }
             
-            // Cabeçalhos do CSV agrupado
-            const headers = ['Cód. Produto', 'Produto', 'Cód. Fornecedor', 'Fornecedor', 'Qtd Total', 'Valor Total', 'Condição Pgto', 'Primeira Compra', 'Última Compra', 'Pedidos'];
+            // Cabeçalhos do CSV - CONSOLIDADO POR ITEM
+            const headers = [
+                'Cód. Produto', 
+                'Descrição do Produto', 
+                'Categoria/Tipo',
+                'Qtd Total', 
+                'Valor Total (R$)', 
+                'Preço Médio Unit. (R$)',
+                'Total de Compras',
+                'Qtd Pedidos',
+                'Lista de Pedidos',
+                'Qtd Fornecedores',
+                'Fornecedores Utilizados',
+                'Cód. Fornecedores',
+                'Primeira Compra', 
+                'Última Compra',
+                'Condição Pgto Mais Frequente'
+            ];
             
             // Criar conteúdo CSV
             let csvContent = '\uFEFF'; // BOM para UTF-8
@@ -2443,24 +2934,29 @@
                 const linha = [
                     item.CodProduto || '',
                     (item.DescricaoProduto || '').replace(/"/g, '""'),
-                    item.CodFornecedor || '',
-                    (item.NomeFornecedor || '').replace(/"/g, '""'),
+                    (item.TipoProduto || '').replace(/"/g, '""'),
                     item.QtdTotal?.toLocaleString('pt-BR') || '0',
                     item.ValorTotal?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00',
-                    item.CondicaoPagamento || '',
+                    item.PrecoMedioUnit?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00',
+                    item.TotalCompras || '0',
+                    item.QtdPedidos || '0',
+                    (item.Pedidos || '').replace(/"/g, '""'),
+                    item.QtdFornecedores || '0',
+                    (item.Fornecedores || '').replace(/"/g, '""'),
+                    (item.CodFornecedores || '').replace(/"/g, '""'),
                     item.PrimeiraCompra || '',
                     item.UltimaCompra || '',
-                    (item.Pedidos || '').replace(/"/g, '""')
+                    item.CondicaoPagamento || ''
                 ];
                 csvContent += linha.map(cell => `"${cell}"`).join(';') + '\n';
             });
             
             // Adiciona linha de totais
             csvContent += '\n';
-            csvContent += `"TOTAL";"${dados.length} itens únicos";"";"";` +
+            csvContent += `"TOTAL CONSOLIDADO";"${dados.length} ITENS ÚNICOS";"";` +
                          `"${result.total_qtd?.toLocaleString('pt-BR') || '0'}";` +
                          `"${result.total_valor?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00'}";` +
-                         `"";"";"";""` + '\n';
+                         `"";"";"";"";"";"";"";"";"";""` + '\n';
             
             // Criar arquivo e baixar
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -2473,10 +2969,10 @@
             
             // Pegar comprador selecionado (se houver)
             const compradorSelect = document.querySelector('select[name="comprador"]');
-            let nomeArquivo = `Dashboard_Agrupado_${dataStr}`;
+            let nomeArquivo = `Itens_Consolidados_${dataStr}`;
             if (compradorSelect && compradorSelect.value && compradorSelect.value !== 'Todos') {
                 const nomeComprador = compradorSelect.value.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
-                nomeArquivo = `Dashboard_${nomeComprador}_${dataStr}`;
+                nomeArquivo = `Itens_Consolidados_${nomeComprador}_${dataStr}`;
             }
             
             link.setAttribute('href', url);
@@ -2487,7 +2983,11 @@
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
             
-            alert(`✅ Exportados ${dados.length} itens únicos (agrupados) para Excel!\n\nTotal Qtd: ${result.total_qtd?.toLocaleString('pt-BR')}\nTotal Valor: R$ ${result.total_valor?.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
+            alert(`✅ Exportação Consolidada por Item!\n\n` +
+                  `📦 ${dados.length} itens ÚNICOS exportados\n` +
+                  `📊 Quantidade Total: ${result.total_qtd?.toLocaleString('pt-BR')}\n` +
+                  `💰 Valor Total: R$ ${result.total_valor?.toLocaleString('pt-BR', {minimumFractionDigits: 2})}\n\n` +
+                  `⚠️ Cada item aparece UMA ÚNICA VEZ,\nconsolidando todos os fornecedores e pedidos.`);
         })
         .catch(error => {
             esconderSpinner();
@@ -2718,34 +3218,21 @@
         }
         
         const labels = data.dados.map(d => d.label);
-        const valoresP1 = data.dados.map(d => d.valor_periodo1);
-        const valoresP2 = data.dados.map(d => d.valor_periodo2);
+        const valoresP1 = data.dados.map(d => d.valor_periodo1);  // Período Atual
+        const valoresP2 = data.dados.map(d => d.valor_periodo2);  // Período Anterior
         
-        // Sempre gráfico de linhas (comparação mensal)
-        const corPeriodo1 = '#fd7e14';  // Laranja
-        const corPeriodo2 = '#20c997';  // Teal/Verde azulado
+        // Cores dos períodos
+        const corPeriodo1 = '#fd7e14';  // Laranja - Período Atual
+        const corPeriodo2 = '#20c997';  // Teal/Verde - Período Anterior
         
+        // ORDEM CORRIGIDA: Período Anterior primeiro na legenda, depois Atual
         chartComparativo = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [
                     {
-                        label: data.periodos.periodo1.label,
-                        data: valoresP1,
-                        backgroundColor: 'rgba(253, 126, 20, 0.15)',
-                        borderColor: corPeriodo1,
-                        borderWidth: 2.5,
-                        fill: true,
-                        tension: 0.2,
-                        pointRadius: 5,
-                        pointHoverRadius: 8,
-                        pointBackgroundColor: corPeriodo1,
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2,
-                        order: 1
-                    },
-                    {
+                        // Período Anterior (referência) - aparece primeiro na legenda
                         label: data.periodos.periodo2.label,
                         data: valoresP2,
                         backgroundColor: 'rgba(32, 201, 151, 0.1)',
@@ -2759,6 +3246,22 @@
                         pointBorderColor: '#fff',
                         pointBorderWidth: 2,
                         order: 2
+                    },
+                    {
+                        // Período Atual (analisado) - aparece por cima
+                        label: data.periodos.periodo1.label,
+                        data: valoresP1,
+                        backgroundColor: 'rgba(253, 126, 20, 0.15)',
+                        borderColor: corPeriodo1,
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.2,
+                        pointRadius: 5,
+                        pointHoverRadius: 8,
+                        pointBackgroundColor: corPeriodo1,
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        order: 1
                     }
                 ]
             },
@@ -2790,10 +3293,11 @@
                             },
                             afterBody: function(tooltipItems) {
                                 if (tooltipItems.length < 2) return '';
-                                const v1 = tooltipItems[0].raw || 0;  // Período Atual
-                                const v2 = tooltipItems[1].raw || 0;  // Período Anterior
-                                const diff = v1 - v2;
-                                const pctAbs = v2 > 0 ? Math.abs((diff / v2) * 100).toFixed(1) : 0;
+                                // tooltipItems[0] = Período Anterior, tooltipItems[1] = Período Atual
+                                const vAnterior = tooltipItems[0].raw || 0;
+                                const vAtual = tooltipItems[1].raw || 0;
+                                const diff = vAtual - vAnterior;
+                                const pctAbs = vAnterior > 0 ? Math.abs((diff / vAnterior) * 100).toFixed(1) : 0;
                                 
                                 if (diff > 0) {
                                     return `\n🔴 Aumento de ${pctAbs}% em relação ao período anterior`;
@@ -2884,11 +3388,12 @@
                 textoVariacao = '= 0%';
             }
             
+            // ORDEM CORRIGIDA: Anterior (periodo2) → Atual (periodo1)
             html += `
                 <tr>
                     <td class="text-start">${item.label}</td>
-                    <td class="text-end valor-monetario">${formatBRL(item.valor_periodo1)}</td>
                     <td class="text-end valor-monetario">${formatBRL(item.valor_periodo2)}</td>
+                    <td class="text-end valor-monetario">${formatBRL(item.valor_periodo1)}</td>
                     <td class="text-end valor-monetario">${formatBRL(item.diferenca)}</td>
                     <td class="text-center">
                         <span class="badge-variacao ${classeVariacao}">
@@ -2901,9 +3406,387 @@
         
         tbody.innerHTML = html;
     }
+    
+    // ==========================================
+    // AVALIAÇÃO CORPORATIVA POR FORNECEDOR
+    // ==========================================
+    let chartCorpPizza = null;
+    let chartCorpEvolucao = null;
+    
+    // Cores para fornecedores
+    const coresFornecedores = [
+        '#198754', '#0d6efd', '#fd7e14', '#6f42c1', '#dc3545',
+        '#20c997', '#ffc107', '#0dcaf0', '#d63384', '#6c757d',
+        '#17a2b8', '#28a745', '#007bff', '#e83e8c', '#343a40'
+    ];
+    
+    // Inicializa dropdowns de período da Avaliação Corporativa
+    document.addEventListener('DOMContentLoaded', function() {
+        inicializarDropdownsAvaliacaoCorp();
+        $('#corpFiltroFornecedores').selectpicker('refresh');
+    });
+    
+    function inicializarDropdownsAvaliacaoCorp() {
+        const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const anoAtual = new Date().getFullYear();
+        
+        function ultimoDiaMes(ano, mes) {
+            return new Date(ano, mes + 1, 0).getDate();
+        }
+        
+        // Gera opções de 3 anos
+        const opcoesInicio = [];
+        const opcoesFim = [];
+        for (let ano = anoAtual - 2; ano <= anoAtual + 1; ano++) {
+            for (let mes = 0; mes < 12; mes++) {
+                const valorInicio = `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
+                const ultimoDia = ultimoDiaMes(ano, mes);
+                const valorFim = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+                opcoesInicio.push({ valor: valorInicio, texto: `${meses[mes]}/${ano}` });
+                opcoesFim.push({ valor: valorFim, texto: `${meses[mes]}/${ano}` });
+            }
+        }
+        
+        // Preenche select de início
+        const selectInicio = document.getElementById('corpPeriodoInicio');
+        if (selectInicio) {
+            selectInicio.innerHTML = opcoesInicio.map(o => `<option value="${o.valor}">${o.texto}</option>`).join('');
+            selectInicio.value = `${anoAtual}-01-01`;
+        }
+        
+        // Preenche select de fim
+        const selectFim = document.getElementById('corpPeriodoFim');
+        if (selectFim) {
+            selectFim.innerHTML = opcoesFim.map(o => `<option value="${o.valor}">${o.texto}</option>`).join('');
+            selectFim.value = `${anoAtual}-12-31`;
+        }
+    }
+    
+    function limparFiltrosAvaliacaoCorp() {
+        $('#corpFiltroFornecedores').selectpicker('val', []);
+        document.getElementById('corpFiltroCategoria').value = '';
+        
+        // Reset período para ano atual
+        const anoAtual = new Date().getFullYear();
+        document.getElementById('corpPeriodoInicio').value = `${anoAtual}-01-01`;
+        document.getElementById('corpPeriodoFim').value = `${anoAtual}-12-31`;
+        
+        // Esconde tags
+        document.getElementById('filtrosAtivosCorp').style.display = 'none';
+    }
+    
+    function executarAvaliacaoCorporativa() {
+        const fornecedores = $('#corpFiltroFornecedores').val() || [];
+        const categoria = document.getElementById('corpFiltroCategoria')?.value || '';
+        const periodoInicio = document.getElementById('corpPeriodoInicio')?.value || '';
+        const periodoFim = document.getElementById('corpPeriodoFim')?.value || '';
+        
+        if (fornecedores.length < 2) {
+            alert('Selecione pelo menos 2 fornecedores para comparar.');
+            return;
+        }
+        
+        mostrarSpinner('Analisando fornecedores...');
+        
+        // Monta parâmetros
+        const params = new URLSearchParams({
+            periodo_inicio: periodoInicio,
+            periodo_fim: periodoFim,
+            categoria: categoria
+        });
+        
+        // Adiciona fornecedores como array
+        fornecedores.forEach(f => params.append('fornecedores', f));
+        
+        fetch(`/api/avaliacao_corporativa?${params}`)
+            .then(r => r.json())
+            .then(data => {
+                esconderSpinner();
+                
+                if (!data.success) {
+                    alert('Erro: ' + data.message);
+                    return;
+                }
+                
+                renderizarAvaliacaoCorporativa(data);
+            })
+            .catch(err => {
+                esconderSpinner();
+                console.error(err);
+                alert('Erro ao executar avaliação corporativa');
+            });
+    }
+    
+    function renderizarAvaliacaoCorporativa(data) {
+        // Mostra resultado
+        document.getElementById('resultadoAvaliacaoCorp').style.display = 'block';
+        document.getElementById('msgInicialAvaliacaoCorp').style.display = 'none';
+        
+        // Atualiza tags de filtros
+        const tagsDiv = document.getElementById('filtrosAtivosCorp');
+        let tagsHtml = '';
+        if (data.filtros && data.filtros.categoria) {
+            tagsHtml += `<span class="tag-filtro"><i class="fas fa-tag"></i> ${data.filtros.categoria}</span>`;
+        }
+        tagsHtml += `<span class="tag-filtro"><i class="fas fa-calendar"></i> ${data.filtros?.periodo_label || ''}</span>`;
+        if (tagsHtml) {
+            tagsDiv.innerHTML = tagsHtml;
+            tagsDiv.style.display = 'flex';
+        }
+        
+        // Atualiza KPIs
+        const resumo = data.resumo;
+        document.getElementById('corpTotalGeral').textContent = formatBRL(resumo.total_geral);
+        document.getElementById('corpQtdFornecedores').textContent = `${resumo.qtd_fornecedores} fornecedores`;
+        document.getElementById('corpMaiorPart').textContent = resumo.maior_fornecedor || '-';
+        document.getElementById('corpMaiorPartPct').textContent = `${resumo.maior_participacao?.toFixed(1) || 0}%`;
+        document.getElementById('corpTotalPedidos').textContent = resumo.total_pedidos?.toLocaleString('pt-BR') || '0';
+        document.getElementById('corpTotalItens').textContent = resumo.total_itens?.toLocaleString('pt-BR') || '0';
+        
+        // Renderiza gráfico de pizza
+        renderizarGraficoPizza(data.fornecedores);
+        
+        // Renderiza gráfico de evolução temporal
+        renderizarGraficoEvolucao(data.evolucao, data.fornecedores);
+        
+        // Renderiza tabela de detalhes
+        renderizarTabelaFornecedores(data.fornecedores, resumo.total_geral);
+        
+        // Gera insights para negociação
+        gerarInsightsNegociacao(data.fornecedores, resumo);
+    }
+    
+    function renderizarGraficoPizza(fornecedores) {
+        const ctx = document.getElementById('chartCorpPizza').getContext('2d');
+        
+        if (chartCorpPizza) {
+            chartCorpPizza.destroy();
+        }
+        
+        if (!fornecedores || fornecedores.length === 0) {
+            return;
+        }
+        
+        chartCorpPizza = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: fornecedores.map(f => f.nome.length > 25 ? f.nome.substring(0, 22) + '...' : f.nome),
+                datasets: [{
+                    data: fornecedores.map(f => f.valor_total),
+                    backgroundColor: coresFornecedores.slice(0, fornecedores.length),
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            boxWidth: 12,
+                            font: { size: 10 },
+                            padding: 8
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const valor = context.raw;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const pct = ((valor / total) * 100).toFixed(1);
+                                return `${context.label}: ${formatBRL(valor)} (${pct}%)`;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        color: '#fff',
+                        font: { weight: 'bold', size: 11 },
+                        formatter: (value, ctx) => {
+                            const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                            const pct = ((value / total) * 100).toFixed(1);
+                            return pct > 5 ? `${pct}%` : '';
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function renderizarGraficoEvolucao(evolucao, fornecedores) {
+        const ctx = document.getElementById('chartCorpEvolucao').getContext('2d');
+        
+        if (chartCorpEvolucao) {
+            chartCorpEvolucao.destroy();
+        }
+        
+        if (!evolucao || Object.keys(evolucao).length === 0) {
+            ctx.font = '14px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#6c757d';
+            ctx.fillText('Dados insuficientes para evolução temporal', ctx.canvas.width / 2, ctx.canvas.height / 2);
+            return;
+        }
+        
+        // Prepara datasets por fornecedor
+        const labels = evolucao.meses || [];
+        const datasets = fornecedores.map((fornecedor, idx) => ({
+            label: fornecedor.nome.length > 20 ? fornecedor.nome.substring(0, 17) + '...' : fornecedor.nome,
+            data: evolucao.valores?.[fornecedor.nome] || [],
+            borderColor: coresFornecedores[idx % coresFornecedores.length],
+            backgroundColor: coresFornecedores[idx % coresFornecedores.length] + '20',
+            fill: false,
+            tension: 0.3,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            borderWidth: 2
+        }));
+        
+        chartCorpEvolucao = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            font: { size: 10 },
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + formatBRL(context.raw);
+                            }
+                        }
+                    },
+                    datalabels: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                if (value >= 1000000) return 'R$ ' + (value / 1000000).toFixed(1) + 'M';
+                                if (value >= 1000) return 'R$ ' + (value / 1000).toFixed(0) + 'k';
+                                return 'R$ ' + value;
+                            },
+                            font: { size: 10 }
+                        },
+                        grid: { color: 'rgba(0,0,0,0.05)' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+    
+    function renderizarTabelaFornecedores(fornecedores, totalGeral) {
+        const tbody = document.getElementById('corpoTabelaCorp');
+        if (!tbody) return;
+        
+        if (!fornecedores || fornecedores.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Nenhum fornecedor para exibir</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        fornecedores.forEach((f, idx) => {
+            const participacao = totalGeral > 0 ? ((f.valor_total / totalGeral) * 100).toFixed(1) : 0;
+            const classePart = participacao >= 40 ? 'alta' : (participacao >= 15 ? 'media' : 'baixa');
+            const cor = coresFornecedores[idx % coresFornecedores.length];
+            const ticketMedio = f.qtd_pedidos > 0 ? f.valor_total / f.qtd_pedidos : 0;
+            
+            html += `
+                <tr>
+                    <td class="text-start">
+                        <span style="display: inline-block; width: 10px; height: 10px; background: ${cor}; border-radius: 50%; margin-right: 8px;"></span>
+                        <strong>${f.nome}</strong>
+                    </td>
+                    <td class="text-end valor-monetario">${formatBRL(f.valor_total)}</td>
+                    <td class="text-center">
+                        <span class="badge-participacao ${classePart}">${participacao}%</span>
+                    </td>
+                    <td>
+                        <div class="barra-participacao">
+                            <div class="barra-preenchida" style="width: ${participacao}%; background: ${cor};"></div>
+                        </div>
+                    </td>
+                    <td class="text-center">${f.qtd_itens?.toLocaleString('pt-BR') || 0}</td>
+                    <td class="text-center">${f.qtd_pedidos?.toLocaleString('pt-BR') || 0}</td>
+                    <td class="text-end valor-monetario">${formatBRL(ticketMedio)}</td>
+                </tr>
+            `;
+        });
+        
+        tbody.innerHTML = html;
+    }
+    
+    function gerarInsightsNegociacao(fornecedores, resumo) {
+        const insightsDiv = document.getElementById('insightsNegociacao');
+        if (!insightsDiv) return;
+        
+        if (!fornecedores || fornecedores.length < 2) {
+            insightsDiv.innerHTML = 'Selecione fornecedores para ver insights de negociação.';
+            return;
+        }
+        
+        let insights = [];
+        
+        // Ordena por participação
+        const ordenados = [...fornecedores].sort((a, b) => b.valor_total - a.valor_total);
+        const totalGeral = resumo.total_geral || 0;
+        
+        // Verifica concentração
+        const maiorPart = totalGeral > 0 ? (ordenados[0].valor_total / totalGeral) * 100 : 0;
+        
+        if (maiorPart >= 70) {
+            insights.push(`<li><strong class="text-danger">Alta concentração:</strong> ${ordenados[0].nome} representa ${maiorPart.toFixed(1)}% das compras. Considere diversificar para reduzir dependência e aumentar poder de barganha.</li>`);
+        } else if (maiorPart >= 50) {
+            insights.push(`<li><strong class="text-warning">Concentração moderada:</strong> ${ordenados[0].nome} detém ${maiorPart.toFixed(1)}% do volume. Avaliar oportunidades de distribuição mais equilibrada.</li>`);
+        } else {
+            insights.push(`<li><strong class="text-success">Boa diversificação:</strong> O maior fornecedor representa apenas ${maiorPart.toFixed(1)}%, indicando menor risco de dependência.</li>`);
+        }
+        
+        // Compara ticket médio
+        const ticketsMedios = ordenados.map(f => ({
+            nome: f.nome,
+            ticket: f.qtd_pedidos > 0 ? f.valor_total / f.qtd_pedidos : 0
+        })).filter(t => t.ticket > 0).sort((a, b) => b.ticket - a.ticket);
+        
+        if (ticketsMedios.length >= 2) {
+            const maior = ticketsMedios[0];
+            const menor = ticketsMedios[ticketsMedios.length - 1];
+            if (maior.ticket > menor.ticket * 2) {
+                insights.push(`<li><strong class="text-info">Diferença de ticket médio:</strong> ${maior.nome} tem ticket médio de ${formatBRL(maior.ticket)}, enquanto ${menor.nome} tem ${formatBRL(menor.ticket)}. Analise se as condições comerciais estão equilibradas.</li>`);
+            }
+        }
+        
+        // Sugestão de redistribuição se houver muito desbalanceamento
+        if (ordenados.length >= 2 && maiorPart > 60) {
+            const segundoLugar = totalGeral > 0 ? (ordenados[1].valor_total / totalGeral) * 100 : 0;
+            insights.push(`<li><strong class="text-primary">Oportunidade de negociação:</strong> Apresente ao ${ordenados[0].nome} que ${ordenados[1].nome} pode absorver mais volume (atualmente com ${segundoLugar.toFixed(1)}%). Use isso como argumento para melhores condições.</li>`);
+        }
+        
+        if (insights.length === 0) {
+            insights.push('<li>Análise equilibrada. Continue monitorando a evolução de participação ao longo do tempo.</li>');
+        }
+        
+        insightsDiv.innerHTML = `<ul class="mb-0 ps-3">${insights.join('')}</ul>`;
+    }
 </script>
 
-<!-- POLLING GLOBAL - Sincronização automática de cotações externas -->
-<script src="/static/js/polling_cotacoes.js"></script>
 </body>
 </html>

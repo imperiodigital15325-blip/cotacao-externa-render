@@ -37,6 +37,62 @@
         ======================================== */
         * { box-sizing: border-box; }
 
+        /* ========================================
+           CÉLULA COPIÁVEL (Pedido)
+        ======================================== */
+        .copiavel {
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+            padding: 2px 6px;
+            margin: -2px -6px;
+        }
+        
+        .copiavel:hover {
+            background-color: rgba(13, 110, 253, 0.1);
+            text-decoration: underline;
+        }
+        
+        .copiavel::after {
+            content: '\f0c5';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 400;
+            font-size: 0.65rem;
+            margin-left: 6px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            color: #6c757d;
+        }
+        
+        .copiavel:hover::after {
+            opacity: 1;
+        }
+        
+        /* Toast de confirmação de cópia */
+        .copy-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .copy-toast.show {
+            opacity: 1;
+        }
+
         body {
             background-color: var(--bg-color);
             font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
@@ -580,8 +636,10 @@
                             </thead>
                             <tbody>
                                 {% for linha in dados.tabela %}
-                                <tr class="clickable-row" onclick="abrirDetalhesPedido('{{ linha.NumeroPedido }}')" title="Clique para ver todos os itens deste pedido">
-                                    <td class="fw-bold text-primary">{{ linha.NumeroPedido }}</td>
+                                <tr class="clickable-row" data-pedido="{{ linha.NumeroPedido }}" title="Clique para ver todos os itens deste pedido">
+                                    <td class="fw-bold text-primary">
+                                        <span class="copiavel" onclick="copiarParaClipboard('{{ linha.NumeroPedido }}', event)" title="Clique para copiar o número do pedido">{{ linha.NumeroPedido }}</span>
+                                    </td>
                                     <td>{{ linha.DataEmissao.strftime('%d/%m/%y') if linha.DataEmissao else '-' }}</td>
                                     <td>{{ linha.DataEntregaPrevista.strftime('%d/%m/%y') if linha.DataEntregaPrevista else '-' }}</td>
                                     <td class="text-center">
@@ -601,7 +659,7 @@
                                     <td class="text-truncate" style="max-width: 200px;" title="{{ linha.NomeFornecedor }}">{{ linha.NomeFornecedor }}</td>
                                     <td>{{ linha.NomeComprador }}</td>
                                     <td>
-                                        <div class="d-flex gap-2">
+                                        <div class="d-flex gap-2" data-pedido-id="{{ linha.NumeroPedido }}">
                                             {% if linha.TelefoneLimpo %}
                                                 <a href="https://wa.me/55{{ linha.TelefoneLimpo }}" target="_blank" class="btn btn-sm btn-outline-success border-0" title="WhatsApp" onclick="event.stopPropagation();">
                                                     <i class="fab fa-whatsapp fa-lg"></i>
@@ -612,7 +670,11 @@
 
                                             {% if linha.EmailFornecedor %}
                                                 <button onclick="event.stopPropagation(); enviarEmail('{{ linha.EmailFornecedor }}', '{{ linha.NumeroPedido }}', '{{ linha.NomeFornecedor }}', '{{ linha.DataEntregaPrevista.strftime('%d/%m/%Y') }}');" 
-                                                        class="btn btn-sm btn-outline-primary border-0" title="Enviar E-mail">
+                                                        class="btn btn-sm btn-outline-primary border-0" 
+                                                        title="Enviar E-mail"
+                                                        data-btn-email="true"
+                                                        data-pedido-id="{{ linha.NumeroPedido }}"
+                                                        data-bs-toggle="tooltip">
                                                     <i class="fas fa-envelope fa-lg"></i>
                                                 </button>
                                             {% endif %}
@@ -667,6 +729,125 @@
                 <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">
                     <i class="fas fa-times me-2"></i>Fechar
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================
+     MODAL DE PRÉVIA E ENVIO DE E-MAIL
+======================================== -->
+<div class="modal fade" id="modalEnvioEmail" tabindex="-1" aria-labelledby="modalEnvioEmailTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <!-- Header -->
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%);">
+                <div>
+                    <h5 class="modal-title mb-0" id="modalEnvioEmailTitulo">
+                        <i class="fas fa-envelope me-2"></i>Enviar E-mail de Cobrança
+                    </h5>
+                    <small id="modalEmailSubtitulo" class="d-block mt-1 opacity-90"></small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <!-- Body -->
+            <div class="modal-body">
+                <!-- Alerta de bloqueio 24h -->
+                <div id="alertaBloqueio24h" class="alert alert-warning d-none mb-3">
+                    <i class="fas fa-clock me-2"></i>
+                    <strong>Atenção:</strong> E-mail já enviado recentemente.
+                    <span id="infoBloqueio24h"></span>
+                </div>
+                
+                <!-- Info do destinatário -->
+                <div class="bg-light rounded p-3 mb-3">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted d-block">Fornecedor</small>
+                            <strong id="emailFornecedorNome" class="text-dark"></strong>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted d-block">E-mail</small>
+                            <strong id="emailDestinatario" class="text-primary"></strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Formulário -->
+                <form id="formEnvioEmail">
+                    <input type="hidden" id="emailTipo" value="pedido">
+                    <input type="hidden" id="emailIdentificador" value="">
+                    <input type="hidden" id="emailRaw" value="">
+                    <input type="hidden" id="emailPedido" value="">
+                    <input type="hidden" id="emailDataPrevista" value="">
+                    <input type="hidden" id="emailProduto" value="">
+                    
+                    <!-- Assunto -->
+                    <div class="mb-3">
+                        <label for="emailAssunto" class="form-label fw-bold">
+                            <i class="fas fa-heading me-1 text-muted"></i>Assunto
+                        </label>
+                        <input type="text" class="form-control" id="emailAssunto" required>
+                    </div>
+                    
+                    <!-- Corpo do email -->
+                    <div class="mb-3">
+                        <label for="emailCorpo" class="form-label fw-bold">
+                            <i class="fas fa-align-left me-1 text-muted"></i>Mensagem
+                        </label>
+                        <textarea class="form-control" id="emailCorpo" rows="10" required style="font-family: monospace; font-size: 0.9rem;"></textarea>
+                        <small class="text-muted mt-1 d-block">
+                            <i class="fas fa-info-circle me-1"></i>Você pode editar o texto antes de enviar
+                        </small>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Footer -->
+            <div class="modal-footer border-0" id="modalEmailFooterNormal">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-primary px-4" id="btnConfirmarEnvioEmail" onclick="confirmarEnvioEmail()">
+                    <i class="fas fa-paper-plane me-2"></i>Enviar E-mail
+                </button>
+            </div>
+            
+            <!-- Footer de loading -->
+            <div class="modal-footer border-0 d-none" id="modalEmailFooterLoading">
+                <div class="w-100 text-center py-2">
+                    <div class="spinner-border text-primary me-2" role="status" style="width: 1.5rem; height: 1.5rem;">
+                        <span class="visually-hidden">Enviando...</span>
+                    </div>
+                    <span class="text-muted">Enviando e-mail...</span>
+                </div>
+            </div>
+            
+            <!-- Footer de sucesso -->
+            <div class="modal-footer border-0 d-none" id="modalEmailFooterSucesso">
+                <div class="w-100 text-center py-3">
+                    <div class="text-success mb-2">
+                        <i class="fas fa-check-circle fa-3x"></i>
+                    </div>
+                    <h5 class="text-success mb-1">E-mail enviado com sucesso!</h5>
+                    <small class="text-muted" id="emailEnviadoPara"></small>
+                </div>
+            </div>
+            
+            <!-- Footer de erro -->
+            <div class="modal-footer border-0 d-none" id="modalEmailFooterErro">
+                <div class="w-100 text-center py-3">
+                    <div class="text-danger mb-2">
+                        <i class="fas fa-times-circle fa-3x"></i>
+                    </div>
+                    <h5 class="text-danger mb-1">Erro ao enviar e-mail</h5>
+                    <small class="text-muted" id="emailErroMsg"></small>
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Fechar</button>
+                        <button type="button" class="btn btn-primary px-4" onclick="resetarModalEmail()">Tentar Novamente</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -790,12 +971,329 @@
     const colors = { red: '#dc3545', green: '#198754', blue: '#0d6efd' };
 
     // ========================================
-    // FUNÇÕES DE EMAIL
+    // SISTEMA DE E-MAIL APRIMORADO
     // ========================================
-    function enviarEmail(email, pedido, fornecedor, data) {
-        const assunto = `Cobrança de Entrega - Pedido ${pedido} - ${fornecedor}`;
-        const corpo = `Prezados, ${fornecedor}\n\nGostaria de solicitar uma atualização sobre o status do pedido ${pedido}.\nA previsão de entrega consta para ${data}.\n\nPoderiam nos informar a previsão real de entrega?\n\nAtt,\nDepartamento de Compras`;
-        window.location.href = `mailto:${email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+    let modalEnvioEmail = null;
+    let statusEnviosPorPedido = {}; // Cache de status de envios
+    
+    // Inicializa modal no carregamento
+    document.addEventListener('DOMContentLoaded', function() {
+        modalEnvioEmail = new bootstrap.Modal(document.getElementById('modalEnvioEmail'));
+        
+        // Carrega status de envios para todos os pedidos visíveis
+        carregarStatusEnviosLote();
+    });
+    
+    // Função auxiliar para obter saudação baseada na hora
+    function obterSaudacao() {
+        const hora = new Date().getHours();
+        if (hora >= 5 && hora < 12) return "Bom dia";
+        if (hora >= 12 && hora < 18) return "Boa tarde";
+        return "Boa noite";
+    }
+    
+    // Carrega status de envios em lote para atualizar os botões
+    async function carregarStatusEnviosLote() {
+        const itens = [];
+        document.querySelectorAll('[data-pedido-id]').forEach(el => {
+            const pedido = el.dataset.pedidoId;
+            if (pedido) {
+                itens.push({ tipo: 'pedido', identificador: pedido });
+            }
+        });
+        
+        if (itens.length === 0) return;
+        
+        try {
+            const response = await fetch('/api/email/verificar-lote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ itens })
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                statusEnviosPorPedido = data.resultados;
+                atualizarBotoesEmail();
+            }
+        } catch (error) {
+            console.error('Erro ao carregar status de envios:', error);
+        }
+    }
+    
+    // Atualiza visual dos botões de email baseado no status 24h
+    function atualizarBotoesEmail() {
+        document.querySelectorAll('[data-btn-email]').forEach(btn => {
+            const pedido = btn.dataset.pedidoId;
+            const chave = `pedido_${pedido}`;
+            const status = statusEnviosPorPedido[chave];
+            
+            if (status && !status.pode_enviar) {
+                btn.classList.remove('btn-outline-primary');
+                btn.classList.add('btn-outline-secondary');
+                btn.innerHTML = '<i class="fas fa-envelope-open-text fa-lg"></i>';
+                btn.title = `E-mail enviado em ${status.ultimo_envio}. Aguarde ${Math.ceil(status.minutos_restantes / 60)}h para reenviar.`;
+                btn.dataset.bloqueado = 'true';
+            } else {
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-outline-primary');
+                btn.innerHTML = '<i class="fas fa-envelope fa-lg"></i>';
+                btn.title = 'Enviar E-mail';
+                btn.dataset.bloqueado = 'false';
+            }
+        });
+    }
+    
+    // Abre modal de envio de email (PEDIDO COMPLETO)
+    async function enviarEmail(email, pedido, fornecedor, dataPrevista) {
+        if (!email || email.trim() === '') {
+            alert('❌ E-mail do fornecedor não cadastrado.');
+            return;
+        }
+        
+        // Verifica status de envio (regra 24h)
+        try {
+            const response = await fetch('/api/email/verificar-envio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tipo: 'pedido', identificador: pedido })
+            });
+            const statusData = await response.json();
+            
+            // Preenche dados no modal
+            document.getElementById('emailTipo').value = 'pedido';
+            document.getElementById('emailIdentificador').value = pedido;
+            document.getElementById('emailRaw').value = email;
+            document.getElementById('emailPedido').value = pedido;
+            document.getElementById('emailDataPrevista').value = dataPrevista;
+            document.getElementById('emailProduto').value = '';
+            
+            // Informações do fornecedor
+            document.getElementById('emailFornecedorNome').textContent = fornecedor;
+            document.getElementById('emailDestinatario').textContent = email;
+            document.getElementById('modalEmailSubtitulo').textContent = `Pedido ${pedido}`;
+            
+            // Monta assunto e corpo
+            const saudacao = statusData.saudacao || obterSaudacao();
+            const assunto = `Cobrança de Entrega - Pedido ${pedido} - ${fornecedor}`;
+            const corpo = `${saudacao}, ${fornecedor}
+
+Solicito atualização sobre o pedido ${pedido}, cuja previsão de entrega consta para ${dataPrevista}.
+
+Por favor, informar a previsão real de entrega e o status atual.
+
+Fico no aguardo.
+
+Atenciosamente,
+Departamento de Compras
+Polimáquinas`;
+            
+            document.getElementById('emailAssunto').value = assunto;
+            document.getElementById('emailCorpo').value = corpo;
+            
+            // Mostra/esconde alerta de bloqueio 24h
+            const alertaBloqueio = document.getElementById('alertaBloqueio24h');
+            const btnEnviar = document.getElementById('btnConfirmarEnvioEmail');
+            
+            if (!statusData.pode_enviar) {
+                alertaBloqueio.classList.remove('d-none');
+                document.getElementById('infoBloqueio24h').textContent = 
+                    `Último envio: ${statusData.ultimo_envio}. Aguarde ${Math.ceil(statusData.minutos_restantes / 60)} horas para reenviar.`;
+                btnEnviar.disabled = true;
+                btnEnviar.innerHTML = '<i class="fas fa-clock me-2"></i>Aguarde 24h';
+            } else {
+                alertaBloqueio.classList.add('d-none');
+                btnEnviar.disabled = false;
+                btnEnviar.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Enviar E-mail';
+            }
+            
+            // Reset visual do modal
+            resetarModalEmailVisual();
+            
+            // Abre o modal
+            modalEnvioEmail.show();
+            
+        } catch (error) {
+            console.error('Erro ao verificar status de envio:', error);
+            alert('❌ Erro ao preparar envio de e-mail. Tente novamente.');
+        }
+    }
+    
+    // Abre modal de envio de email (ITEM ESPECÍFICO)
+    async function enviarEmailItem(email, pedido, item, produto, dataEntrega, fornecedor) {
+        if (!email || email.trim() === '') {
+            alert('❌ E-mail do fornecedor não cadastrado.');
+            return;
+        }
+        
+        const identificador = `${pedido}-${item}`;
+        
+        try {
+            const response = await fetch('/api/email/verificar-envio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tipo: 'item', identificador: identificador })
+            });
+            const statusData = await response.json();
+            
+            // Preenche dados no modal
+            document.getElementById('emailTipo').value = 'item';
+            document.getElementById('emailIdentificador').value = identificador;
+            document.getElementById('emailRaw').value = email;
+            document.getElementById('emailPedido').value = `${pedido} - Item ${item}`;
+            document.getElementById('emailDataPrevista').value = dataEntrega;
+            document.getElementById('emailProduto').value = produto;
+            
+            // Informações do fornecedor
+            document.getElementById('emailFornecedorNome').textContent = fornecedor;
+            document.getElementById('emailDestinatario').textContent = email;
+            document.getElementById('modalEmailSubtitulo').textContent = `Pedido ${pedido} - Item ${item}`;
+            
+            // Monta assunto e corpo para item específico
+            const saudacao = statusData.saudacao || obterSaudacao();
+            const assunto = `URGENTE: Cobrança Item Atrasado - Pedido ${pedido} - ${fornecedor}`;
+            const corpo = `${saudacao}, ${fornecedor}
+
+Identificamos atraso no item abaixo e solicitamos atualização urgente:
+
+📦 DADOS DO ITEM ATRASADO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Pedido: ${pedido}
+• Item: ${item}
+• Produto: ${produto}
+• Previsão de Entrega: ${dataEntrega}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Por favor, informar:
+1. Nova previsão de entrega
+2. Status atual do item (produção, expedição, etc.)
+3. Nota fiscal, se já disponível
+
+Fico no aguardo de um retorno urgente.
+
+Atenciosamente,
+Departamento de Compras
+Polimáquinas`;
+            
+            document.getElementById('emailAssunto').value = assunto;
+            document.getElementById('emailCorpo').value = corpo;
+            
+            // Mostra/esconde alerta de bloqueio 24h
+            const alertaBloqueio = document.getElementById('alertaBloqueio24h');
+            const btnEnviar = document.getElementById('btnConfirmarEnvioEmail');
+            
+            if (!statusData.pode_enviar) {
+                alertaBloqueio.classList.remove('d-none');
+                document.getElementById('infoBloqueio24h').textContent = 
+                    `Último envio: ${statusData.ultimo_envio}. Aguarde ${Math.ceil(statusData.minutos_restantes / 60)} horas para reenviar.`;
+                btnEnviar.disabled = true;
+                btnEnviar.innerHTML = '<i class="fas fa-clock me-2"></i>Aguarde 24h';
+            } else {
+                alertaBloqueio.classList.add('d-none');
+                btnEnviar.disabled = false;
+                btnEnviar.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Enviar E-mail';
+            }
+            
+            // Reset visual do modal
+            resetarModalEmailVisual();
+            
+            // Abre o modal
+            modalEnvioEmail.show();
+            
+        } catch (error) {
+            console.error('Erro ao verificar status de envio:', error);
+            alert('❌ Erro ao preparar envio de e-mail. Tente novamente.');
+        }
+    }
+    
+    // Reset visual do modal (esconde sucesso/erro, mostra form)
+    function resetarModalEmailVisual() {
+        document.getElementById('modalEmailFooterNormal').classList.remove('d-none');
+        document.getElementById('modalEmailFooterLoading').classList.add('d-none');
+        document.getElementById('modalEmailFooterSucesso').classList.add('d-none');
+        document.getElementById('modalEmailFooterErro').classList.add('d-none');
+        document.querySelector('#modalEnvioEmail .modal-body').style.display = 'block';
+    }
+    
+    // Reset completo do modal para tentar novamente
+    function resetarModalEmail() {
+        resetarModalEmailVisual();
+        document.getElementById('btnConfirmarEnvioEmail').disabled = false;
+        document.getElementById('btnConfirmarEnvioEmail').innerHTML = '<i class="fas fa-paper-plane me-2"></i>Enviar E-mail';
+    }
+    
+    // Confirma e envia o email
+    async function confirmarEnvioEmail() {
+        const tipo = document.getElementById('emailTipo').value;
+        const identificador = document.getElementById('emailIdentificador').value;
+        const email = document.getElementById('emailRaw').value;
+        const pedido = document.getElementById('emailPedido').value;
+        const dataPrevista = document.getElementById('emailDataPrevista').value;
+        const produto = document.getElementById('emailProduto').value;
+        const assunto = document.getElementById('emailAssunto').value;
+        const corpo = document.getElementById('emailCorpo').value;
+        const fornecedor = document.getElementById('emailFornecedorNome').textContent;
+        
+        // Validação básica
+        if (!assunto.trim() || !corpo.trim()) {
+            alert('❌ Preencha o assunto e a mensagem do e-mail.');
+            return;
+        }
+        
+        // Mostra loading
+        document.getElementById('modalEmailFooterNormal').classList.add('d-none');
+        document.getElementById('modalEmailFooterLoading').classList.remove('d-none');
+        
+        try {
+            const response = await fetch('/enviar_cobranca', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: email,
+                    pedido: pedido,
+                    fornecedor: fornecedor,
+                    data: dataPrevista,
+                    produto: produto,
+                    assunto: assunto,
+                    corpo: corpo,
+                    tipo: tipo,
+                    identificador: identificador
+                })
+            });
+            
+            const data = await response.json();
+            
+            // Esconde loading
+            document.getElementById('modalEmailFooterLoading').classList.add('d-none');
+            
+            if (data.success) {
+                // Mostra sucesso
+                document.querySelector('#modalEnvioEmail .modal-body').style.display = 'none';
+                document.getElementById('modalEmailFooterSucesso').classList.remove('d-none');
+                document.getElementById('emailEnviadoPara').textContent = `Enviado para: ${email}`;
+                
+                // Atualiza cache e botões
+                const chave = `${tipo}_${identificador}`;
+                statusEnviosPorPedido[chave] = { pode_enviar: false };
+                atualizarBotoesEmail();
+                
+                // Fecha modal automaticamente após 2.5 segundos
+                setTimeout(() => {
+                    modalEnvioEmail.hide();
+                    resetarModalEmailVisual();
+                }, 2500);
+            } else {
+                // Mostra erro
+                document.getElementById('modalEmailFooterErro').classList.remove('d-none');
+                document.getElementById('emailErroMsg').textContent = data.message || 'Erro desconhecido';
+            }
+            
+        } catch (error) {
+            console.error('Erro ao enviar e-mail:', error);
+            document.getElementById('modalEmailFooterLoading').classList.add('d-none');
+            document.getElementById('modalEmailFooterErro').classList.remove('d-none');
+            document.getElementById('emailErroMsg').textContent = 'Erro de conexão. Verifique sua internet.';
+        }
     }
 
     // ========================================
@@ -946,22 +1444,6 @@
             })
             .catch(error => { console.error('Erro:', error); alert('Erro ao buscar detalhes do pedido.'); });
     }
-
-    // ========================================
-    // EMAIL ITEM ESPECÍFICO
-    // ========================================
-    function enviarEmailItem(email, pedido, item, produto, dataEntrega, fornecedor) {
-        if (!confirm(`Enviar e-mail de cobrança do item ${item} (${produto})?`)) return;
-        
-        fetch('/enviar_cobranca', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email, pedido: `${pedido} - Item ${item}`, fornecedor: fornecedor, data: dataEntrega, produto: produto })
-        })
-        .then(response => response.json())
-        .then(data => { alert(data.success ? '✅ E-mail enviado com sucesso!' : '❌ Erro ao enviar: ' + data.message); })
-        .catch(error => { console.error('Erro:', error); alert('❌ Erro ao enviar e-mail.'); });
-    }
     
     // ========================================
     // SPINNER GLOBAL PARA CARREGAMENTOS
@@ -1009,6 +1491,76 @@
             mostrarSpinner('Aplicando filtros...');
         }
     });
+    
+    // ========================================
+    // COPIAR NÚMERO DO PEDIDO PARA CLIPBOARD
+    // ========================================
+    function copiarParaClipboard(texto, event) {
+        // Impede que o clique propague para a linha (que abre os detalhes)
+        event.stopPropagation();
+        
+        // Copia para o clipboard usando a API moderna
+        navigator.clipboard.writeText(texto).then(() => {
+            mostrarToastCopia(`Pedido ${texto} copiado!`);
+        }).catch(err => {
+            // Fallback para navegadores mais antigos
+            const textArea = document.createElement('textarea');
+            textArea.value = texto;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-9999px';
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            mostrarToastCopia(`Pedido ${texto} copiado!`);
+        });
+    }
+    
+    function mostrarToastCopia(mensagem) {
+        // Remove toast anterior se existir
+        const toastExistente = document.querySelector('.copy-toast');
+        if (toastExistente) {
+            toastExistente.remove();
+        }
+        
+        // Cria novo toast
+        const toast = document.createElement('div');
+        toast.className = 'copy-toast';
+        toast.innerHTML = `<i class="fas fa-check-circle"></i> ${mensagem}`;
+        document.body.appendChild(toast);
+        
+        // Mostra o toast
+        setTimeout(() => toast.classList.add('show'), 10);
+        
+        // Remove após 2 segundos
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 2000);
+    }
+    
+    // ========================================
+    // EVENTO DE CLIQUE NA LINHA (EXCETO PEDIDO)
+    // ========================================
+    document.addEventListener('DOMContentLoaded', function() {
+        // Adiciona evento de clique nas linhas da tabela de pendências
+        document.querySelectorAll('#tabelaPendencias .clickable-row').forEach(row => {
+            row.addEventListener('click', function(e) {
+                // Se o clique foi na célula copiável ou dentro dela, não faz nada (já tratado)
+                if (e.target.classList.contains('copiavel') || e.target.closest('.copiavel')) {
+                    return;
+                }
+                // Abre detalhes do pedido
+                const numeroPedido = this.dataset.pedido;
+                if (numeroPedido) {
+                    abrirDetalhesPedido(numeroPedido);
+                }
+            });
+        });
+    });
 </script>
+
+<!-- Toast de cópia -->
+<div id="copyToastContainer"></div>
 </body>
 </html>

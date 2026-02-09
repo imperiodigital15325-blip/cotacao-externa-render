@@ -18,6 +18,50 @@ import database as db
 app = Flask(__name__)
 app.secret_key = 'sua_chave_secreta_aqui'
 
+
+# =============================================================================
+# FILTROS JINJA2 CUSTOMIZADOS
+# =============================================================================
+@app.template_filter('formatar_data_br')
+def formatar_data_br(valor):
+    """
+    Filtro Jinja2 para garantir que datas estejam no formato DD/MM/YYYY.
+    
+    Aceita:
+        - String no formato 'DD/MM/YYYY' (já está correto, retorna direto)
+        - String no formato 'YYYY-MM-DD' (converte para DD/MM/YYYY)
+        - Objetos datetime
+        - None ou string vazia (retorna '-')
+    
+    Retorna:
+        - String no formato 'DD/MM/YYYY' ou '-' se inválido
+    """
+    if not valor:
+        return '-'
+    
+    try:
+        # Se já é um objeto datetime
+        if isinstance(valor, datetime):
+            return valor.strftime('%d/%m/%Y')
+        
+        # Se é uma string
+        if isinstance(valor, str):
+            valor = valor.strip()[:10]
+            
+            # Se já está no formato DD/MM/YYYY, retornar como está
+            if len(valor) == 10 and valor[2] == '/' and valor[5] == '/':
+                return valor
+            
+            # Se está no formato YYYY-MM-DD, converter
+            if len(valor) == 10 and valor[4] == '-' and valor[7] == '-':
+                ano, mes, dia = valor.split('-')
+                return f'{dia}/{mes}/{ano}'
+        
+        return '-'
+    except Exception:
+        return '-'
+
+
 # =============================================================================
 # CONFIGURAÇÃO DO DOMÍNIO PÚBLICO (RENDER)
 # =============================================================================
@@ -314,7 +358,7 @@ def get_database_data():
             FORN.A2_COD    AS CodFornecedor,
             FORN.A2_NOME   AS NomeFornecedor,
             
-            ISNULL(FORN.A2_TEL, '') AS TelefoneFornecedor,
+            ISNULL(FORN.A2_FAX, '') AS TelefoneFornecedor,
             ISNULL(FORN.A2_EMAIL, '') AS EmailFornecedor,
 
             CASE LTRIM(RTRIM(FORN.A2_X_COMPR))
@@ -2566,19 +2610,48 @@ def api_exportar_dashboard():
         if df_filtrado.empty:
             return jsonify({'success': False, 'message': 'Nenhum dado encontrado com os filtros aplicados'})
         
-        # Agrupa por Produto + Fornecedor, somando quantidade e valor
-        df_agrupado = df_filtrado.groupby(['CodProduto', 'DescricaoProduto', 'CodFornecedor', 'NomeFornecedor']).agg({
+        # =================================================================
+        # CONSOLIDAÇÃO POR ITEM (PRODUTO) - SEM DUPLICAR POR FORNECEDOR
+        # =================================================================
+        # Cada item aparece UMA ÚNICA VEZ, consolidando:
+        # - Todos os fornecedores utilizados
+        # - Todos os pedidos (sem limite)
+        # - Quantidade e valor totais
+        # - Primeira e última compra
+        # =================================================================
+        
+        # Agrupa APENAS por Produto (código + descrição)
+        df_agrupado = df_filtrado.groupby(['CodProduto', 'DescricaoProduto']).agg({
             'QtdPedida': 'sum',
             'ValorTotal': 'sum',
-            'NumeroPedido': lambda x: ', '.join(x.astype(str).unique()[:5]) + ('...' if len(x.unique()) > 5 else ''),  # Lista até 5 pedidos
+            'NumeroPedido': lambda x: ', '.join(sorted(x.astype(str).unique())),  # TODOS os pedidos (sem limite)
+            'NomeFornecedor': lambda x: ', '.join(sorted(x.astype(str).unique())),  # TODOS os fornecedores
+            'CodFornecedor': lambda x: ', '.join(sorted(x.astype(str).unique())),  # Códigos dos fornecedores
             'CondicaoPagamento': lambda x: x.mode().iloc[0] if not x.mode().empty else '',  # Condição mais frequente
-            'DataEmissao': ['min', 'max'],  # Primeira e última compra
+            'DataEmissao': ['min', 'max', 'count'],  # Primeira compra, última compra, total de compras
+            'TipoProduto': 'first',  # Categoria/tipo do produto
         }).reset_index()
         
         # Flatten colunas multi-level
-        df_agrupado.columns = ['CodProduto', 'DescricaoProduto', 'CodFornecedor', 'NomeFornecedor', 
-                               'QtdTotal', 'ValorTotal', 'Pedidos', 'CondicaoPagamento', 
-                               'PrimeiraCompra', 'UltimaCompra']
+        df_agrupado.columns = ['CodProduto', 'DescricaoProduto', 
+                               'QtdTotal', 'ValorTotal', 'Pedidos', 'Fornecedores', 'CodFornecedores',
+                               'CondicaoPagamento', 'PrimeiraCompra', 'UltimaCompra', 'TotalCompras',
+                               'TipoProduto']
+        
+        # Calcula preço médio unitário
+        df_agrupado['PrecoMedioUnit'] = df_agrupado.apply(
+            lambda row: row['ValorTotal'] / row['QtdTotal'] if row['QtdTotal'] > 0 else 0, axis=1
+        )
+        
+        # Conta quantos fornecedores diferentes venderam o item
+        df_agrupado['QtdFornecedores'] = df_agrupado['Fornecedores'].apply(
+            lambda x: len([f for f in x.split(', ') if f.strip()]) if x else 0
+        )
+        
+        # Conta quantos pedidos diferentes
+        df_agrupado['QtdPedidos'] = df_agrupado['Pedidos'].apply(
+            lambda x: len([p for p in x.split(', ') if p.strip()]) if x else 0
+        )
         
         # Ordena por valor total decrescente
         df_agrupado = df_agrupado.sort_values('ValorTotal', ascending=False)
@@ -2586,6 +2659,16 @@ def api_exportar_dashboard():
         # Formata datas
         df_agrupado['PrimeiraCompra'] = df_agrupado['PrimeiraCompra'].dt.strftime('%d/%m/%Y')
         df_agrupado['UltimaCompra'] = df_agrupado['UltimaCompra'].dt.strftime('%d/%m/%Y')
+        
+        # Reordena colunas para melhor visualização no Excel
+        colunas_ordenadas = [
+            'CodProduto', 'DescricaoProduto', 'TipoProduto',
+            'QtdTotal', 'ValorTotal', 'PrecoMedioUnit',
+            'TotalCompras', 'QtdPedidos', 'Pedidos',
+            'QtdFornecedores', 'Fornecedores', 'CodFornecedores',
+            'PrimeiraCompra', 'UltimaCompra', 'CondicaoPagamento'
+        ]
+        df_agrupado = df_agrupado[colunas_ordenadas]
         
         # Converte para lista de dicionários
         dados = df_agrupado.to_dict('records')
@@ -2595,7 +2678,8 @@ def api_exportar_dashboard():
             'dados': dados,
             'total_itens': len(dados),
             'total_valor': float(df_agrupado['ValorTotal'].sum()),
-            'total_qtd': float(df_agrupado['QtdTotal'].sum())
+            'total_qtd': float(df_agrupado['QtdTotal'].sum()),
+            'mensagem': f'Exportação consolidada: {len(dados)} itens únicos'
         })
         
     except Exception as e:
@@ -2819,6 +2903,164 @@ def api_frequencia_compras():
     except Exception as e:
         import traceback
         print(f"[FREQUENCIA] Erro na API frequencia_compras: {e}")
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f'Erro interno ao processar análise: {str(e)}'
+        })
+
+
+# =============================================================================
+# API: AVALIAÇÃO CORPORATIVA POR FORNECEDOR
+# =============================================================================
+@app.route('/api/avaliacao_corporativa', methods=['GET'])
+def api_avaliacao_corporativa():
+    """
+    API para avaliação corporativa de participação de fornecedores nas compras.
+    
+    Parâmetros:
+        - fornecedores: lista de fornecedores para comparar (mínimo 2)
+        - periodo_inicio: data inicial do período (YYYY-MM-DD)
+        - periodo_fim: data final do período (YYYY-MM-DD)
+        - categoria: filtro por categoria/tipo de produto (opcional)
+    
+    Retorna:
+        - Participação percentual de cada fornecedor
+        - Volume financeiro por fornecedor
+        - Evolução mensal por fornecedor
+        - Insights para negociação
+    """
+    try:
+        # Parâmetros
+        fornecedores = request.args.getlist('fornecedores')
+        periodo_inicio = request.args.get('periodo_inicio', '')
+        periodo_fim = request.args.get('periodo_fim', '')
+        categoria = request.args.get('categoria', '')
+        
+        # Validação
+        if len(fornecedores) < 2:
+            return jsonify({
+                'success': False,
+                'message': 'Selecione pelo menos 2 fornecedores para comparação'
+            }), 400
+        
+        # Carrega dados
+        df = get_database_data()
+        if df is None or df.empty:
+            return jsonify({
+                'success': False,
+                'message': 'Erro ao carregar dados do banco'
+            })
+        
+        # Remove duplicatas (mesma lógica do dashboard)
+        df = df.drop_duplicates(subset=['NumeroPedido', 'ItemPedido'], keep='first')
+        
+        # Remove fornecedores bloqueados
+        for termo_excluir in BLOQUEIO_FINANCEIRO:
+            df = df[~df['NomeFornecedor'].str.contains(termo_excluir, case=False, na=False, regex=False)]
+        
+        # Filtra por fornecedores selecionados
+        df = df[df['NomeFornecedor'].isin(fornecedores)]
+        
+        # Filtra por período
+        if periodo_inicio and periodo_fim:
+            try:
+                dt_inicio = datetime.strptime(periodo_inicio, '%Y-%m-%d')
+                dt_fim = datetime.strptime(periodo_fim, '%Y-%m-%d')
+                df = df[(df['DataEmissao'] >= dt_inicio) & (df['DataEmissao'] <= dt_fim)]
+            except ValueError:
+                pass
+        
+        # Filtra por categoria/tipo de produto
+        if categoria and categoria.strip() and 'TipoProduto' in df.columns:
+            df = df[df['TipoProduto'] == categoria.strip()]
+        
+        if df.empty:
+            return jsonify({
+                'success': False,
+                'message': 'Nenhum dado encontrado para os filtros selecionados'
+            })
+        
+        # Calcula métricas por fornecedor
+        fornecedores_data = []
+        total_geral = df['ValorTotal'].sum()
+        
+        for nome_fornecedor in fornecedores:
+            df_forn = df[df['NomeFornecedor'] == nome_fornecedor]
+            
+            if not df_forn.empty:
+                valor_total = df_forn['ValorTotal'].sum()
+                qtd_itens = len(df_forn)
+                qtd_pedidos = df_forn['NumeroPedido'].nunique()
+                
+                fornecedores_data.append({
+                    'nome': nome_fornecedor,
+                    'valor_total': float(valor_total),
+                    'qtd_itens': int(qtd_itens),
+                    'qtd_pedidos': int(qtd_pedidos),
+                    'participacao': float((valor_total / total_geral * 100) if total_geral > 0 else 0)
+                })
+        
+        # Ordena por valor (maior primeiro)
+        fornecedores_data.sort(key=lambda x: x['valor_total'], reverse=True)
+        
+        # Evolução temporal (mensal) por fornecedor
+        evolucao = {'meses': [], 'valores': {}}
+        
+        if 'DataEmissao' in df.columns:
+            df['MesAno'] = df['DataEmissao'].dt.strftime('%b/%Y')
+            df['MesNum'] = df['DataEmissao'].dt.to_period('M')
+            
+            # Agrupa por mês
+            meses_ordenados = df.groupby('MesNum').first().reset_index().sort_values('MesNum')['MesAno'].unique().tolist()
+            evolucao['meses'] = meses_ordenados
+            
+            # Valores por fornecedor por mês
+            for nome_fornecedor in fornecedores:
+                df_forn = df[df['NomeFornecedor'] == nome_fornecedor]
+                if not df_forn.empty:
+                    agg = df_forn.groupby('MesAno')['ValorTotal'].sum()
+                    valores_mensais = [float(agg.get(mes, 0)) for mes in meses_ordenados]
+                    evolucao['valores'][nome_fornecedor] = valores_mensais
+                else:
+                    evolucao['valores'][nome_fornecedor] = [0] * len(meses_ordenados)
+        
+        # Resumo geral
+        maior_fornecedor = fornecedores_data[0] if fornecedores_data else None
+        
+        resumo = {
+            'total_geral': float(total_geral),
+            'qtd_fornecedores': len(fornecedores_data),
+            'total_pedidos': int(df['NumeroPedido'].nunique()),
+            'total_itens': len(df),
+            'maior_fornecedor': maior_fornecedor['nome'] if maior_fornecedor else None,
+            'maior_participacao': maior_fornecedor['participacao'] if maior_fornecedor else 0
+        }
+        
+        # Label do período
+        periodo_label = ''
+        if periodo_inicio and periodo_fim:
+            try:
+                dt_ini = datetime.strptime(periodo_inicio, '%Y-%m-%d')
+                dt_fi = datetime.strptime(periodo_fim, '%Y-%m-%d')
+                periodo_label = f"{dt_ini.strftime('%d/%m/%Y')} a {dt_fi.strftime('%d/%m/%Y')}"
+            except:
+                periodo_label = f"{periodo_inicio} a {periodo_fim}"
+        
+        return jsonify({
+            'success': True,
+            'resumo': resumo,
+            'fornecedores': fornecedores_data,
+            'evolucao': evolucao,
+            'filtros': {
+                'categoria': categoria,
+                'periodo_label': periodo_label
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"[AVALIACAO_CORP] Erro na API avaliacao_corporativa: {e}")
         traceback.print_exc()
         return jsonify({
             'success': False,
@@ -3163,11 +3405,10 @@ def status_pedidos():
              df_aberto = df_aberto[df_aberto['StatusDetalhado'] == status_grafico]
 
         def limpar_telefone(tel):
-            """Normaliza telefone para formato WhatsApp Brasil: apenas DDD + 9 dígitos (sem 55)"""
+            """Normaliza telefone para formato WhatsApp Brasil: DDD + número (sem 55)"""
             if not tel: return ''
             # Remove tudo que não é dígito
             numero = ''.join(filter(str.isdigit, str(tel)))
-            original = numero
             if not numero: return ''
             
             # Remove zeros à esquerda (formato antigo de discagem interurbana)
@@ -3177,23 +3418,29 @@ def status_pedidos():
             if numero.startswith('55') and len(numero) >= 12:
                 numero = numero[2:]
             
-            # Se tiver 10 dígitos (DDD + 8 dígitos antigo celular), adiciona o 9
+            # Se tiver 10 dígitos (DDD + 8 dígitos), pode ser celular antigo sem o 9
             if len(numero) == 10:
                 terceiro_digito = numero[2] if len(numero) > 2 else ''
+                # Celulares antigos começavam com 9, 8, 7 ou 6 - adiciona o 9 na frente
                 if terceiro_digito in ['9', '8', '7', '6']:
                     numero = numero[:2] + '9' + numero[2:]
                     return numero
-                else:
-                    return ''  # telefone fixo
+                # Para outros casos, retorna como está (pode ser número válido)
+                return numero
             
-            # Se tiver 11 dígitos, verifica se é celular válido
+            # Se tiver 11 dígitos (DDD + 9 dígitos), retorna como está
             if len(numero) == 11:
-                if numero[2] == '9':
-                    return numero
-                else:
-                    return ''  # telefone fixo
+                return numero
             
-            return ''
+            # Se tiver 8 ou 9 dígitos (sem DDD), não tem como usar no WhatsApp
+            if len(numero) < 10:
+                return ''
+            
+            # Se tiver mais de 11, pode ser formatação estranha, tenta pegar os últimos 11
+            if len(numero) > 11:
+                return numero[-11:]
+            
+            return numero
 
         df_aberto['TelefoneLimpo'] = df_aberto['TelefoneFornecedor'].apply(limpar_telefone)
 
@@ -3236,42 +3483,126 @@ def status_pedidos():
 
     return render_template('status.html', user="Admin", dados=dados, filtros=filtros_template, sql_meta=sql_meta)
 
-# --- NOVA ROTA DE ENVIO DE E-MAIL (CORRIGIDA PARA MULTIPLOS EMAILS) ---
-@app.route('/enviar_cobranca', methods=['POST'])
-def enviar_cobranca():
+# =============================================================================
+# ROTAS DE E-MAIL - SISTEMA APRIMORADO COM CONTROLE 24H
+# =============================================================================
+
+def obter_saudacao():
+    """Retorna saudação baseada no horário atual: Bom dia, Boa tarde ou Boa noite"""
+    hora = datetime.now().hour
+    if 5 <= hora < 12:
+        return "Bom dia"
+    elif 12 <= hora < 18:
+        return "Boa tarde"
+    else:
+        return "Boa noite"
+
+
+@app.route('/api/email/verificar-envio', methods=['POST'])
+def api_verificar_envio_email():
+    """
+    Verifica se pode enviar e-mail (regra de 24h) e retorna dados para o modal
+    """
     try:
         dados = request.json
-        # Recebe string bruta (ex: "a@a.com; b@b.com")
+        tipo = dados.get('tipo', 'pedido')  # 'pedido', 'item', 'terceiros'
+        identificador = dados.get('identificador', '')  # número do pedido ou pedido-item
+        
+        # Verifica último envio
+        status_envio = db.verificar_ultimo_envio_email(tipo, identificador)
+        
+        return jsonify({
+            'success': True,
+            'pode_enviar': status_envio['pode_enviar'],
+            'ultimo_envio': status_envio.get('ultimo_envio_formatado'),
+            'horas_passadas': status_envio.get('horas_passadas'),
+            'minutos_restantes': status_envio.get('minutos_restantes'),
+            'saudacao': obter_saudacao()
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_verificar_envio_email: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/email/verificar-lote', methods=['POST'])
+def api_verificar_envio_email_lote():
+    """
+    Verifica status de envio para múltiplos pedidos/itens de uma vez
+    """
+    try:
+        dados = request.json
+        itens = dados.get('itens', [])  # Lista de {tipo, identificador}
+        
+        resultados = {}
+        for item in itens:
+            tipo = item.get('tipo', 'pedido')
+            identificador = item.get('identificador', '')
+            chave = f"{tipo}_{identificador}"
+            
+            status_envio = db.verificar_ultimo_envio_email(tipo, identificador)
+            resultados[chave] = {
+                'pode_enviar': status_envio['pode_enviar'],
+                'ultimo_envio': status_envio.get('ultimo_envio_formatado'),
+                'horas_passadas': status_envio.get('horas_passadas'),
+                'minutos_restantes': status_envio.get('minutos_restantes')
+            }
+        
+        return jsonify({'success': True, 'resultados': resultados})
+        
+    except Exception as e:
+        print(f"[ERRO] api_verificar_envio_email_lote: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/enviar_cobranca', methods=['POST'])
+def enviar_cobranca():
+    """
+    Rota principal para envio de e-mails de cobrança.
+    Suporta assunto e corpo personalizados (editados no modal).
+    """
+    try:
+        dados = request.json
+        
+        # Dados básicos
         destinatario_raw = dados.get('email', '')
-        pedido = dados.get('pedido')
-        fornecedor = dados.get('fornecedor')
-        data_prevista = dados.get('data')
+        pedido = dados.get('pedido', '')
+        fornecedor = dados.get('fornecedor', '')
+        data_prevista = dados.get('data', '')
+        
+        # Dados opcionais do modal
+        assunto_custom = dados.get('assunto', '')
+        corpo_custom = dados.get('corpo', '')
+        tipo = dados.get('tipo', 'pedido')  # 'pedido', 'item', 'terceiros'
+        
+        # Identificador para controle 24h
+        identificador = dados.get('identificador', pedido)
 
         if not destinatario_raw or not pedido:
             return jsonify({'success': False, 'message': 'Dados incompletos ou e-mail vazio.'})
 
-        # --- CORREÇÃO DO ERRO 553 ---
-        # 1. Troca ; por ,
-        # 2. Separa em lista
-        # 3. Remove espaços
+        # Processa lista de destinatários
         destinatarios_lista = [e.strip() for e in destinatario_raw.replace(';', ',').split(',') if e.strip()]
 
         if not destinatarios_lista:
              return jsonify({'success': False, 'message': 'Nenhum e-mail válido encontrado.'})
 
-        # Configuração do E-mail
-        msg = MIMEMultipart()
-        msg['From'] = EMAIL_REMETENTE
-        # O cabeçalho 'To' é apenas visual, pode ter vírgulas
-        msg['To'] = ', '.join(destinatarios_lista)
-        msg['Subject'] = f"Cobrança de Entrega - Pedido {pedido} - {fornecedor}"
+        # Monta assunto (usa personalizado ou gera padrão)
+        if assunto_custom:
+            assunto = assunto_custom
+        else:
+            assunto = f"Cobrança de Entrega - Pedido {pedido} - {fornecedor}"
 
-        # Verifica se é cobrança de item específico ou pedido completo
-        produto = dados.get('produto')
-        
-        if produto:
-            # Cobrança de item específico
-            corpo = f"""Prezados, {fornecedor}
+        # Monta corpo (usa personalizado ou gera padrão)
+        if corpo_custom:
+            corpo = corpo_custom
+        else:
+            saudacao = obter_saudacao()
+            produto = dados.get('produto')
+            
+            if produto:
+                # Cobrança de item específico
+                corpo = f"""{saudacao}, {fornecedor}
 
 Solicito atualização urgente sobre o ITEM específico abaixo:
 
@@ -3282,32 +3613,81 @@ Previsão de Entrega: {data_prevista}
 Por favor, informar previsão de entrega e status atual deste item.
 
 Fico no aguardo.
-"""
-        else:
-            # Cobrança de pedido completo
-            corpo = f"""Prezados, {fornecedor}
+
+Atenciosamente,
+Departamento de Compras
+Polimáquinas"""
+            else:
+                # Cobrança de pedido completo
+                corpo = f"""{saudacao}, {fornecedor}
 
 Solicito atualização sobre o pedido {pedido}, que tinha previsão para {data_prevista}.
 
 Fico no aguardo.
-"""
-        msg.attach(MIMEText(corpo, 'plain'))
+
+Atenciosamente,
+Departamento de Compras
+Polimáquinas"""
+
+        # Configuração do E-mail
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_REMETENTE
+        msg['To'] = ', '.join(destinatarios_lista)
+        msg['Subject'] = assunto
+        msg.attach(MIMEText(corpo, 'plain', 'utf-8'))
 
         # Conexão com Gmail (TLS porta 587)
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
         server.starttls()
         server.login(EMAIL_REMETENTE, SENHA_EMAIL)
         
-        # Envia para a LISTA de destinatários (não string)
+        # Envia para a LISTA de destinatários
         text = msg.as_string()
         server.sendmail(EMAIL_REMETENTE, destinatarios_lista, text)
         server.quit()
+        
+        # Registra no histórico para controle 24h
+        usuario = session.get('user', 'Sistema')
+        db.registrar_envio_email(
+            tipo=tipo,
+            identificador=identificador,
+            email_destinatario=destinatario_raw,
+            assunto=assunto,
+            corpo=corpo,
+            enviado_por=usuario
+        )
 
-        return jsonify({'success': True, 'message': 'E-mail enviado com sucesso!'})
+        return jsonify({
+            'success': True, 
+            'message': 'E-mail enviado com sucesso!',
+            'destinatarios': destinatarios_lista
+        })
 
     except Exception as e:
         print(f"Erro ao enviar e-mail: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Erro: {str(e)}'})
+
+
+@app.route('/api/email/historico', methods=['GET'])
+def api_historico_emails():
+    """
+    Retorna o histórico de envios de e-mail (para auditoria/visualização)
+    """
+    try:
+        tipo = request.args.get('tipo')
+        identificador = request.args.get('identificador')
+        limite = int(request.args.get('limite', 50))
+        
+        historico = db.listar_historico_envios(tipo, identificador, limite)
+        
+        return jsonify({'success': True, 'historico': historico})
+        
+    except Exception as e:
+        print(f"[ERRO] api_historico_emails: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
 
 @app.route('/limpar_filtros')
 def limpar_filtros():
@@ -4889,7 +5269,7 @@ def get_dados_terceiros():
         
         # Função para normalizar telefone para WhatsApp Brasil
         def normalizar_telefone_whatsapp(tel):
-            """Normaliza telefone para formato WhatsApp Brasil: apenas DDD + 9 dígitos (sem 55)"""
+            """Normaliza telefone para formato WhatsApp Brasil: DDD + número (sem 55)"""
             if not tel or pd.isna(tel): return ''
             # Remove tudo que não é dígito
             numero = ''.join(filter(str.isdigit, str(tel)))
@@ -4903,28 +5283,35 @@ def get_dados_terceiros():
             if numero.startswith('55') and len(numero) >= 12:
                 numero = numero[2:]
             
-            # Se tiver 10 dígitos (DDD + 8 dígitos antigo celular), adiciona o 9
+            # Se tiver 10 dígitos (DDD + 8 dígitos), pode ser celular antigo sem o 9
             if len(numero) == 10:
                 terceiro_digito = numero[2] if len(numero) > 2 else ''
+                # Celulares antigos começavam com 9, 8, 7 ou 6 - adiciona o 9 na frente
                 if terceiro_digito in ['9', '8', '7', '6']:
                     numero = numero[:2] + '9' + numero[2:]
                     print(f"[WHATSAPP DEBUG] OK (add 9): '{tel}' -> '{numero}'")
                     return numero
-                else:
-                    print(f"[WHATSAPP DEBUG] FIXO: '{tel}' -> telefone fixo, sem WhatsApp")
-                    return ''
+                # Para outros casos, retorna como está (pode ser número válido)
+                print(f"[WHATSAPP DEBUG] OK (10dig): '{tel}' -> '{numero}'")
+                return numero
             
-            # Se tiver 11 dígitos (DDD + 9 dígitos), verifica se é celular válido
+            # Se tiver 11 dígitos (DDD + 9 dígitos), retorna como está
             if len(numero) == 11:
-                if numero[2] == '9':
-                    print(f"[WHATSAPP DEBUG] OK: '{tel}' -> '{numero}'")
-                    return numero
-                else:
-                    print(f"[WHATSAPP DEBUG] FIXO 11dig: '{tel}' -> telefone fixo")
-                    return ''
+                print(f"[WHATSAPP DEBUG] OK: '{tel}' -> '{numero}'")
+                return numero
             
-            print(f"[WHATSAPP DEBUG] INVALIDO: '{tel}' -> {len(original)} digitos")
-            return ''
+            # Se tiver 8 ou 9 dígitos (sem DDD), não tem como usar no WhatsApp
+            if len(numero) < 10:
+                print(f"[WHATSAPP DEBUG] SEM DDD: '{tel}' -> {len(original)} digitos")
+                return ''
+            
+            # Se tiver mais de 11, pode ser formatação estranha, tenta pegar os últimos 11
+            if len(numero) > 11:
+                numero = numero[-11:]
+                print(f"[WHATSAPP DEBUG] OK (trim): '{tel}' -> '{numero}'")
+                return numero
+            
+            return numero
         
         # Aplicar normalização no telefone
         df['FaxWhatsAppLimpo'] = df['FaxWhatsAppLimpo'].apply(normalizar_telefone_whatsapp)
@@ -5919,6 +6306,94 @@ def buscar_ultimo_preco_pago(codigos_produtos):
     return resultado
 
 
+def ordenar_fornecedores_por_competitividade(cotacao):
+    """
+    Ordena fornecedores por competitividade baseado em:
+    1. Quantidade de melhores preços (maior quantidade primeiro)
+    2. Menor soma total dos valores cotados (desempate)
+    3. Menor valor médio por item (desempate adicional)
+    
+    Retorna lista ordenada de nomes de fornecedores
+    """
+    if not cotacao.get('respostas') or not cotacao.get('itens'):
+        return []
+    
+    # Construir estrutura de dados: {fornecedor: {item_id: preco}}
+    fornecedores_precos = {}
+    
+    for resp in cotacao.get('respostas', []):
+        fornecedor = resp.get('nome_fornecedor')
+        item_id = resp.get('item_id')
+        preco = resp.get('preco_unitario', 0)
+        
+        if fornecedor and item_id and preco is not None and preco > 0:
+            if fornecedor not in fornecedores_precos:
+                fornecedores_precos[fornecedor] = {}
+            fornecedores_precos[fornecedor][item_id] = preco
+    
+    if not fornecedores_precos:
+        return []
+    
+    # Para cada item, identificar o menor preço
+    itens_menor_preco = {}  # {item_id: menor_preco}
+    
+    for item in cotacao.get('itens', []):
+        item_id = item.get('id')
+        if not item_id:
+            continue
+        
+        precos_validos = []
+        for forn, precos in fornecedores_precos.items():
+            if item_id in precos and precos[item_id] > 0:
+                precos_validos.append(precos[item_id])
+        
+        if precos_validos:
+            itens_menor_preco[item_id] = min(precos_validos)
+    
+    # Calcular pontuação de competitividade para cada fornecedor
+    scores = []
+    
+    for fornecedor, precos_forn in fornecedores_precos.items():
+        # 1. Contar quantos melhores preços esse fornecedor tem
+        melhores_precos_count = 0
+        
+        for item_id, preco_forn in precos_forn.items():
+            if item_id in itens_menor_preco:
+                menor_preco = itens_menor_preco[item_id]
+                # Considera melhor preço com tolerância mínima para problemas de arredondamento
+                if abs(preco_forn - menor_preco) < 0.01:
+                    melhores_precos_count += 1
+        
+        # 2. Calcular soma total e valor médio
+        soma_total = sum(precos_forn.values())
+        qtd_itens = len(precos_forn)
+        valor_medio = soma_total / qtd_itens if qtd_itens > 0 else float('inf')
+        
+        scores.append({
+            'fornecedor': fornecedor,
+            'melhores_precos': melhores_precos_count,
+            'soma_total': soma_total,
+            'valor_medio': valor_medio,
+            'qtd_itens': qtd_itens
+        })
+    
+    # Ordenar por:
+    # 1. Maior quantidade de melhores preços (descendente)
+    # 2. Menor soma total (ascendente)
+    # 3. Menor valor médio (ascendente)
+    scores_ordenados = sorted(
+        scores,
+        key=lambda x: (
+            -x['melhores_precos'],  # Negativo para descendente
+            x['soma_total'],         # Ascendente
+            x['valor_medio']         # Ascendente
+        )
+    )
+    
+    # Retornar apenas os nomes dos fornecedores na ordem
+    return [s['fornecedor'] for s in scores_ordenados]
+
+
 @app.route('/cotacao/<int:cotacao_id>')
 def cotacao_detalhe(cotacao_id):
     """Página de detalhes de uma cotação"""
@@ -5940,11 +6415,30 @@ def cotacao_detalhe(cotacao_id):
             item['ultimo_preco_data'] = ultimos_precos[cod_produto]['data']
             item['ultimo_preco_fornecedor'] = ultimos_precos[cod_produto]['fornecedor']
             item['ultimo_preco_fornecedor_cod'] = ultimos_precos[cod_produto].get('cod_fornecedor', '')
+            item['ultimo_preco_nota'] = ultimos_precos[cod_produto].get('nota', '')
+            
+            # Verificar se a compra é antiga (> 2 anos)
+            data_str = ultimos_precos[cod_produto].get('data', '')
+            item['ultimo_preco_antigo'] = False
+            if data_str:
+                try:
+                    from datetime import datetime
+                    # Formato DD/MM/YYYY
+                    data_ultima = datetime.strptime(data_str, '%d/%m/%Y')
+                    dias_atras = (datetime.now() - data_ultima).days
+                    item['ultimo_preco_antigo'] = dias_atras > (2 * 365)  # Mais de 2 anos
+                except:
+                    pass
         else:
             item['ultimo_preco_pago'] = None
             item['ultimo_preco_data'] = None
             item['ultimo_preco_fornecedor'] = None
             item['ultimo_preco_fornecedor_cod'] = None
+            item['ultimo_preco_nota'] = None
+            item['ultimo_preco_antigo'] = False
+    
+    # Ordenar fornecedores por competitividade
+    fornecedores_ordenados = ordenar_fornecedores_por_competitividade(cotacao)
     
     # Obter IP do servidor para gerar links funcionais em qualquer dispositivo
     server_ip = obter_ip_servidor()
@@ -5955,6 +6449,7 @@ def cotacao_detalhe(cotacao_id):
     return render_template('cotacao_detalhe_new.html', 
                           user="Admin", 
                           cotacao=cotacao,
+                          fornecedores_ordenados=fornecedores_ordenados,
                           base_url=base_url)
 
 
@@ -6221,6 +6716,214 @@ def api_buscar_produtos():
 
 
 # =============================================================================
+# API: IMPORTAR PRODUTOS DO EXCEL PARA ORÇAMENTO MANUAL
+# =============================================================================
+@app.route('/api/produtos/importar-excel', methods=['POST'])
+def api_importar_produtos_excel():
+    """
+    API para importar códigos de produtos a partir de um arquivo Excel.
+    Lê o arquivo, extrai códigos de produto e valida contra o cadastro TOTVS.
+    
+    Retorna:
+        - encontrados: Lista de produtos encontrados no cadastro
+        - nao_encontrados: Lista de códigos não encontrados
+        - total_codigos: Total de códigos lidos do Excel
+    """
+    try:
+        if 'arquivo' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'Nenhum arquivo enviado'
+            })
+        
+        arquivo = request.files['arquivo']
+        
+        if arquivo.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'Nenhum arquivo selecionado'
+            })
+        
+        # Verificar extensão
+        if not arquivo.filename.lower().endswith(('.xlsx', '.xls')):
+            return jsonify({
+                'success': False,
+                'error': 'Formato inválido. Use arquivos .xlsx ou .xls'
+            })
+        
+        # Ler arquivo Excel com openpyxl
+        import openpyxl
+        from io import BytesIO
+        
+        # Ler conteúdo do arquivo
+        conteudo = BytesIO(arquivo.read())
+        
+        try:
+            wb = openpyxl.load_workbook(conteudo, read_only=True, data_only=True)
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': f'Erro ao ler arquivo Excel: {str(e)}'
+            })
+        
+        # Pegar primeira planilha
+        ws = wb.active
+        
+        # Extrair códigos de produto (busca em todas as colunas)
+        codigos_encontrados = set()
+        
+        def normalizar_codigo_produto(codigo):
+            """
+            Normaliza código de produto:
+            - Se for numérico puro, completa com zeros à esquerda até 6 caracteres
+            - Se contiver letras, mantém como está
+            - Não trunca códigos com mais de 6 caracteres
+            
+            Exemplos:
+            - 5434 → 005434
+            - 123 → 000123
+            - FAR000001 → FAR000001 (mantém)
+            - 1234567 → 1234567 (não trunca)
+            """
+            codigo = str(codigo).strip().upper()
+            
+            # Se for numérico puro (só dígitos), completa com zeros à esquerda
+            if codigo.isdigit():
+                # Completa com zeros à esquerda até 6 caracteres (mínimo padrão)
+                if len(codigo) < 6:
+                    codigo = codigo.zfill(6)
+            
+            return codigo
+        
+        for row in ws.iter_rows(values_only=True):
+            for cell in row:
+                if cell is not None:
+                    # Converter para string e limpar
+                    valor = str(cell).strip().upper()
+                    
+                    # Ignorar valores vazios, muito curtos ou que parecem cabeçalhos
+                    if len(valor) < 2 or len(valor) > 30:
+                        continue
+                    
+                    # Ignorar cabeçalhos comuns
+                    cabeçalhos = ['CODIGO', 'CÓDIGO', 'COD', 'PRODUTO', 'ITEM', 'DESCRIÇÃO', 
+                                  'DESCRICAO', 'QTD', 'QUANTIDADE', 'UN', 'UNIDADE', 'PREÇO', 
+                                  'PRECO', 'VALOR', 'TOTAL', 'OBS', 'OBSERVAÇÃO', 'OBSERVACAO',
+                                  'DATA', 'NUMERO', 'NÚMERO', 'NF', 'NOTA', 'SC', 'SOLICITAÇÃO']
+                    if valor in cabeçalhos:
+                        continue
+                    
+                    # Aceitar códigos alfanuméricos (padrão TOTVS)
+                    # Geralmente começam com números ou são numéricos
+                    if valor.replace('-', '').replace('.', '').replace(' ', '').isalnum():
+                        # Limpar caracteres especiais comuns
+                        codigo_limpo = valor.replace(' ', '').replace('-', '').replace('.', '')
+                        if codigo_limpo:
+                            # ========================================
+                            # NORMALIZAÇÃO: Completar zeros à esquerda
+                            # ========================================
+                            codigo_normalizado = normalizar_codigo_produto(codigo_limpo)
+                            codigos_encontrados.add(codigo_normalizado)
+        
+        wb.close()
+        
+        if not codigos_encontrados:
+            return jsonify({
+                'success': False,
+                'error': 'Nenhum código de produto identificado no arquivo'
+            })
+        
+        print(f"[IMPORT EXCEL] Códigos extraídos e normalizados: {len(codigos_encontrados)}")
+        print(f"[IMPORT EXCEL] Exemplos de códigos: {list(codigos_encontrados)[:10]}")
+        
+        # Limitar a 500 códigos para evitar queries muito grandes
+        codigos_lista = list(codigos_encontrados)[:500]
+        
+        # Buscar produtos no TOTVS
+        server = '172.16.45.117\\TOTVS'
+        database = 'TOTVSDB'
+        username = 'excel'
+        password = 'Db_Polimaquinas'
+        
+        conn_str = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
+        conn = pyodbc.connect(conn_str, timeout=60)
+        cursor = conn.cursor()
+        
+        # Buscar produtos em lotes para melhor performance
+        produtos_encontrados = []
+        codigos_encontrados_set = set()
+        
+        # Processar em lotes de 100
+        batch_size = 100
+        for i in range(0, len(codigos_lista), batch_size):
+            batch = codigos_lista[i:i + batch_size]
+            
+            # Criar placeholders para a query
+            placeholders = ','.join(['?' for _ in batch])
+            
+            query = f"""
+            SELECT 
+                RTRIM(P.B1_COD) AS codigo,
+                RTRIM(P.B1_DESC) AS descricao,
+                RTRIM(ISNULL(P.B1_UM, 'UN')) AS unidade,
+                ISNULL(ULT.ultimo_preco, 0) AS ultimo_preco,
+                ISNULL(ULT.ultimo_fornecedor, '') AS ultimo_fornecedor
+            FROM SB1010 P
+            LEFT JOIN (
+                SELECT 
+                    D1.D1_COD,
+                    D1.D1_VUNIT AS ultimo_preco,
+                    A2.A2_NOME AS ultimo_fornecedor,
+                    ROW_NUMBER() OVER (PARTITION BY D1.D1_COD ORDER BY D1.D1_DTDIGIT DESC, D1.D1_DOC DESC) AS rn
+                FROM SD1010 D1
+                INNER JOIN SA2010 A2 ON D1.D1_FORNECE = A2.A2_COD AND A2.D_E_L_E_T_ = ''
+                WHERE D1.D_E_L_E_T_ <> '*'
+                  AND D1.D1_TIPO = 'N'
+                  AND D1.D1_VUNIT > 0
+            ) ULT ON P.B1_COD = ULT.D1_COD AND ULT.rn = 1
+            WHERE P.D_E_L_E_T_ = ''
+              AND P.B1_MSBLQL <> '1'
+              AND RTRIM(P.B1_COD) IN ({placeholders})
+            """
+            
+            cursor.execute(query, batch)
+            
+            for row in cursor.fetchall():
+                produto = {
+                    'codigo': row[0].strip() if row[0] else '',
+                    'descricao': row[1].strip() if row[1] else '',
+                    'unidade': row[2].strip() if row[2] else 'UN',
+                    'ultimo_preco': float(row[3]) if row[3] else 0,
+                    'ultimo_fornecedor': row[4].strip() if row[4] else ''
+                }
+                produtos_encontrados.append(produto)
+                codigos_encontrados_set.add(produto['codigo'])
+        
+        conn.close()
+        
+        # Identificar códigos não encontrados
+        codigos_nao_encontrados = [c for c in codigos_lista if c not in codigos_encontrados_set]
+        
+        print(f"[IMPORT EXCEL] Produtos encontrados: {len(produtos_encontrados)}, Não encontrados: {len(codigos_nao_encontrados)}")
+        
+        return jsonify({
+            'success': True,
+            'encontrados': produtos_encontrados,
+            'nao_encontrados': codigos_nao_encontrados,
+            'total_codigos': len(codigos_lista)
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_importar_produtos_excel: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Erro ao processar arquivo: {str(e)}'
+        })
+
+
+# =============================================================================
 # API: CRIAR ORÇAMENTO MANUAL (Sem Solicitação de Compra)
 # =============================================================================
 @app.route('/api/cotacao/criar-manual', methods=['POST'])
@@ -6387,6 +7090,123 @@ def api_adicionar_fornecedor(cotacao_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/cotacao/<int:cotacao_id>/fornecedores/bulk', methods=['POST'])
+def api_adicionar_fornecedores_bulk(cotacao_id):
+    """
+    API para adicionar MÚLTIPLOS fornecedores à cotação de uma só vez.
+    Permite selecionar vários fornecedores e adicioná-los em uma única operação.
+    
+    Payload esperado:
+    {
+        "fornecedores": [
+            {"nome": "Forn A", "email": "", "telefone": "", "cod_fornecedor": "001"},
+            {"nome": "Forn B", "email": "", "telefone": "", "cod_fornecedor": "002"}
+        ]
+    }
+    
+    Regras:
+    - Ignora fornecedores que já estão na cotação (mesmo cod_fornecedor ou nome)
+    - Retorna quantos foram adicionados vs ignorados
+    """
+    try:
+        dados = request.get_json()
+        fornecedores_lista = dados.get('fornecedores', [])
+        
+        if not fornecedores_lista:
+            return jsonify({'success': False, 'error': 'Nenhum fornecedor informado'}), 400
+        
+        # Busca fornecedores já existentes na cotação
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT nome_fornecedor, cod_fornecedor 
+            FROM cotacao_fornecedores 
+            WHERE cotacao_id = ?
+        ''', (cotacao_id,))
+        
+        existentes = cursor.fetchall()
+        conn.close()
+        
+        # Cria sets para verificação rápida de duplicatas
+        nomes_existentes = {f['nome_fornecedor'].strip().upper() for f in existentes if f['nome_fornecedor']}
+        codigos_existentes = {f['cod_fornecedor'].strip() for f in existentes if f['cod_fornecedor']}
+        
+        adicionados = []
+        ignorados = []
+        erros = []
+        
+        for forn in fornecedores_lista:
+            nome = forn.get('nome', '').strip()
+            email = forn.get('email', '').strip()
+            telefone = forn.get('telefone', '').strip()
+            cod_fornecedor = forn.get('cod_fornecedor', '').strip()
+            
+            if not nome:
+                erros.append({'fornecedor': forn, 'erro': 'Nome não informado'})
+                continue
+            
+            # Verifica se já existe (por código ou nome)
+            nome_upper = nome.upper()
+            if cod_fornecedor and cod_fornecedor in codigos_existentes:
+                ignorados.append({'nome': nome, 'motivo': 'Código já existe na cotação'})
+                continue
+            
+            if nome_upper in nomes_existentes:
+                ignorados.append({'nome': nome, 'motivo': 'Nome já existe na cotação'})
+                continue
+            
+            try:
+                # Adiciona o fornecedor
+                fornecedor_id, token = db.adicionar_fornecedor_cotacao(
+                    cotacao_id, nome, email, telefone, cod_fornecedor
+                )
+                
+                # Adiciona aos sets para evitar duplicatas na mesma requisição
+                nomes_existentes.add(nome_upper)
+                if cod_fornecedor:
+                    codigos_existentes.add(cod_fornecedor)
+                
+                link = url_for('cotacao_fornecedor', token=token, _external=True)
+                adicionados.append({
+                    'nome': nome,
+                    'fornecedor_id': fornecedor_id,
+                    'token': token,
+                    'link': link
+                })
+                
+            except Exception as e:
+                erros.append({'fornecedor': nome, 'erro': str(e)})
+        
+        # Monta mensagem de retorno
+        msg_partes = []
+        if adicionados:
+            msg_partes.append(f'{len(adicionados)} fornecedor(es) adicionado(s)')
+        if ignorados:
+            msg_partes.append(f'{len(ignorados)} ignorado(s) (já existiam)')
+        if erros:
+            msg_partes.append(f'{len(erros)} erro(s)')
+        
+        mensagem = ', '.join(msg_partes) if msg_partes else 'Nenhuma alteração'
+        
+        return jsonify({
+            'success': len(adicionados) > 0,
+            'message': mensagem,
+            'adicionados': adicionados,
+            'ignorados': ignorados,
+            'erros': erros,
+            'total_adicionados': len(adicionados),
+            'total_ignorados': len(ignorados),
+            'total_erros': len(erros)
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_adicionar_fornecedores_bulk: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/cotacao/<int:cotacao_id>/status', methods=['POST'])
 def api_atualizar_status_cotacao(cotacao_id):
     """API para atualizar status da cotação"""
@@ -6402,6 +7222,181 @@ def api_atualizar_status_cotacao(cotacao_id):
         return jsonify({'success': True, 'message': f'Status atualizado para {novo_status}'})
         
     except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================================================
+# APIs DE GERENCIAMENTO DE ITENS DA COTAÇÃO
+# =============================================================================
+
+@app.route('/api/cotacao/<int:cotacao_id>/item', methods=['POST'])
+def api_adicionar_item_cotacao(cotacao_id):
+    """
+    API para adicionar um novo item à cotação existente.
+    Permite adicionar itens manuais (sem SC) ou vincular a uma SC existente.
+    """
+    try:
+        dados = request.get_json()
+        
+        numero_sc = dados.get('numero_sc', 'MANUAL')
+        cod_produto = dados.get('cod_produto', '').strip()
+        descricao_produto = dados.get('descricao_produto', '').strip()
+        quantidade = float(dados.get('quantidade', 0))
+        unidade = dados.get('unidade', 'UN').strip()
+        data_necessidade = dados.get('data_necessidade', '')
+        observacao = dados.get('observacao', '')
+        
+        # Validações
+        if not cod_produto:
+            return jsonify({'success': False, 'error': 'Código do produto é obrigatório'}), 400
+        
+        if not descricao_produto:
+            return jsonify({'success': False, 'error': 'Descrição do produto é obrigatória'}), 400
+        
+        if quantidade <= 0:
+            return jsonify({'success': False, 'error': 'Quantidade deve ser maior que zero'}), 400
+        
+        # Verificar se a cotação existe
+        cotacao = db.obter_cotacao(cotacao_id)
+        if not cotacao:
+            return jsonify({'success': False, 'error': 'Cotação não encontrada'}), 404
+        
+        # Inserir o novo item
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO cotacao_itens 
+            (cotacao_id, numero_sc, cod_produto, descricao_produto, quantidade, unidade, data_necessidade, observacao)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (cotacao_id, numero_sc, cod_produto, descricao_produto, quantidade, unidade, data_necessidade or None, observacao))
+        
+        item_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        print(f"[COTAÇÃO] Item adicionado: ID={item_id}, Cotação={cotacao_id}, Produto={cod_produto}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Item adicionado com sucesso',
+            'item_id': item_id
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_adicionar_item_cotacao: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/<int:cotacao_id>/item/<int:item_id>', methods=['POST'])
+def api_editar_item_cotacao(cotacao_id, item_id):
+    """
+    API para editar um item existente da cotação.
+    Permite atualizar código, descrição, quantidade, unidade e data de necessidade.
+    """
+    try:
+        dados = request.get_json()
+        
+        numero_sc = dados.get('numero_sc', '')
+        cod_produto = dados.get('cod_produto', '').strip()
+        descricao_produto = dados.get('descricao_produto', '').strip()
+        quantidade = float(dados.get('quantidade', 0))
+        unidade = dados.get('unidade', 'UN').strip()
+        data_necessidade = dados.get('data_necessidade', '')
+        
+        # Validações
+        if not cod_produto:
+            return jsonify({'success': False, 'error': 'Código do produto é obrigatório'}), 400
+        
+        if not descricao_produto:
+            return jsonify({'success': False, 'error': 'Descrição do produto é obrigatória'}), 400
+        
+        if quantidade <= 0:
+            return jsonify({'success': False, 'error': 'Quantidade deve ser maior que zero'}), 400
+        
+        # Verificar se o item pertence à cotação
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT id FROM cotacao_itens WHERE id = ? AND cotacao_id = ?', (item_id, cotacao_id))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({'success': False, 'error': 'Item não encontrado nesta cotação'}), 404
+        
+        # Atualizar o item
+        cursor.execute('''
+            UPDATE cotacao_itens 
+            SET numero_sc = ?, cod_produto = ?, descricao_produto = ?, 
+                quantidade = ?, unidade = ?, data_necessidade = ?
+            WHERE id = ? AND cotacao_id = ?
+        ''', (numero_sc or 'MANUAL', cod_produto, descricao_produto, quantidade, unidade, 
+              data_necessidade or None, item_id, cotacao_id))
+        
+        conn.commit()
+        conn.close()
+        
+        print(f"[COTAÇÃO] Item atualizado: ID={item_id}, Cotação={cotacao_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Item atualizado com sucesso'
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_editar_item_cotacao: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/<int:cotacao_id>/item/<int:item_id>/excluir', methods=['POST'])
+def api_excluir_item_cotacao(cotacao_id, item_id):
+    """
+    API para excluir um item da cotação.
+    Remove também as respostas de fornecedores associadas ao item.
+    """
+    try:
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        
+        # Verificar se o item pertence à cotação
+        cursor.execute('SELECT id FROM cotacao_itens WHERE id = ? AND cotacao_id = ?', (item_id, cotacao_id))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({'success': False, 'error': 'Item não encontrado nesta cotação'}), 404
+        
+        # Verificar se há respostas associadas
+        cursor.execute('SELECT COUNT(*) as total FROM cotacao_respostas WHERE item_id = ?', (item_id,))
+        total_respostas = cursor.fetchone()['total']
+        
+        # Excluir respostas associadas primeiro (se houver)
+        if total_respostas > 0:
+            cursor.execute('DELETE FROM cotacao_respostas WHERE item_id = ?', (item_id,))
+            print(f"[COTAÇÃO] Excluídas {total_respostas} respostas do item {item_id}")
+        
+        # Excluir rodadas de negociação associadas (se houver)
+        cursor.execute('DELETE FROM cotacao_rodadas_negociacao WHERE item_id = ?', (item_id,))
+        
+        # Excluir o item
+        cursor.execute('DELETE FROM cotacao_itens WHERE id = ? AND cotacao_id = ?', (item_id, cotacao_id))
+        
+        conn.commit()
+        conn.close()
+        
+        print(f"[COTAÇÃO] Item excluído: ID={item_id}, Cotação={cotacao_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Item excluído com sucesso',
+            'respostas_removidas': total_respostas
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_excluir_item_cotacao: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -6670,16 +7665,35 @@ def api_obter_itens_fornecedor(fornecedor_id):
         cursor = conn.cursor()
         
         # Buscar dados do fornecedor (incluindo novos campos)
-        cursor.execute('''
-            SELECT f.id, f.cotacao_id, f.nome_fornecedor, f.status, f.token_acesso,
-                   f.frete_total as frete_fornecedor, 
-                   f.condicao_pagamento as condicao_fornecedor, 
-                   f.observacao_geral,
-                   c.codigo as cotacao_codigo, c.status as cotacao_status
-            FROM cotacao_fornecedores f
-            JOIN cotacoes c ON f.cotacao_id = c.id
-            WHERE f.id = ?
-        ''', (fornecedor_id,))
+        # Primeiro verifica se a coluna arquivo_anexo existe
+        cursor.execute("PRAGMA table_info(cotacao_fornecedores)")
+        colunas = [col[1] for col in cursor.fetchall()]
+        tem_arquivo_anexo = 'arquivo_anexo' in colunas
+        
+        if tem_arquivo_anexo:
+            cursor.execute('''
+                SELECT f.id, f.cotacao_id, f.nome_fornecedor, f.status, f.token_acesso,
+                       f.frete_total as frete_fornecedor, 
+                       f.condicao_pagamento as condicao_fornecedor, 
+                       f.observacao_geral,
+                       f.arquivo_anexo,
+                       c.codigo as cotacao_codigo, c.status as cotacao_status
+                FROM cotacao_fornecedores f
+                JOIN cotacoes c ON f.cotacao_id = c.id
+                WHERE f.id = ?
+            ''', (fornecedor_id,))
+        else:
+            cursor.execute('''
+                SELECT f.id, f.cotacao_id, f.nome_fornecedor, f.status, f.token_acesso,
+                       f.frete_total as frete_fornecedor, 
+                       f.condicao_pagamento as condicao_fornecedor, 
+                       f.observacao_geral,
+                       NULL as arquivo_anexo,
+                       c.codigo as cotacao_codigo, c.status as cotacao_status
+                FROM cotacao_fornecedores f
+                JOIN cotacoes c ON f.cotacao_id = c.id
+                WHERE f.id = ?
+            ''', (fornecedor_id,))
         
         fornecedor = cursor.fetchone()
         
@@ -6713,11 +7727,13 @@ def api_obter_itens_fornecedor(fornecedor_id):
                 item['resposta_id'] = resp['id']
                 item['preco_unitario'] = resp.get('preco_unitario', 0)
                 item['prazo_entrega'] = resp.get('prazo_entrega', 0)
+                item['observacao'] = resp.get('observacao', '') or ''  # CORREÇÃO: Inclui observação do item
                 item['tem_resposta'] = True
             else:
                 item['resposta_id'] = None
                 item['preco_unitario'] = 0
                 item['prazo_entrega'] = 0
+                item['observacao'] = ''  # CORREÇÃO: Garante campo vazio
                 item['tem_resposta'] = False
             
             itens.append(item)
@@ -6731,7 +7747,8 @@ def api_obter_itens_fornecedor(fornecedor_id):
                 'token': fornecedor['token_acesso'],
                 'frete': fornecedor.get('frete_fornecedor', 0) or 0,
                 'condicao': fornecedor.get('condicao_fornecedor', '') or '',
-                'observacao': fornecedor.get('observacao_geral', '') or ''
+                'observacao': fornecedor.get('observacao_geral', '') or '',
+                'arquivo_anexo': fornecedor.get('arquivo_anexo', '') or ''
             },
             'cotacao': {
                 'id': fornecedor['cotacao_id'],
@@ -6796,6 +7813,7 @@ def api_salvar_respostas_fornecedor(fornecedor_id):
             item_id = resp.get('item_id')
             preco_raw = resp.get('preco')
             prazo_raw = resp.get('prazo')
+            obs_item = resp.get('observacao', '') or ''  # CORREÇÃO: Captura observação do item
             
             # Converte valores - trata string vazia e None como zero
             preco = float(preco_raw) if preco_raw not in [None, '', 0, '0'] else 0
@@ -6814,7 +7832,7 @@ def api_salvar_respostas_fornecedor(fornecedor_id):
                     preco=preco,
                     prazo=prazo,
                     condicao='',
-                    observacao='',
+                    observacao=obs_item,  # CORREÇÃO: Passa a observação do item
                     frete=0
                 )
                 respostas_salvas += 1
@@ -6833,12 +7851,12 @@ def api_salvar_respostas_fornecedor(fornecedor_id):
                 existente = cursor2.fetchone()
                 
                 if existente:
-                    # Atualiza para zero (limpa a cotação)
+                    # Atualiza para zero (limpa a cotação) - CORREÇÃO: Preserva/atualiza observação
                     cursor2.execute('''
                         UPDATE cotacao_respostas 
-                        SET preco_unitario = 0, prazo_entrega = 0, data_resposta = ?
+                        SET preco_unitario = 0, prazo_entrega = 0, observacao = ?, data_resposta = ?
                         WHERE id = ?
-                    ''', (datetime.now(), existente['id']))
+                    ''', (obs_item, datetime.now(), existente['id']))
                     conn2.commit()
                     respostas_zeradas += 1
                     print(f"[SALVAR RESPOSTAS] Item {item_id} zerado com sucesso (resposta ID: {existente['id']})")
@@ -8521,6 +9539,479 @@ def api_obter_link_externo(fornecedor_id):
 
 
 # =============================================================================
+# PEDIDOS DE COMPRA - APIs
+# =============================================================================
+
+@app.route('/api/ultimo-numero-pedido', methods=['GET'])
+def api_ultimo_numero_pedido():
+    """
+    API para obter o último número de pedido e sugestão do próximo.
+    Usado para preencher automaticamente o formulário de novo pedido.
+    """
+    try:
+        resultado = db.obter_ultimo_numero_pedido()
+        return jsonify({
+            'success': True,
+            **resultado
+        })
+    except Exception as e:
+        print(f"[ERRO] api_ultimo_numero_pedido: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/gerar-pedido', methods=['POST'])
+def api_gerar_pedido():
+    """
+    API para gerar um pedido de compra a partir de solicitações selecionadas.
+    
+    Payload esperado:
+    {
+        "numero_pedido": "PC2026001" (opcional, auto-gera se não informado),
+        "data_pedido": "2026-02-05",
+        "fornecedor": {"codigo": "F001", "nome": "Fornecedor X"},
+        "condicao_pagamento": "30 dias",
+        "contato": "Nome do contato",
+        "observacoes": "Observações gerais",
+        "itens": [
+            {
+                "numero_sc": "000123",
+                "item_sc": "01",
+                "cod_produto": "PROD001",
+                "descricao_produto": "Descrição do produto",
+                "quantidade": 10,
+                "unidade": "UN",
+                "valor_unitario": 15.5,
+                "ipi": 0.0,
+                "data_necessidade": "2026-02-10"
+            }
+        ]
+    }
+    """
+    try:
+        dados = request.get_json()
+        
+        if not dados:
+            return jsonify({'success': False, 'error': 'Dados não informados'}), 400
+        
+        itens = dados.get('itens', [])
+        if not itens:
+            return jsonify({'success': False, 'error': 'Nenhum item selecionado para o pedido'}), 400
+        
+        # Verifica se algum item já tem pedido
+        itens_com_pedido = []
+        for item in itens:
+            verif = db.verificar_solicitacao_tem_pedido(
+                item.get('numero_sc'), 
+                item.get('item_sc')
+            )
+            if verif.get('tem_pedido'):
+                itens_com_pedido.append({
+                    'sc': item.get('numero_sc'),
+                    'item': item.get('item_sc'),
+                    'pedido': verif.get('numero_pedido')
+                })
+        
+        if itens_com_pedido:
+            return jsonify({
+                'success': False,
+                'error': 'Algumas solicitações já possuem pedido',
+                'itens_com_pedido': itens_com_pedido
+            }), 400
+        
+        # Monta dados do pedido
+        fornecedor = dados.get('fornecedor', {})
+        pedido_dados = {
+            'numero_pedido': dados.get('numero_pedido'),
+            'data_pedido': dados.get('data_pedido'),
+            'cod_fornecedor': fornecedor.get('codigo'),
+            'nome_fornecedor': fornecedor.get('nome'),
+            'condicao_pagamento': dados.get('condicao_pagamento'),
+            'contato': dados.get('contato'),
+            'observacoes': dados.get('observacoes')
+        }
+        
+        # Formata itens
+        itens_formatados = []
+        for item in itens:
+            itens_formatados.append({
+                'numero_sc': item.get('numero_sc'),
+                'item_sc': item.get('item_sc'),
+                'cod_produto': item.get('cod_produto'),
+                'descricao_produto': item.get('descricao_produto'),
+                'quantidade': item.get('quantidade'),
+                'unidade': item.get('unidade'),
+                'valor_unitario': item.get('valor_unitario', 0),
+                'ipi': item.get('ipi', 0),
+                'data_necessidade': item.get('data_necessidade'),
+                'observacao': item.get('observacao')
+            })
+        
+        # Cria o pedido
+        resultado = db.criar_pedido_compra(pedido_dados, itens_formatados, usuario='Admin')
+        
+        if resultado.get('success'):
+            # Gera payload para TOTVS (para uso futuro)
+            payload_totvs = db.gerar_payload_totvs(resultado['pedido_id'])
+            
+            return jsonify({
+                'success': True,
+                'pedido_id': resultado['pedido_id'],
+                'numero_pedido': resultado['numero_pedido'],
+                'valor_total': resultado['valor_total'],
+                'total_itens': len(itens),
+                'message': f"Pedido {resultado['numero_pedido']} gerado com sucesso!",
+                'payload_totvs': payload_totvs
+            })
+        else:
+            return jsonify(resultado), 500
+        
+    except Exception as e:
+        print(f"[ERRO] api_gerar_pedido: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pedidos', methods=['GET'])
+def api_listar_pedidos():
+    """
+    API para listar pedidos de compra com filtros opcionais.
+    Query params: data_inicio, data_fim, fornecedor, status
+    """
+    try:
+        filtros = {
+            'data_inicio': request.args.get('data_inicio'),
+            'data_fim': request.args.get('data_fim'),
+            'fornecedor': request.args.get('fornecedor'),
+            'status': request.args.get('status')
+        }
+        
+        # Remove filtros vazios
+        filtros = {k: v for k, v in filtros.items() if v}
+        
+        pedidos = db.listar_pedidos_compra(filtros if filtros else None)
+        
+        return jsonify({
+            'success': True,
+            'total': len(pedidos),
+            'pedidos': pedidos
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_listar_pedidos: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pedido/<int:pedido_id>', methods=['GET'])
+def api_obter_pedido(pedido_id):
+    """
+    API para obter detalhes de um pedido específico.
+    """
+    try:
+        pedido = db.obter_pedido_detalhado(pedido_id)
+        
+        if not pedido:
+            return jsonify({'success': False, 'error': 'Pedido não encontrado'}), 404
+        
+        return jsonify({
+            'success': True,
+            'pedido': pedido
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_obter_pedido: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pedido/<int:pedido_id>', methods=['PUT'])
+def api_atualizar_pedido(pedido_id):
+    """
+    API para atualizar dados de um pedido.
+    """
+    try:
+        dados = request.get_json()
+        
+        resultado = db.atualizar_pedido_compra(pedido_id, dados)
+        
+        return jsonify(resultado)
+        
+    except Exception as e:
+        print(f"[ERRO] api_atualizar_pedido: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pedido/<int:pedido_id>/payload-totvs', methods=['GET'])
+def api_payload_totvs(pedido_id):
+    """
+    API para obter o payload no formato TOTVS para integração futura.
+    """
+    try:
+        payload = db.gerar_payload_totvs(pedido_id)
+        
+        if not payload:
+            return jsonify({'success': False, 'error': 'Pedido não encontrado'}), 404
+        
+        return jsonify({
+            'success': True,
+            'payload': payload
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_payload_totvs: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pedido/<int:pedido_id>/enviar-totvs', methods=['POST'])
+def api_enviar_pedido_totvs(pedido_id):
+    """
+    API para enviar pedido ao TOTVS.
+    Usa o módulo totvs_integration para comunicação real com TOTVS.
+    """
+    try:
+        # Obtém o payload
+        payload = db.gerar_payload_totvs(pedido_id)
+        
+        if not payload:
+            return jsonify({'success': False, 'error': 'Pedido não encontrado'}), 404
+        
+        # Tenta importar o módulo de integração
+        try:
+            import totvs_integration as totvs
+            
+            # Valida antes de enviar
+            valido, msg_validacao = totvs.validar_pedido_antes_envio(payload)
+            if not valido:
+                return jsonify({
+                    'success': False,
+                    'error': f'Validação falhou: {msg_validacao}'
+                }), 400
+            
+            # Envia para o TOTVS
+            resultado = totvs.enviar_pedido_para_totvs(payload)
+            
+            # Registra no histórico
+            db.registrar_envio_totvs(pedido_id, resultado)
+            
+            if resultado.get('success'):
+                # Atualiza status do pedido
+                db.atualizar_pedido_compra(pedido_id, {'status': 'Enviado'})
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Pedido enviado ao TOTVS com sucesso',
+                    'numero_pedido_totvs': resultado.get('numero_pedido_totvs'),
+                    'resposta': resultado
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': resultado.get('message'),
+                    'detalhes': resultado
+                }), 500
+                
+        except ImportError:
+            # Módulo de integração não configurado - modo simulação
+            resposta_simulada = {
+                'status': 'simulado',
+                'message': 'Módulo de integração TOTVS não está configurado. Configure o arquivo totvs_integration.py',
+                'payload_enviado': payload,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            # Registra no histórico
+            db.registrar_envio_totvs(pedido_id, resposta_simulada)
+            
+            return jsonify({
+                'success': False,
+                'error': 'Integração TOTVS não configurada',
+                'message': 'Configure as credenciais no arquivo totvs_integration.py',
+                'resposta': resposta_simulada
+            }), 503
+        
+    except Exception as e:
+        print(f"[ERRO] api_enviar_pedido_totvs: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/solicitacao/verificar-pedido', methods=['POST'])
+def api_verificar_pedido_solicitacao():
+    """
+    API para verificar se uma ou mais solicitações já possuem pedido.
+    """
+    try:
+        dados = request.get_json()
+        solicitacoes = dados.get('solicitacoes', [])
+        
+        resultados = []
+        for sol in solicitacoes:
+            verif = db.verificar_solicitacao_tem_pedido(
+                sol.get('numero_sc'),
+                sol.get('item_sc')
+            )
+            verif['numero_sc'] = sol.get('numero_sc')
+            verif['item_sc'] = sol.get('item_sc')
+            resultados.append(verif)
+        
+        return jsonify({
+            'success': True,
+            'resultados': resultados
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_verificar_pedido_solicitacao: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pedido/<int:pedido_id>', methods=['DELETE'])
+def api_excluir_pedido(pedido_id):
+    """
+    API para excluir um pedido de compra.
+    Apenas pedidos que não foram enviados ao TOTVS podem ser excluídos.
+    """
+    try:
+        resultado = db.excluir_pedido_compra(pedido_id, usuario='Admin')
+        
+        if resultado.get('success'):
+            return jsonify(resultado)
+        else:
+            return jsonify(resultado), 400
+        
+    except Exception as e:
+        print(f"[ERRO] api_excluir_pedido: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================================================
+# BUSCA DE SOLICITAÇÃO PARA AUTO-PREENCHIMENTO
+# =============================================================================
+
+@app.route('/api/solicitacao/buscar', methods=['GET'])
+def api_buscar_solicitacao():
+    """
+    API para buscar dados de uma solicitação específica.
+    Usada para preenchimento automático ao adicionar item em cotação.
+    
+    Parâmetros GET:
+    - numero_sc: Número da solicitação (obrigatório)
+    - cod_produto: Código do produto (opcional - se não informado, retorna primeiro item da SC)
+    - item_sc: Item da SC (opcional - para busca mais específica)
+    
+    Retorna dados da solicitação para preenchimento automático.
+    """
+    try:
+        numero_sc = request.args.get('numero_sc', '').strip()
+        cod_produto = request.args.get('cod_produto', '').strip()
+        item_sc = request.args.get('item_sc', '').strip()
+        
+        if not numero_sc:
+            return jsonify({
+                'success': False, 
+                'encontrada': False,
+                'error': 'Número da solicitação é obrigatório'
+            }), 400
+        
+        # Busca dados das solicitações em aberto
+        df = get_solicitacoes_aberto_data()
+        
+        if df is None or df.empty:
+            return jsonify({
+                'success': True, 
+                'encontrada': False,
+                'message': 'Nenhuma solicitação em aberto encontrada'
+            })
+        
+        # Filtrar pelo número da SC (comparação exata, removendo espaços)
+        df['NumeroSC_limpo'] = df['NumeroSC'].astype(str).str.strip()
+        numero_sc_padded = numero_sc.zfill(6)  # Padroniza para 6 dígitos
+        
+        mask = (df['NumeroSC_limpo'] == numero_sc) | (df['NumeroSC_limpo'] == numero_sc_padded)
+        
+        # Se informou código do produto, filtra também
+        if cod_produto:
+            df['CodProduto_limpo'] = df['CodProduto'].astype(str).str.strip().str.upper()
+            cod_produto_upper = cod_produto.upper().strip()
+            mask = mask & (df['CodProduto_limpo'] == cod_produto_upper)
+        
+        # Se informou item da SC, filtra também
+        if item_sc:
+            df['ItemSC_limpo'] = df['ItemSC'].astype(str).str.strip()
+            mask = mask & (df['ItemSC_limpo'] == item_sc)
+        
+        df_filtrado = df[mask]
+        
+        if df_filtrado.empty:
+            # Busca parcial: tenta encontrar a SC mesmo sem correspondência de produto
+            mask_sc = (df['NumeroSC_limpo'] == numero_sc) | (df['NumeroSC_limpo'] == numero_sc_padded)
+            df_sc = df[mask_sc]
+            
+            if df_sc.empty:
+                return jsonify({
+                    'success': True,
+                    'encontrada': False,
+                    'message': f'Solicitação {numero_sc} não encontrada ou já possui pedido'
+                })
+            else:
+                # SC existe mas produto não corresponde - retorna lista de produtos disponíveis
+                produtos_disponiveis = df_sc[['CodProduto', 'DescricaoProduto', 'ItemSC', 'Quantidade']].to_dict('records')
+                return jsonify({
+                    'success': True,
+                    'encontrada': False,
+                    'sc_existe': True,
+                    'message': f'Solicitação {numero_sc} encontrada, mas o produto {cod_produto} não está nela',
+                    'produtos_disponiveis': produtos_disponiveis[:10]  # Limita a 10 itens
+                })
+        
+        # Encontrou! Pega o primeiro resultado (ou único)
+        solicitacao = df_filtrado.iloc[0]
+        
+        # Formata data de necessidade
+        data_necessidade = ''
+        if pd.notna(solicitacao.get('DataNecessidade')):
+            try:
+                data_necessidade = solicitacao['DataNecessidade'].strftime('%Y-%m-%d')
+            except:
+                pass
+        
+        # Monta resposta com dados da solicitação
+        dados_solicitacao = {
+            'numero_sc': str(solicitacao.get('NumeroSC', '')).strip(),
+            'item_sc': str(solicitacao.get('ItemSC', '')).strip(),
+            'cod_produto': str(solicitacao.get('CodProduto', '')).strip(),
+            'descricao_produto': str(solicitacao.get('DescricaoProduto', '') or solicitacao.get('Descricao', '')).strip(),
+            'quantidade': float(solicitacao.get('Quantidade', 0)),
+            'unidade': str(solicitacao.get('UnidadeMedida', 'UN')).strip() or 'UN',
+            'data_necessidade': data_necessidade,
+            'solicitante': str(solicitacao.get('Solicitante', '')).strip(),
+            'observacao': str(solicitacao.get('Observacao', '')).strip(),
+            'cod_fornecedor': str(solicitacao.get('CodFornecedorFinal', '')).strip(),
+            'nome_fornecedor': str(solicitacao.get('NomeFornecedor', '')).strip(),
+        }
+        
+        # Se houver mais itens na mesma SC, indica
+        total_itens_sc = len(df_filtrado)
+        
+        return jsonify({
+            'success': True,
+            'encontrada': True,
+            'solicitacao': dados_solicitacao,
+            'total_itens': total_itens_sc,
+            'message': f'Solicitação encontrada com {total_itens_sc} item(ns)'
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_buscar_solicitacao: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False, 
+            'encontrada': False,
+            'error': str(e)
+        }), 500
+
+
+# =============================================================================
 # ANOTAÇÕES DAS SOLICITAÇÕES (Cores e Observações)
 # =============================================================================
 
@@ -8677,6 +10168,7 @@ def api_criar_rodada_negociacao(cotacao_id):
     """
     API para criar uma rodada de negociação para um fornecedor específico.
     Recebe array de itens com preços originais e negociados.
+    IMPORTANTE: Se o fornecedor+item já existir, ATUALIZA ao invés de criar duplicado.
     """
     try:
         dados = request.get_json()
@@ -8691,6 +10183,324 @@ def api_criar_rodada_negociacao(cotacao_id):
         if not itens:
             return jsonify({'success': False, 'error': 'Nenhum item para negociar'}), 400
         
+        # Verificar se já existem rodadas deste fornecedor nesta cotação
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT item_id, id FROM cotacao_rodadas_negociacao 
+            WHERE cotacao_id = ? AND fornecedor_id = ?
+        ''', (cotacao_id, fornecedor_id))
+        rodadas_existentes = {row['item_id']: row['id'] for row in cursor.fetchall()}
+        conn.close()
+        
+        # Criar ou atualizar rodada para cada item
+        rodadas_criadas = 0
+        rodadas_atualizadas = 0
+        
+        for item in itens:
+            item_id = item.get('item_id')
+            preco_original = float(item.get('preco_original', 0))
+            preco_negociado = float(item.get('preco_negociado', 0))
+            prazo_original = item.get('prazo_original')
+            prazo_negociado = item.get('prazo_negociado')
+            # Desconto individual ou global
+            desconto = float(item.get('desconto_percentual', desconto_global))
+            
+            if not item_id or preco_negociado <= 0:
+                continue
+            
+            # VALIDAÇÃO ANTI-MULTIPLICAÇÃO: Detectar valores absurdos
+            if preco_original > 0 and preco_negociado > preco_original * 50:
+                print(f"[ALERTA] Valor suspeito na criação de rodada! Item: {item_id}, Original: {preco_original}, Negociado: {preco_negociado}")
+                return jsonify({
+                    'success': False, 
+                    'error': f'Valor suspeito detectado: preço negociado R$ {preco_negociado:.2f} é muito maior que o original R$ {preco_original:.2f}. Erro de formatação?'
+                }), 400
+            
+            # Se já existe rodada para este item/fornecedor, atualiza
+            if item_id in rodadas_existentes:
+                rodada_id = rodadas_existentes[item_id]
+                db.atualizar_rodada_negociacao(
+                    rodada_id=rodada_id,
+                    preco_negociado=preco_negociado,
+                    prazo_negociado=int(prazo_negociado) if prazo_negociado else None,
+                    observacao=observacao_geral,
+                    desconto_percentual=desconto
+                )
+                rodadas_atualizadas += 1
+            else:
+                # Cria nova rodada
+                db.criar_rodada_negociacao(
+                    cotacao_id=cotacao_id,
+                    fornecedor_id=fornecedor_id,
+                    item_id=item_id,
+                    preco_original=preco_original,
+                    preco_negociado=preco_negociado,
+                    prazo_original=prazo_original,
+                    prazo_negociado=prazo_negociado,
+                    observacao=observacao_geral,
+                    usuario='Admin',
+                    desconto_percentual=desconto
+                )
+                rodadas_criadas += 1
+        
+        mensagem = []
+        if rodadas_criadas > 0:
+            mensagem.append(f'{rodadas_criadas} item(ns) adicionado(s)')
+        if rodadas_atualizadas > 0:
+            mensagem.append(f'{rodadas_atualizadas} item(ns) atualizado(s)')
+        
+        return jsonify({
+            'success': True,
+            'message': 'Rodada de negociação: ' + ', '.join(mensagem) if mensagem else 'Nenhuma alteração',
+            'rodadas_criadas': rodadas_criadas,
+            'rodadas_atualizadas': rodadas_atualizadas
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_criar_rodada_negociacao: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/rodada/<int:rodada_id>/editar', methods=['POST'])
+def api_editar_rodada_negociacao(rodada_id):
+    """API para editar uma rodada de negociação existente"""
+    try:
+        dados = request.get_json()
+        prazo_negociado = dados.get('prazo_negociado')
+        observacao = dados.get('observacao')
+        desconto_percentual = dados.get('desconto_percentual')
+        preco_negociado_direto = dados.get('preco_negociado')  # Preço editado diretamente pelo usuário
+        
+        # Buscar dados atuais da rodada
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT preco_unitario_original, preco_unitario_negociado FROM cotacao_rodadas_negociacao WHERE id = ?', (rodada_id,))
+        rodada = cursor.fetchone()
+        conn.close()
+        
+        if not rodada or not rodada['preco_unitario_original']:
+            return jsonify({'success': False, 'error': 'Rodada não encontrada ou sem preço original'}), 404
+        
+        preco_original = float(rodada['preco_unitario_original'])
+        
+        # LÓGICA DE EDIÇÃO:
+        # 1. Se preco_negociado_direto foi informado -> usar esse valor e calcular desconto
+        # 2. Se apenas desconto_percentual foi informado -> calcular preço baseado no desconto
+        # 3. Se nenhum foi informado -> manter valores atuais
+        
+        if preco_negociado_direto is not None:
+            # Usuário editou o preço diretamente
+            preco_negociado = float(preco_negociado_direto)
+            
+            # VALIDAÇÃO ANTI-MULTIPLICAÇÃO: Detectar valores absurdos
+            # Se o preço negociado for mais de 50x o original, provavelmente é erro de conversão
+            if preco_original > 0 and preco_negociado > preco_original * 50:
+                print(f"[ALERTA] Valor suspeito detectado! Original: {preco_original}, Negociado: {preco_negociado}")
+                return jsonify({
+                    'success': False, 
+                    'error': f'Valor suspeito detectado: R$ {preco_negociado:.2f} é muito maior que o original R$ {preco_original:.2f}. Verifique a formatação.'
+                }), 400
+            
+            # Calcular desconto baseado no preço informado
+            if preco_original > 0:
+                desconto = ((preco_original - preco_negociado) / preco_original) * 100
+                desconto = max(0, min(100, desconto))  # Garantir entre 0 e 100
+            else:
+                desconto = 0
+            print(f"[NEGOCIAÇÃO] Rodada {rodada_id}: Preço editado diretamente - Original={preco_original}, Negociado={preco_negociado}, Desconto calculado={desconto:.2f}%")
+        elif desconto_percentual is not None:
+            # Usuário editou via desconto
+            desconto = float(desconto_percentual)
+            preco_negociado = preco_original * (1 - desconto / 100)
+            print(f"[NEGOCIAÇÃO] Rodada {rodada_id}: Desconto aplicado - Original={preco_original}, Desconto={desconto}%, Negociado={preco_negociado}")
+        else:
+            # Nenhuma alteração de preço/desconto - manter valores atuais
+            preco_negociado = float(rodada['preco_unitario_negociado']) if rodada['preco_unitario_negociado'] else preco_original
+            desconto = 0
+            if preco_original > 0 and preco_negociado < preco_original:
+                desconto = ((preco_original - preco_negociado) / preco_original) * 100
+            print(f"[NEGOCIAÇÃO] Rodada {rodada_id}: Mantendo valores - Negociado={preco_negociado}, Desconto={desconto:.2f}%")
+        
+        db.atualizar_rodada_negociacao(
+            rodada_id=rodada_id,
+            preco_negociado=preco_negociado,
+            prazo_negociado=int(prazo_negociado) if prazo_negociado is not None else None,
+            observacao=observacao,
+            desconto_percentual=desconto
+        )
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Rodada atualizada com sucesso',
+            'preco_negociado': preco_negociado,
+            'desconto_percentual': desconto,
+            'economia': preco_original - preco_negociado
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_editar_rodada_negociacao: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/rodada/<int:rodada_id>/excluir', methods=['POST'])
+def api_excluir_rodada_negociacao(rodada_id):
+    """API para excluir uma rodada de negociação"""
+    try:
+        db.excluir_rodada_negociacao(rodada_id)
+        return jsonify({'success': True, 'message': 'Rodada excluída com sucesso'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/<int:cotacao_id>/rodada-negociacao/anexo', methods=['POST'])
+def api_upload_anexo_rodada2(cotacao_id):
+    """
+    API para fazer upload de anexo (orçamento) na segunda rodada de negociação.
+    Similar ao anexo da primeira rodada, mas específico para R2.
+    """
+    try:
+        if 'arquivo' not in request.files:
+            return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'}), 400
+        
+        arquivo = request.files['arquivo']
+        fornecedor_id = request.form.get('fornecedor_id')
+        
+        if not arquivo.filename:
+            return jsonify({'success': False, 'error': 'Arquivo sem nome'}), 400
+        
+        if not fornecedor_id:
+            return jsonify({'success': False, 'error': 'Fornecedor não informado'}), 400
+        
+        # Verificar extensão permitida
+        ext = os.path.splitext(arquivo.filename)[1].lower()
+        extensoes_permitidas = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx', '.xls', '.xlsx']
+        if ext not in extensoes_permitidas:
+            return jsonify({'success': False, 'error': f'Extensão {ext} não permitida'}), 400
+        
+        # Verificar tamanho (máx 10MB)
+        arquivo.seek(0, 2)
+        tamanho = arquivo.tell()
+        arquivo.seek(0)
+        
+        if tamanho > 10 * 1024 * 1024:
+            return jsonify({'success': False, 'error': 'Arquivo muito grande (máx 10MB)'}), 400
+        
+        # Criar diretório se não existir
+        from datetime import datetime
+        ano = datetime.now().strftime('%Y')
+        mes = datetime.now().strftime('%m')
+        diretorio = os.path.join('uploads', 'cotacoes', ano, mes, 'rodada2')
+        os.makedirs(diretorio, exist_ok=True)
+        
+        # Nome único do arquivo
+        nome_arquivo = f"anexo_r2_cot{cotacao_id}_forn{fornecedor_id}_{uuid.uuid4().hex[:8]}{ext}"
+        caminho_completo = os.path.join(diretorio, nome_arquivo)
+        
+        # Salvar arquivo
+        arquivo.save(caminho_completo)
+        
+        # Atualizar todas as rodadas deste fornecedor com o caminho do anexo
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE cotacao_rodadas_negociacao
+            SET arquivo_anexo_r2 = ?
+            WHERE cotacao_id = ? AND fornecedor_id = ?
+        ''', (caminho_completo, cotacao_id, fornecedor_id))
+        conn.commit()
+        conn.close()
+        
+        print(f"[ANEXO R2] Upload realizado com sucesso: {caminho_completo}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Anexo da segunda rodada salvo com sucesso',
+            'arquivo': nome_arquivo
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_upload_anexo_rodada2: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/<int:cotacao_id>/rodada-fornecedor/<int:fornecedor_id>/excluir', methods=['POST'])
+def api_excluir_rodadas_fornecedor(cotacao_id, fornecedor_id):
+    """API para excluir todas as rodadas de um fornecedor específico"""
+    try:
+        linhas_excluidas = db.excluir_rodadas_fornecedor(cotacao_id, fornecedor_id)
+        return jsonify({
+            'success': True, 
+            'message': f'Excluídas {linhas_excluidas} rodadas do fornecedor',
+            'linhas_excluidas': linhas_excluidas
+        })
+    except Exception as e:
+        print(f"[ERRO] api_excluir_rodadas_fornecedor: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/<int:cotacao_id>/rodadas-agrupadas', methods=['GET'])
+def api_obter_rodadas_agrupadas(cotacao_id):
+    """API para obter rodadas agrupadas por fornecedor com cálculos"""
+    try:
+        dados = db.obter_rodadas_agrupadas_por_fornecedor(cotacao_id)
+        return jsonify({'success': True, 'dados': dados})
+    except Exception as e:
+        print(f"[ERRO] api_obter_rodadas_agrupadas: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/<int:cotacao_id>/rodada-fornecedor/<int:fornecedor_id>/frete', methods=['POST'])
+def api_atualizar_frete_rodada2(cotacao_id, fornecedor_id):
+    """API para atualizar o frete negociado de um fornecedor na rodada 2"""
+    try:
+        dados = request.get_json()
+        frete_negociado = float(dados.get('frete_negociado', 0))
+        
+        linhas = db.atualizar_frete_fornecedor_rodada2(cotacao_id, fornecedor_id, frete_negociado)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Frete atualizado para R$ {frete_negociado:.2f}',
+            'linhas_atualizadas': linhas
+        })
+    except Exception as e:
+        print(f"[ERRO] api_atualizar_frete_rodada2: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/cotacao/<int:cotacao_id>/adicionar-fornecedor-rodada2', methods=['POST'])
+def api_adicionar_fornecedor_rodada2(cotacao_id):
+    """
+    API para adicionar um novo fornecedor à segunda rodada de negociação.
+    Não sobrescreve fornecedores existentes na rodada 2.
+    """
+    try:
+        dados = request.get_json()
+        fornecedor_id = dados.get('fornecedor_id')
+        itens = dados.get('itens', [])
+        observacao_geral = dados.get('observacao', '')
+        desconto_global = float(dados.get('desconto_percentual', 0))
+        
+        if not fornecedor_id:
+            return jsonify({'success': False, 'error': 'Fornecedor é obrigatório'}), 400
+        
+        if not itens:
+            return jsonify({'success': False, 'error': 'Nenhum item para negociar'}), 400
+        
+        # Verificar se já existe rodada para este fornecedor
+        rodadas_existentes = db.obter_rodadas_negociacao(cotacao_id)
+        forn_ids_existentes = set(r['fornecedor_id'] for r in rodadas_existentes)
+        
+        # Se o fornecedor já está na rodada 2, podemos atualizar ou informar
+        if fornecedor_id in forn_ids_existentes:
+            # Opção: Excluir rodadas antigas do fornecedor e criar novas
+            db.excluir_rodadas_fornecedor(cotacao_id, fornecedor_id)
+        
         # Criar rodada para cada item
         rodadas_criadas = 0
         for item in itens:
@@ -8699,7 +10509,6 @@ def api_criar_rodada_negociacao(cotacao_id):
             preco_negociado = float(item.get('preco_negociado', 0))
             prazo_original = item.get('prazo_original')
             prazo_negociado = item.get('prazo_negociado')
-            # Desconto individual ou global
             desconto = float(item.get('desconto_percentual', desconto_global))
             
             if not item_id or preco_negociado <= 0:
@@ -8719,72 +10528,20 @@ def api_criar_rodada_negociacao(cotacao_id):
             )
             rodadas_criadas += 1
         
+        # Obter dados atualizados agrupados
+        dados_atualizados = db.obter_rodadas_agrupadas_por_fornecedor(cotacao_id)
+        
         return jsonify({
             'success': True,
-            'message': f'Rodada de negociação criada com {rodadas_criadas} item(ns)',
-            'rodadas_criadas': rodadas_criadas
+            'message': f'Fornecedor adicionado à Rodada 2 com {rodadas_criadas} item(ns)',
+            'rodadas_criadas': rodadas_criadas,
+            'dados_agrupados': dados_atualizados
         })
         
     except Exception as e:
-        print(f"[ERRO] api_criar_rodada_negociacao: {e}")
+        print(f"[ERRO] api_adicionar_fornecedor_rodada2: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/cotacao/rodada/<int:rodada_id>/editar', methods=['POST'])
-def api_editar_rodada_negociacao(rodada_id):
-    """API para editar uma rodada de negociação existente"""
-    try:
-        dados = request.get_json()
-        prazo_negociado = dados.get('prazo_negociado')
-        observacao = dados.get('observacao')
-        desconto_percentual = dados.get('desconto_percentual')
-        
-        # SEMPRE buscar o preço original da rodada para recalcular
-        conn = db.get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('SELECT preco_unitario_original FROM cotacao_rodadas_negociacao WHERE id = ?', (rodada_id,))
-        rodada = cursor.fetchone()
-        conn.close()
-        
-        if not rodada or not rodada['preco_unitario_original']:
-            return jsonify({'success': False, 'error': 'Rodada não encontrada ou sem preço original'}), 404
-        
-        preco_original = float(rodada['preco_unitario_original'])
-        desconto = float(desconto_percentual) if desconto_percentual is not None else 0.0
-        
-        # SEMPRE recalcular preço com desconto (se desconto = 0, preço = original)
-        preco_negociado = preco_original * (1 - desconto / 100)
-        print(f"[NEGOCIAÇÃO] Rodada {rodada_id}: Original={preco_original}, Desconto={desconto}%, Negociado={preco_negociado}")
-        
-        db.atualizar_rodada_negociacao(
-            rodada_id=rodada_id,
-            preco_negociado=preco_negociado,
-            prazo_negociado=int(prazo_negociado) if prazo_negociado is not None else None,
-            observacao=observacao,
-            desconto_percentual=desconto
-        )
-        
-        return jsonify({
-            'success': True, 
-            'message': 'Rodada atualizada com sucesso',
-            'preco_negociado': preco_negociado,
-            'economia': preco_original - preco_negociado
-        })
-        
-    except Exception as e:
-        print(f"[ERRO] api_editar_rodada_negociacao: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/cotacao/rodada/<int:rodada_id>/excluir', methods=['POST'])
-def api_excluir_rodada_negociacao(rodada_id):
-    """API para excluir uma rodada de negociação"""
-    try:
-        db.excluir_rodada_negociacao(rodada_id)
-        return jsonify({'success': True, 'message': 'Rodada excluída com sucesso'})
-    except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -8803,50 +10560,129 @@ from werkzeug.utils import secure_filename
 UPLOAD_FOLDER_ISO = os.path.join(os.path.dirname(__file__), 'uploads', 'avaliacao_iso')
 os.makedirs(UPLOAD_FOLDER_ISO, exist_ok=True)
 
-# Extensões permitidas para upload
-ALLOWED_EXTENSIONS_ISO = {'pdf'}
+# Extensões permitidas para upload de documentos ISO
+ALLOWED_EXTENSIONS_ISO = {'pdf', 'doc', 'docx'}
 
 def allowed_file_iso(filename):
-    """Verifica se a extensão do arquivo é permitida"""
+    """Verifica se a extensão do arquivo é permitida (PDF, DOC, DOCX)"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS_ISO
+
+def get_file_extension(filename):
+    """Retorna a extensão do arquivo em minúsculas"""
+    return filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+
+
+def normalizar_data_para_iso(data_str):
+    """
+    Normaliza uma string de data para o formato DD/MM/YYYY (padrão brasileiro).
+    Aceita múltiplos formatos de entrada.
+    
+    Args:
+        data_str: String de data em qualquer formato suportado
+    
+    Returns:
+        String no formato DD/MM/YYYY ou None se inválido
+    """
+    if not data_str or data_str == '-':
+        return None
+    
+    if isinstance(data_str, datetime):
+        return data_str.strftime('%d/%m/%Y')
+    
+    data_str = str(data_str).strip()[:10]  # Pegar apenas a parte da data
+    
+    # Se já está no formato DD/MM/YYYY, validar e retornar
+    if len(data_str) == 10 and data_str[2] == '/' and data_str[5] == '/':
+        try:
+            datetime.strptime(data_str, '%d/%m/%Y')
+            return data_str
+        except:
+            pass
+    
+    # Se está no formato YYYY-MM-DD, converter para DD/MM/YYYY
+    if len(data_str) == 10 and data_str[4] == '-' and data_str[7] == '-':
+        try:
+            dt = datetime.strptime(data_str, '%Y-%m-%d')
+            return dt.strftime('%d/%m/%Y')
+        except:
+            pass
+    
+    # Tentar formato brasileiro DD/MM/YYYY ou DD-MM-YYYY ou DD.MM.YYYY
+    import re
+    match = re.match(r'^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$', data_str)
+    if match:
+        dia = int(match.group(1))
+        mes = int(match.group(2))
+        ano = int(match.group(3))
+        
+        # Converter ano de 2 dígitos
+        if ano < 100:
+            ano = 2000 + ano if ano <= 99 else ano
+        
+        # Validar
+        if 1 <= dia <= 31 and 1 <= mes <= 12 and 1900 <= ano <= 2100:
+            try:
+                data_obj = datetime(ano, mes, dia)
+                return data_obj.strftime('%d/%m/%Y')
+            except:
+                pass
+    
+    return None
 
 
 def calcular_status_avaliacao(data_vencimento):
     """
     Calcula o status da avaliação baseado na data de vencimento.
     
-    Retorna:
-        - 'valido': Data > 30 dias no futuro (verde)
-        - 'proximo': Data entre hoje e 30 dias no futuro (amarelo)
-        - 'vencido': Data no passado (vermelho)
-        - 'indefinido': Sem data de vencimento
+    Aceita datas no formato DD/MM/YYYY ou YYYY-MM-DD.
+    
+    Retorna tupla (status, dias_restantes):
+        - ('vencido', dias_negativos): Data atual > data de vencimento (vermelho forte)
+        - ('proximo', dias_restantes): Faltam 30 dias ou menos (amarelo/alerta)
+        - ('valido', dias_restantes): Faltam mais de 30 dias (verde/normal)
+        - ('indefinido', None): Sem data de vencimento ou formato inválido
     """
     if not data_vencimento:
-        return 'indefinido'
+        return ('indefinido', None)
     
     try:
-        if isinstance(data_vencimento, str):
-            data_venc = datetime.strptime(data_vencimento, '%Y-%m-%d').date()
+        data_str = str(data_vencimento).strip()
+        
+        # Tentar formato DD/MM/YYYY
+        if len(data_str) >= 10 and data_str[2] == '/' and data_str[5] == '/':
+            data_venc = datetime.strptime(data_str[:10], '%d/%m/%Y').date()
+        # Tentar formato YYYY-MM-DD
+        elif len(data_str) >= 10 and data_str[4] == '-' and data_str[7] == '-':
+            data_venc = datetime.strptime(data_str[:10], '%Y-%m-%d').date()
         else:
-            data_venc = data_vencimento
+            return ('indefinido', None)
         
         hoje = datetime.now().date()
         dias_restantes = (data_venc - hoje).days
         
         if dias_restantes < 0:
-            return 'vencido'
+            # Vencido
+            return ('vencido', dias_restantes)
         elif dias_restantes <= 30:
-            return 'proximo'
+            # Próximo do vencimento (30 dias ou menos)
+            return ('proximo', dias_restantes)
         else:
-            return 'valido'
-    except:
-        return 'indefinido'
+            # Válido (mais de 30 dias)
+            return ('valido', dias_restantes)
+            
+    except Exception as e:
+        print(f"[WARN] Erro ao calcular status para data '{data_vencimento}': {e}")
+        return ('indefinido', None)
 
 
 @app.route('/avaliacao-iso')
 def avaliacao_iso():
     """Página principal da Avaliação de Fornecedores - ISO (PQ021)"""
+    # Define usuário (Admin se não logado - sistema interno não requer login)
     user = session.get('user', 'Admin')
+    # Garante que 'user' esteja na sessão para as APIs funcionarem
+    if 'user' not in session:
+        session['user'] = 'Admin'
     
     try:
         # Buscar todas as avaliações
@@ -8854,11 +10690,17 @@ def avaliacao_iso():
         
         # Calcular status e enriquecer dados
         for av in avaliacoes:
-            av['status'] = calcular_status_avaliacao(av.get('data_vencimento'))
+            # Normalizar datas para formato DD/MM/YYYY
+            if av.get('data_ultima_avaliacao'):
+                av['data_ultima_avaliacao'] = normalizar_data_para_iso(av['data_ultima_avaliacao'])
+            if av.get('data_vencimento'):
+                av['data_vencimento'] = normalizar_data_para_iso(av['data_vencimento'])
+            
+            # Calcular status e dias restantes
+            status, dias_restantes = calcular_status_avaliacao(av.get('data_vencimento'))
+            av['status'] = status
+            av['dias_restantes'] = dias_restantes
             av['documentos'] = db.listar_documentos_avaliacao_iso(av['id'])
-            av['total_emails'] = db.contar_emails_enviados_avaliacao(av['id'])
-            ultimo_email = db.obter_ultimo_email_avaliacao(av['id'])
-            av['ultimo_email'] = ultimo_email['data_envio'] if ultimo_email else None
         
         # Contar KPIs
         total = len(avaliacoes)
@@ -8885,7 +10727,7 @@ def avaliacao_iso():
         return render_template('avaliacao_iso.html', 
                               user=user, 
                               avaliacoes=[],
-                              kpis={'total': 0, 'validos': 0, 'proximos': 0, 'vencidos': 0},
+                              kpis={'total': 0, 'validos': 0, 'invalidos': 0},
                               erro=str(e))
 
 
@@ -8909,12 +10751,27 @@ def api_criar_avaliacao_iso():
         if existente:
             return jsonify({'success': False, 'error': 'Fornecedor já cadastrado na avaliação ISO'})
         
+        # Validar e normalizar datas
+        data_ultima_avaliacao = None
+        data_aval_str = dados.get('data_ultima_avaliacao')
+        if data_aval_str:
+            data_ultima_avaliacao = normalizar_data_para_iso(data_aval_str)
+            if not data_ultima_avaliacao:
+                return jsonify({'success': False, 'error': f'Data da Última Avaliação inválida: "{data_aval_str}". Verifique se a data existe.'}), 400
+        
+        data_vencimento = None
+        data_venc_str = dados.get('data_vencimento')
+        if data_venc_str:
+            data_vencimento = normalizar_data_para_iso(data_venc_str)
+            if not data_vencimento:
+                return jsonify({'success': False, 'error': f'Data de Vencimento inválida: "{data_venc_str}". Verifique se a data existe (ex: 29/02 só existe em anos bissextos).'}), 400
+        
         avaliacao_id = db.criar_avaliacao_iso(
             cod_fornecedor=cod_fornecedor,
             nome_fornecedor=nome_fornecedor,
             email_fornecedor=dados.get('email_fornecedor', '').strip() or None,
-            data_ultima_avaliacao=dados.get('data_ultima_avaliacao') or None,
-            data_vencimento=dados.get('data_vencimento') or None,
+            data_ultima_avaliacao=data_ultima_avaliacao,
+            data_vencimento=data_vencimento,
             possui_iso=dados.get('possui_iso', 'Nao'),
             nota=float(dados.get('nota')) if dados.get('nota') else None,
             observacao=dados.get('observacao', '').strip() or None,
@@ -8928,6 +10785,8 @@ def api_criar_avaliacao_iso():
     
     except Exception as e:
         print(f"[ERRO] api_criar_avaliacao_iso: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -8948,9 +10807,23 @@ def api_atualizar_avaliacao_iso(avaliacao_id):
         if 'email_fornecedor' in dados:
             campos['email_fornecedor'] = dados['email_fornecedor'].strip() or None
         if 'data_ultima_avaliacao' in dados:
-            campos['data_ultima_avaliacao'] = dados['data_ultima_avaliacao'] or None
+            data_aval = dados['data_ultima_avaliacao']
+            if data_aval:
+                data_normalizada = normalizar_data_para_iso(data_aval)
+                if not data_normalizada:
+                    return jsonify({'success': False, 'error': f'Data da Última Avaliação inválida: "{data_aval}". Verifique se a data existe (ex: 29/02 só existe em anos bissextos).'}), 400
+                campos['data_ultima_avaliacao'] = data_normalizada
+            else:
+                campos['data_ultima_avaliacao'] = None
         if 'data_vencimento' in dados:
-            campos['data_vencimento'] = dados['data_vencimento'] or None
+            data_venc = dados['data_vencimento']
+            if data_venc:
+                data_normalizada = normalizar_data_para_iso(data_venc)
+                if not data_normalizada:
+                    return jsonify({'success': False, 'error': f'Data de Vencimento inválida: "{data_venc}". Verifique se a data existe (ex: 29/02 só existe em anos bissextos).'}), 400
+                campos['data_vencimento'] = data_normalizada
+            else:
+                campos['data_vencimento'] = None
         if 'possui_iso' in dados:
             campos['possui_iso'] = dados['possui_iso']
         if 'nota' in dados:
@@ -8966,6 +10839,27 @@ def api_atualizar_avaliacao_iso(avaliacao_id):
     
     except Exception as e:
         print(f"[ERRO] api_atualizar_avaliacao_iso: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/avaliacao-iso/<int:avaliacao_id>/observacao', methods=['POST'])
+def api_atualizar_observacao_iso(avaliacao_id):
+    """API para atualizar apenas a observação de um fornecedor (bloco de notas)"""
+    if 'user' not in session:
+        session['user'] = 'Admin'
+    
+    try:
+        dados = request.get_json()
+        observacao = dados.get('observacao', '').strip() or None
+        
+        db.atualizar_avaliacao_iso(avaliacao_id, 
+                                   observacao=observacao, 
+                                   atualizado_por=session['user'])
+        
+        return jsonify({'success': True, 'message': 'Observação salva com sucesso'})
+    
+    except Exception as e:
+        print(f"[ERRO] api_atualizar_observacao_iso: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -8996,9 +10890,24 @@ def api_excluir_avaliacao_iso(avaliacao_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/avaliacao-iso/<int:avaliacao_id>/upload', methods=['POST'])
-def api_upload_documento_iso(avaliacao_id):
-    """API para upload de documento (PDF) de avaliação ISO"""
+# ============================================================================
+# IMPORTAÇÃO EM MASSA DE AVALIAÇÃO ISO VIA EXCEL
+# ============================================================================
+
+@app.route('/api/avaliacao-iso/importar-excel', methods=['POST'])
+def api_importar_excel_avaliacao_iso():
+    """
+    API para importação em massa de Avaliação ISO via arquivo Excel.
+    
+    Estrutura esperada do Excel:
+    - Linha 1: Cabeçalho (ignorada)
+    - Coluna A: Nome do Fornecedor
+    - Coluna B: Data de Avaliação
+    - Coluna D: Data de Vencimento
+    - Coluna E: Possui Certificado ISO (Sim / Não)
+    
+    Retorna relatório detalhado da importação.
+    """
     if 'user' not in session:
         return jsonify({'success': False, 'error': 'Não autenticado'}), 401
     
@@ -9007,13 +10916,236 @@ def api_upload_documento_iso(avaliacao_id):
             return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'})
         
         arquivo = request.files['arquivo']
-        tipo_documento = request.form.get('tipo_documento', 'avaliacao')
+        
+        if arquivo.filename == '':
+            return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'})
+        
+        # Verificar extensão
+        if not arquivo.filename.lower().endswith(('.xlsx', '.xls')):
+            return jsonify({'success': False, 'error': 'Formato inválido. Envie um arquivo Excel (.xlsx ou .xls)'})
+        
+        # Ler o arquivo Excel
+        from openpyxl import load_workbook
+        from io import BytesIO
+        
+        conteudo = BytesIO(arquivo.read())
+        wb = load_workbook(conteudo, data_only=True)
+        ws = wb.active
+        
+        # Conectar ao TOTVS para buscar fornecedores
+        server = '172.16.45.117\\TOTVS'
+        database = 'TOTVSDB'
+        username = 'excel'
+        password = 'Db_Polimaquinas'
+        
+        conn_str = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
+        conn_totvs = pyodbc.connect(conn_str, timeout=60)
+        cursor_totvs = conn_totvs.cursor()
+        
+        # Estatísticas
+        total_linhas = 0
+        importados = 0
+        ja_existentes = 0
+        nao_encontrados = []
+        erros = []
+        
+        # Processar linhas (ignorando cabeçalho)
+        for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            # Verificar se a linha tem dados
+            if not row or not row[0]:
+                continue
+            
+            total_linhas += 1
+            
+            # Coluna A: Nome do Fornecedor
+            nome_fornecedor = str(row[0]).strip() if row[0] else ''
+            
+            # Coluna B: Data de Avaliação
+            data_avaliacao = None
+            if len(row) > 1 and row[1]:
+                data_avaliacao = tratar_data_excel(row[1])
+            
+            # Coluna D: Data de Vencimento (índice 3)
+            data_vencimento = None
+            if len(row) > 3 and row[3]:
+                data_vencimento = tratar_data_excel(row[3])
+            
+            # Coluna E: Possui ISO (índice 4)
+            possui_iso = 'Nao'
+            if len(row) > 4 and row[4]:
+                valor_iso = str(row[4]).strip().lower()
+                if valor_iso in ['sim', 's', 'yes', 'y', '1', 'true', 'x']:
+                    possui_iso = 'Sim'
+            
+            if not nome_fornecedor:
+                erros.append({
+                    'linha': row_num,
+                    'nome': '(vazio)',
+                    'motivo': 'Nome do fornecedor vazio'
+                })
+                continue
+            
+            # Buscar fornecedor no TOTVS pelo nome
+            try:
+                # Busca por nome exato ou similar
+                query = """
+                SELECT TOP 1
+                    RTRIM(A2_COD) AS codigo,
+                    RTRIM(A2_NOME) AS nome,
+                    RTRIM(ISNULL(A2_EMAIL, '')) AS email
+                FROM SA2010
+                WHERE D_E_L_E_T_ = ''
+                  AND A2_MSBLQL <> '1'
+                  AND UPPER(A2_NOME) LIKE UPPER(?)
+                ORDER BY 
+                    CASE WHEN UPPER(A2_NOME) = UPPER(?) THEN 0 ELSE 1 END,
+                    A2_NOME
+                """
+                # Busca exata primeiro, depois com %
+                cursor_totvs.execute(query, (f'%{nome_fornecedor}%', nome_fornecedor))
+                fornecedor = cursor_totvs.fetchone()
+                
+                if not fornecedor:
+                    nao_encontrados.append({
+                        'linha': row_num,
+                        'nome': nome_fornecedor,
+                        'motivo': 'Fornecedor não encontrado no cadastro TOTVS'
+                    })
+                    continue
+                
+                cod_fornecedor = fornecedor.codigo
+                nome_totvs = fornecedor.nome
+                email_fornecedor = fornecedor.email if fornecedor.email else None
+                
+                # Verificar se já existe na avaliação ISO
+                existente = db.obter_avaliacao_iso_por_fornecedor(cod_fornecedor)
+                if existente:
+                    ja_existentes += 1
+                    continue
+                
+                # Criar avaliação ISO
+                avaliacao_id = db.criar_avaliacao_iso(
+                    cod_fornecedor=cod_fornecedor,
+                    nome_fornecedor=nome_totvs,
+                    email_fornecedor=email_fornecedor,
+                    data_ultima_avaliacao=data_avaliacao,
+                    data_vencimento=data_vencimento,
+                    possui_iso=possui_iso,
+                    nota=None,
+                    observacao=f'Importado via Excel em {datetime.now().strftime("%d/%m/%Y %H:%M")}',
+                    usuario=session['user']
+                )
+                
+                if avaliacao_id:
+                    importados += 1
+                else:
+                    erros.append({
+                        'linha': row_num,
+                        'nome': nome_fornecedor,
+                        'motivo': 'Erro ao inserir no banco de dados'
+                    })
+                    
+            except Exception as e_linha:
+                erros.append({
+                    'linha': row_num,
+                    'nome': nome_fornecedor,
+                    'motivo': f'Erro: {str(e_linha)}'
+                })
+        
+        # Fechar conexão TOTVS
+        conn_totvs.close()
+        
+        # Montar relatório
+        return jsonify({
+            'success': True,
+            'relatorio': {
+                'total_linhas': total_linhas,
+                'importados': importados,
+                'ja_existentes': ja_existentes,
+                'nao_encontrados': len(nao_encontrados),
+                'erros': len(erros),
+                'detalhes_nao_encontrados': nao_encontrados[:50],  # Limitar a 50 para não sobrecarregar
+                'detalhes_erros': erros[:50]
+            },
+            'message': f'Importação concluída: {importados} fornecedores importados com sucesso.'
+        })
+        
+    except Exception as e:
+        print(f"[ERRO] api_importar_excel_avaliacao_iso: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def tratar_data_excel(valor):
+    """
+    Trata valores de data vindos do Excel.
+    Pode ser datetime, string ou número serial do Excel.
+    Retorna formato YYYY-MM-DD ou None.
+    """
+    if valor is None:
+        return None
+    
+    try:
+        # Se já é datetime
+        if isinstance(valor, datetime):
+            return valor.strftime('%Y-%m-%d')
+        
+        # Se é date
+        from datetime import date
+        if isinstance(valor, date):
+            return valor.strftime('%Y-%m-%d')
+        
+        # Se é número (serial do Excel)
+        if isinstance(valor, (int, float)):
+            from datetime import timedelta
+            # Excel usa 1/1/1900 como base (com bug do ano bissexto)
+            base = datetime(1899, 12, 30)
+            return (base + timedelta(days=valor)).strftime('%Y-%m-%d')
+        
+        # Se é string
+        valor_str = str(valor).strip()
+        if not valor_str:
+            return None
+        
+        # Tentar diversos formatos
+        formatos = [
+            '%d/%m/%Y', '%d-%m-%Y', '%Y-%m-%d', '%Y/%m/%d',
+            '%d/%m/%y', '%d-%m-%y', '%m/%d/%Y', '%m-%d-%Y'
+        ]
+        
+        for fmt in formatos:
+            try:
+                return datetime.strptime(valor_str, fmt).strftime('%Y-%m-%d')
+            except ValueError:
+                continue
+        
+        return None
+        
+    except Exception as e:
+        print(f"[WARN] Erro ao tratar data '{valor}': {e}")
+        return None
+
+
+@app.route('/api/avaliacao-iso/<int:avaliacao_id>/upload', methods=['POST'])
+def api_upload_documento_iso(avaliacao_id):
+    """API para upload de documento (PDF, DOC, DOCX) de avaliação ISO"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Não autenticado'}), 401
+    
+    try:
+        if 'arquivo' not in request.files:
+            return jsonify({'success': False, 'error': 'Nenhum arquivo enviado'})
+        
+        arquivo = request.files['arquivo']
+        tipo_documento = request.form.get('tipo_documento', 'relatorio_avaliacao')
+        nome_documento = request.form.get('nome_documento', '').strip()
         
         if arquivo.filename == '':
             return jsonify({'success': False, 'error': 'Nenhum arquivo selecionado'})
         
         if not allowed_file_iso(arquivo.filename):
-            return jsonify({'success': False, 'error': 'Apenas arquivos PDF são permitidos'})
+            return jsonify({'success': False, 'error': 'Apenas arquivos PDF, DOC ou DOCX são permitidos'})
         
         # Verificar se avaliação existe
         avaliacao = db.obter_avaliacao_iso(avaliacao_id)
@@ -9026,12 +11158,20 @@ def api_upload_documento_iso(avaliacao_id):
         
         # Gerar nome único para o arquivo
         nome_original = secure_filename(arquivo.filename)
+        extensao = get_file_extension(arquivo.filename)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         nome_arquivo = f"{tipo_documento}_{timestamp}_{nome_original}"
         caminho_completo = os.path.join(pasta_fornecedor, nome_arquivo)
         
         # Salvar arquivo
         arquivo.save(caminho_completo)
+        
+        # Obter tamanho do arquivo
+        tamanho_bytes = os.path.getsize(caminho_completo)
+        
+        # Se não foi fornecido nome personalizado, usar nome original sem extensão
+        if not nome_documento:
+            nome_documento = nome_original.rsplit('.', 1)[0] if '.' in nome_original else nome_original
         
         # Registrar no banco
         doc_id = db.criar_documento_avaliacao_iso(
@@ -9040,13 +11180,16 @@ def api_upload_documento_iso(avaliacao_id):
             nome_original=nome_original,
             nome_arquivo=nome_arquivo,
             caminho_arquivo=caminho_completo,
-            usuario=session['user']
+            usuario=session['user'],
+            nome_documento=nome_documento,
+            extensao=extensao,
+            tamanho_bytes=tamanho_bytes
         )
         
         return jsonify({
             'success': True, 
             'id': doc_id,
-            'message': f'Documento "{nome_original}" enviado com sucesso'
+            'message': f'Documento "{nome_documento}" enviado com sucesso'
         })
     
     except Exception as e:
@@ -9082,6 +11225,988 @@ def api_download_documento_iso(documento_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/avaliacao-iso/documento/<int:documento_id>/preview-html')
+def api_preview_word_como_html(documento_id):
+    """
+    API para pré-visualização de documentos Word como HTML.
+    Extrai o conteúdo do DOCX e retorna HTML formatado para visualização.
+    NUNCA força download - sempre retorna conteúdo para visualização.
+    """
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Não autenticado'}), 401
+    
+    try:
+        documento = db.obter_documento_avaliacao_iso(documento_id)
+        if not documento:
+            return jsonify({'success': False, 'error': 'Documento não encontrado'}), 404
+        
+        caminho = documento['caminho_arquivo']
+        if not os.path.exists(caminho):
+            return jsonify({'success': False, 'error': 'Arquivo não encontrado no servidor'}), 404
+        
+        extensao = documento.get('extensao') or documento['nome_original'].rsplit('.', 1)[-1].lower()
+        
+        if extensao not in ['doc', 'docx']:
+            return jsonify({'success': False, 'error': 'Formato não suportado'}), 400
+        
+        # Extrair conteúdo do Word como HTML
+        try:
+            html_content = extrair_conteudo_word_html(caminho)
+        except Exception as extract_err:
+            print(f"[WARN] Falha na extração HTML: {extract_err}")
+            html_content = f'''<div class="alert alert-warning" style="margin: 20px;">
+                <h5><i class="fas fa-file-word me-2"></i>Documento Word</h5>
+                <p>Não foi possível extrair o conteúdo para visualização.</p>
+                <p class="mb-0"><strong>Use o botão "Baixar Arquivo"</strong> para abrir no Microsoft Word.</p>
+            </div>'''
+        
+        return jsonify({
+            'success': True,
+            'nome': documento['nome_original'],
+            'html': html_content,
+            'download_url': f'/api/avaliacao-iso/documento/{documento_id}/download'
+        })
+    
+    except Exception as e:
+        print(f"[ERRO] api_preview_word_como_html: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False, 
+            'error': str(e),
+            'html': f'<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>Erro ao processar documento: {str(e)}</div>'
+        }), 500
+
+
+def extrair_conteudo_word_html(caminho_docx):
+    """
+    Extrai o conteúdo COMPLETO de um documento Word usando acesso direto ao XML.
+    Captura: texto, form fields (campos de formulário), checkboxes, datas, content controls.
+    Suporta .docx (ZIP+XML) e .doc (fallback via win32com ou texto bruto).
+    """
+    import html as html_module
+    
+    # Verificar se o arquivo existe e é legível
+    if not os.path.exists(caminho_docx):
+        return f'<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Arquivo não encontrado no servidor.</div>'
+    
+    # Verificar extensão
+    ext = caminho_docx.rsplit('.', 1)[-1].lower() if '.' in caminho_docx else ''
+    
+    # Para arquivos .doc antigos, usar método específico (win32com no Windows)
+    if ext == 'doc':
+        # Tentar extrair usando win32com primeiro
+        resultado = extrair_conteudo_doc_antigo(caminho_docx)
+        if resultado:
+            return resultado
+        # Se falhou, tentar python-docx (pode funcionar para alguns .doc)
+        return extrair_conteudo_word_completo(caminho_docx)
+    
+    try:
+        import zipfile
+        
+        # Verificar se é um ZIP válido (docx é um zip)
+        if not zipfile.is_zipfile(caminho_docx):
+            print(f"[EXTRAIR HTML] Arquivo não é um ZIP/DOCX válido: {caminho_docx}")
+            return extrair_conteudo_word_completo(caminho_docx)
+        
+        # Tentar importar lxml para parsing avançado
+        try:
+            from lxml import etree
+        except ImportError:
+            print("[EXTRAIR HTML] lxml não disponível, usando fallback python-docx")
+            return extrair_conteudo_word_completo(caminho_docx)
+        
+        # Namespaces do Word OpenXML
+        NS = {
+            'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+            'w14': 'http://schemas.microsoft.com/office/word/2010/wordml',
+            'w15': 'http://schemas.microsoft.com/office/word/2012/wordml'
+        }
+        W_NS = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+        
+        # Abrir o DOCX como ZIP e ler o document.xml diretamente
+        with zipfile.ZipFile(caminho_docx, 'r') as docx_zip:
+            xml_content = docx_zip.read('word/document.xml')
+        
+        root = etree.fromstring(xml_content)
+        body = root.find('.//w:body', NS)
+        
+        if body is None:
+            return extrair_conteudo_word_simples(caminho_docx)
+        
+        html_parts = ['<div class="word-preview-content" style="font-family: Calibri, Arial, sans-serif; line-height: 1.6; color: #333;">']
+        
+        def get_localname(elem):
+            """Retorna o nome local do tag sem namespace."""
+            if isinstance(elem.tag, str) and '}' in elem.tag:
+                return elem.tag.split('}')[1]
+            return elem.tag if isinstance(elem.tag, str) else ''
+        
+        def extract_all_text_and_fields(element):
+            """
+            Extrai TODO o texto visível de um elemento XML, incluindo:
+            - Texto normal (<w:t>)
+            - Valores de form fields (legacy fields)
+            - Checkboxes (☑ ou ☐)
+            - Content controls
+            - Símbolos Wingdings
+            """
+            texts = []
+            in_form_field = False
+            in_result_section = False
+            
+            for node in element.iter():
+                tag = get_localname(node)
+                
+                # === TEXTO NORMAL ===
+                if tag == 't' and node.text:
+                    texts.append(node.text)
+                
+                # === FORM FIELDS (Legacy) ===
+                # fldChar marca início/meio/fim de campos de formulário
+                elif tag == 'fldChar':
+                    fld_type = node.get(f'{W_NS}fldCharType')
+                    if fld_type == 'begin':
+                        in_form_field = True
+                    elif fld_type == 'separate':
+                        in_result_section = True  # O valor vem depois do "separate"
+                    elif fld_type == 'end':
+                        in_form_field = False
+                        in_result_section = False
+                
+                # === CHECKBOX em ffData ===
+                elif tag == 'checkBox':
+                    checked = False
+                    for child in node:
+                        child_tag = get_localname(child)
+                        if child_tag == 'checked':
+                            val = child.get(f'{W_NS}val')
+                            checked = val in ['1', 'true', 'on', None]  # None = tag presente sem valor = checked
+                        elif child_tag == 'default' and not checked:
+                            val = child.get(f'{W_NS}val')
+                            checked = val in ['1', 'true', 'on']
+                    texts.append('☑' if checked else '☐')
+                
+                # === CONTENT CONTROL CHECKBOX (Word 2010+) ===
+                elif tag == 'checked' and 'w14' in (node.prefix or ''):
+                    val = node.get('{http://schemas.microsoft.com/office/word/2010/wordml}val')
+                    if val in ['1', 'true']:
+                        texts.append('☑')
+                    else:
+                        texts.append('☐')
+                
+                # === SÍMBOLOS (Wingdings checkboxes) ===
+                elif tag == 'sym':
+                    char_code = node.get(f'{W_NS}char', '')
+                    font = node.get(f'{W_NS}font', '').lower()
+                    
+                    if char_code:
+                        code_upper = char_code.upper()
+                        # Códigos comuns de checkbox marcado
+                        if code_upper in ['F0FE', '00FE', 'F052', '0052', 'F0FC', '00FC', '00D8']:
+                            texts.append('☑')
+                        # Códigos comuns de checkbox desmarcado  
+                        elif code_upper in ['F0A8', '00A8', 'F06F', '006F', 'F0A1', '00A1', '00A3']:
+                            texts.append('☐')
+                        elif 'wingding' in font:
+                            # Tentar interpretar pelo código numérico
+                            try:
+                                code_int = int(char_code, 16)
+                                if code_int in [254, 252, 82, 216]:  # Checked
+                                    texts.append('☑')
+                                elif code_int in [168, 111, 161, 163]:  # Unchecked
+                                    texts.append('☐')
+                            except:
+                                pass
+            
+            return ''.join(texts)
+        
+        def process_paragraph(p_elem):
+            """Processa um parágrafo e retorna HTML formatado."""
+            text = extract_all_text_and_fields(p_elem).strip()
+            
+            if not text:
+                return '<p style="margin: 6px 0; min-height: 1em;">&nbsp;</p>'
+            
+            text_escaped = html_module.escape(text)
+            
+            # Converter checkboxes para HTML colorido
+            text_escaped = text_escaped.replace('☑', '<span style="color: #198754; font-weight: bold; font-size: 18px;">☑</span>')
+            text_escaped = text_escaped.replace('☐', '<span style="color: #6c757d; font-size: 18px;">☐</span>')
+            
+            # Verificar estilo do parágrafo
+            pPr = p_elem.find('w:pPr', NS)
+            if pPr is not None:
+                pStyle = pPr.find('w:pStyle', NS)
+                if pStyle is not None:
+                    style_val = (pStyle.get(f'{W_NS}val') or '').lower()
+                    if 'heading1' in style_val or 'ttulo1' in style_val or 'titulo1' in style_val:
+                        return f'<h1 style="font-size: 22px; font-weight: bold; margin: 20px 0 10px 0; color: #0d6efd; border-bottom: 2px solid #0d6efd; padding-bottom: 5px;">{text_escaped}</h1>'
+                    elif 'heading2' in style_val or 'ttulo2' in style_val or 'titulo2' in style_val:
+                        return f'<h2 style="font-size: 18px; font-weight: bold; margin: 16px 0 8px 0; color: #495057;">{text_escaped}</h2>'
+                    elif 'heading' in style_val or 'ttulo' in style_val or 'titulo' in style_val:
+                        return f'<h3 style="font-size: 16px; font-weight: bold; margin: 14px 0 6px 0; color: #495057;">{text_escaped}</h3>'
+            
+            # Destacar campos do tipo "Label: Valor"
+            if ':' in text and len(text) < 200:
+                # Verificar se parece um campo de formulário
+                colon_pos = text.find(':')
+                label_part = text[:colon_pos].strip()
+                value_part = text[colon_pos+1:].strip()
+                
+                # Se tem valor após os dois pontos, formatar como campo
+                if value_part and len(label_part) < 80:
+                    label_escaped = html_module.escape(label_part)
+                    value_escaped = html_module.escape(value_part)
+                    value_escaped = value_escaped.replace('☑', '<span style="color: #198754; font-weight: bold; font-size: 18px;">☑</span>')
+                    value_escaped = value_escaped.replace('☐', '<span style="color: #6c757d; font-size: 18px;">☐</span>')
+                    return f'<p style="margin: 10px 0; padding: 8px; background: #f8f9fa; border-left: 3px solid #0d6efd; border-radius: 4px;"><strong>{label_escaped}:</strong> <span style="color: #0d6efd; font-weight: 500;">{value_escaped}</span></p>'
+            
+            # Verificar se é pergunta numerada (1), 2), etc.)
+            if text and len(text) > 2 and text[0].isdigit() and ')' in text[:5]:
+                return f'<p style="margin: 12px 0; font-weight: 500; color: #212529;">{text_escaped}</p>'
+            
+            return f'<p style="margin: 8px 0;">{text_escaped}</p>'
+        
+        def process_table(tbl_elem):
+            """Processa uma tabela e retorna HTML."""
+            html = ['<table style="width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 14px;">']
+            
+            rows = tbl_elem.findall('.//w:tr', NS)
+            for i, row in enumerate(rows):
+                html.append('<tr>')
+                cells = row.findall('.//w:tc', NS)
+                for cell in cells:
+                    cell_text = extract_all_text_and_fields(cell).strip()
+                    cell_escaped = html_module.escape(cell_text)
+                    cell_escaped = cell_escaped.replace('☑', '<span style="color: #198754;">☑</span>')
+                    cell_escaped = cell_escaped.replace('☐', '<span style="color: #6c757d;">☐</span>')
+                    
+                    if i == 0:
+                        html.append(f'<th style="border: 1px solid #dee2e6; padding: 10px; background-color: #e9ecef; font-weight: bold; text-align: left;">{cell_escaped}</th>')
+                    else:
+                        html.append(f'<td style="border: 1px solid #dee2e6; padding: 10px;">{cell_escaped}</td>')
+                html.append('</tr>')
+            
+            html.append('</table>')
+            return ''.join(html)
+        
+        def process_sdt(sdt_elem):
+            """Processa um Content Control (SDT) e retorna HTML."""
+            # Extrair conteúdo do SDT
+            sdt_content = sdt_elem.find('.//w:sdtContent', NS)
+            if sdt_content is not None:
+                parts = []
+                for child in sdt_content:
+                    tag = get_localname(child)
+                    if tag == 'p':
+                        parts.append(process_paragraph(child))
+                    elif tag == 'tbl':
+                        parts.append(process_table(child))
+                    elif tag == 'r':  # Run dentro de SDT
+                        text = extract_all_text_and_fields(child).strip()
+                        if text:
+                            parts.append(text)
+                return ''.join(parts) if parts else ''
+            return ''
+        
+        # === PROCESSAR TODOS OS ELEMENTOS DO BODY ===
+        for elem in body:
+            tag = get_localname(elem)
+            
+            if tag == 'p':
+                html_parts.append(process_paragraph(elem))
+            elif tag == 'tbl':
+                html_parts.append(process_table(elem))
+            elif tag == 'sdt':
+                sdt_html = process_sdt(elem)
+                if sdt_html:
+                    html_parts.append(sdt_html)
+            elif tag == 'sectPr':
+                # Propriedades de seção - ignorar
+                pass
+        
+        html_parts.append('</div>')
+        
+        result = ''.join(html_parts)
+        
+        # Se extraiu muito pouco conteúdo, tentar método alternativo
+        if len(result) < 150:
+            result = extrair_conteudo_word_completo(caminho_docx)
+        
+        return result
+        
+    except Exception as e:
+        print(f"[EXTRAIR HTML] Erro: {e}")
+        import traceback
+        traceback.print_exc()
+        return extrair_conteudo_word_completo(caminho_docx)
+
+
+def extrair_conteudo_word_completo(caminho_docx):
+    """
+    Extração completa usando python-docx e lxml (se disponível).
+    Captura TODO o texto visível, incluindo form fields e content controls.
+    """
+    try:
+        from docx import Document
+        import html as html_module
+        
+        # Tentar lxml opcionalmente
+        try:
+            from lxml import etree
+            tem_lxml = True
+        except ImportError:
+            tem_lxml = False
+        
+        doc = Document(caminho_docx)
+        html_parts = ['<div class="word-preview-complete" style="font-family: Calibri, Arial, sans-serif; line-height: 1.8; color: #333; padding: 10px;">']
+        
+        # Namespace do Word
+        nsmap = {
+            'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+            'w14': 'http://schemas.microsoft.com/office/word/2010/wordml'
+        }
+        
+        # Extrair todo o texto do body
+        body = doc.element.body
+        
+        for elem in body:
+            # Parágrafos
+            if elem.tag.endswith('}p'):
+                # Coletar todo texto do parágrafo
+                texts = []
+                for t in elem.iter():
+                    if t.tag.endswith('}t') and t.text:
+                        texts.append(t.text)
+                    # Checkboxes Wingdings
+                    elif t.tag.endswith('}sym'):
+                        char = t.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}char')
+                        if char in ['F0FE', '00FE', 'F052']:
+                            texts.append('☑')
+                        elif char in ['F0A8', '00A8', 'F06F']:
+                            texts.append('☐')
+                
+                para_text = ''.join(texts).strip()
+                if para_text:
+                    para_escaped = html_module.escape(para_text)
+                    para_escaped = para_escaped.replace('☑', '<span style="color: green; font-size: 18px;">☑</span>')
+                    para_escaped = para_escaped.replace('☐', '<span style="color: #666; font-size: 18px;">☐</span>')
+                    
+                    # Destacar campos (label: valor)
+                    if ':' in para_text and len(para_text) < 150:
+                        parts = para_text.split(':', 1)
+                        if len(parts) == 2 and parts[1].strip():
+                            label = html_module.escape(parts[0].strip())
+                            valor = html_module.escape(parts[1].strip())
+                            valor = valor.replace('☑', '<span style="color: green;">☑</span>')
+                            valor = valor.replace('☐', '<span style="color: #666;">☐</span>')
+                            html_parts.append(f'<p style="margin: 10px 0;"><strong>{label}:</strong> <span style="color: #0d6efd;">{valor}</span></p>')
+                            continue
+                    
+                    html_parts.append(f'<p style="margin: 10px 0;">{para_escaped}</p>')
+                else:
+                    html_parts.append('<br>')
+            
+            # Tabelas
+            elif elem.tag.endswith('}tbl'):
+                html_parts.append('<table style="width: 100%; border-collapse: collapse; margin: 15px 0; border: 1px solid #ddd;">')
+                for row in elem.iter():
+                    if row.tag.endswith('}tr'):
+                        html_parts.append('<tr>')
+                        for cell in row:
+                            if cell.tag.endswith('}tc'):
+                                cell_texts = []
+                                for t in cell.iter():
+                                    if t.tag.endswith('}t') and t.text:
+                                        cell_texts.append(t.text)
+                                    elif t.tag.endswith('}sym'):
+                                        char = t.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}char')
+                                        if char in ['F0FE', '00FE']:
+                                            cell_texts.append('☑')
+                                        elif char in ['F0A8', '00A8']:
+                                            cell_texts.append('☐')
+                                
+                                cell_text = html_module.escape(''.join(cell_texts).strip())
+                                cell_text = cell_text.replace('☑', '<span style="color: green;">☑</span>')
+                                cell_text = cell_text.replace('☐', '<span style="color: #666;">☐</span>')
+                                html_parts.append(f'<td style="border: 1px solid #ddd; padding: 8px;">{cell_text}</td>')
+                        html_parts.append('</tr>')
+                html_parts.append('</table>')
+        
+        html_parts.append('</div>')
+        return ''.join(html_parts)
+        
+    except Exception as e:
+        print(f"[EXTRAIR COMPLETO] Erro: {e}")
+        return extrair_conteudo_word_simples(caminho_docx)
+
+
+def extrair_conteudo_word_simples(caminho_docx):
+    """
+    Extração simplificada de texto do Word (fallback).
+    Tenta python-docx. Se falhar, tenta leitura bruta do XML.
+    """
+    # Método 1: python-docx
+    try:
+        from docx import Document
+        import html as html_module
+        
+        doc = Document(caminho_docx)
+        html_parts = ['<div class="word-preview-simple" style="font-family: Arial, sans-serif; line-height: 1.8; color: #333; padding: 10px;">']
+        
+        for para in doc.paragraphs:
+            text = para.text.strip()
+            if text:
+                text_escaped = html_module.escape(text)
+                html_parts.append(f'<p style="margin: 10px 0;">{text_escaped}</p>')
+            else:
+                html_parts.append('<br>')
+        
+        # Tabelas
+        for table in doc.tables:
+            html_parts.append('<table style="width: 100%; border-collapse: collapse; margin: 15px 0;">')
+            for row in table.rows:
+                html_parts.append('<tr>')
+                for cell in row.cells:
+                    cell_text = html_module.escape(cell.text.strip())
+                    html_parts.append(f'<td style="border: 1px solid #ccc; padding: 8px;">{cell_text}</td>')
+                html_parts.append('</tr>')
+            html_parts.append('</table>')
+        
+        html_parts.append('</div>')
+        result = ''.join(html_parts)
+        
+        # Se obteve conteúdo significativo, retornar
+        if len(result) > 150:
+            return result
+    except Exception as e:
+        print(f"[EXTRAIR SIMPLES] python-docx falhou: {e}")
+    
+    # Método 2: Leitura bruta do XML dentro do ZIP
+    try:
+        import zipfile
+        import re
+        import html as html_module
+        
+        if zipfile.is_zipfile(caminho_docx):
+            with zipfile.ZipFile(caminho_docx, 'r') as z:
+                xml_data = z.read('word/document.xml').decode('utf-8', errors='ignore')
+                # Extrair texto entre tags
+                texts = re.findall(r'<w:t[^>]*>([^<]+)</w:t>', xml_data)
+                if texts:
+                    content = ' '.join(texts)
+                    content_escaped = html_module.escape(content)
+                    return f'<div style="font-family: Arial; padding: 10px; line-height: 1.8;">{content_escaped}</div>'
+    except Exception as e:
+        print(f"[EXTRAIR SIMPLES] Leitura bruta falhou: {e}")
+    
+    # Fallback final: mensagem de download
+    return '''<div class="alert alert-warning" style="margin: 20px;">
+        <h5><i class="fas fa-file-word me-2"></i>Documento Word</h5>
+        <p>Não foi possível extrair o conteúdo deste documento para visualização no navegador.</p>
+        <p class="mb-0"><strong>Use o botão "Baixar Arquivo" abaixo</strong> para abrir o documento no Microsoft Word.</p>
+    </div>'''
+
+
+def extrair_conteudo_doc_antigo(caminho_doc, documento_id=None):
+    """
+    Converte arquivo .DOC (formato binário antigo) para PDF usando Word no Windows.
+    Retorna HTML com iframe para visualizar o PDF convertido.
+    Isso preserva formatação, checkboxes, imagens e encoding corretamente.
+    """
+    import html as html_module
+    import hashlib
+    
+    # Diretório de cache para PDFs convertidos
+    pdf_cache_dir = os.path.join('uploads', 'pdf_cache')
+    os.makedirs(pdf_cache_dir, exist_ok=True)
+    
+    # Gerar nome do PDF baseado no hash do arquivo original
+    file_hash = hashlib.md5(caminho_doc.encode()).hexdigest()[:12]
+    pdf_filename = f"doc_preview_{file_hash}.pdf"
+    pdf_path = os.path.join(pdf_cache_dir, pdf_filename)
+    
+    # Verificar se o PDF já existe e é mais recente que o DOC
+    doc_mtime = os.path.getmtime(caminho_doc)
+    if os.path.exists(pdf_path):
+        pdf_mtime = os.path.getmtime(pdf_path)
+        if pdf_mtime >= doc_mtime:
+            # PDF em cache ainda válido - retornar marcador especial para iframe direto
+            return f'__PDF_IFRAME__/uploads/pdf_cache/{pdf_filename}'
+    
+    # Tentar converter usando win32com (Windows com Word instalado)
+    try:
+        import win32com.client
+        import pythoncom
+        
+        # Inicializar COM em modo thread-safe
+        pythoncom.CoInitialize()
+        
+        try:
+            print(f"[DOC→PDF] Convertendo: {caminho_doc}")
+            
+            # Abrir o Word em modo invisível
+            word = win32com.client.Dispatch("Word.Application")
+            word.Visible = False
+            word.DisplayAlerts = False
+            
+            # Abrir o documento
+            doc = word.Documents.Open(os.path.abspath(caminho_doc), ReadOnly=True)
+            
+            # Converter para PDF (wdFormatPDF = 17)
+            pdf_abs_path = os.path.abspath(pdf_path)
+            doc.ExportAsFixedFormat(
+                pdf_abs_path,
+                17,  # wdFormatPDF
+                False,  # OpenAfterExport
+                0,  # OptimizeFor (wdExportOptimizeForPrint)
+                0,  # Range (wdExportAllDocument)
+                1,  # From
+                1,  # To
+                0,  # Item (wdExportDocumentContent)
+                True,  # IncludeDocProps
+                True,  # KeepIRM
+                1,  # CreateBookmarks (wdExportCreateHeadingBookmarks)
+                True,  # DocStructureTags
+                True,  # BitmapMissingFonts
+                False  # UseISO19005_1
+            )
+            
+            # Fechar documento e Word
+            doc.Close(False)
+            word.Quit()
+            
+            print(f"[DOC→PDF] Sucesso: {pdf_path}")
+            
+            # Retornar marcador especial para iframe direto
+            return f'__PDF_IFRAME__/uploads/pdf_cache/{pdf_filename}'
+                
+        except Exception as word_err:
+            print(f"[DOC→PDF] Erro ao converter: {word_err}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            try:
+                pythoncom.CoUninitialize()
+            except:
+                pass
+                
+    except ImportError:
+        print("[DOC→PDF] win32com não disponível")
+    except Exception as e:
+        print(f"[DOC→PDF] Erro geral: {e}")
+    
+    # Fallback: mensagem para baixar o arquivo
+    return f'''<div class="alert alert-warning" style="margin: 20px; padding: 20px;">
+        <h5><i class="fas fa-file-word me-2"></i>Documento .DOC</h5>
+        <p>Este arquivo está no formato .DOC antigo (binário) que requer Microsoft Word para visualização.</p>
+        <p class="mb-0">
+            <strong>Use o botão "Baixar Arquivo"</strong> para abrir o documento no Microsoft Word.
+        </p>
+    </div>'''
+
+
+@app.route('/uploads/pdf_cache/<path:filename>')
+def servir_pdf_cache(filename):
+    """
+    Serve arquivos PDF do cache (para preview de documentos .DOC convertidos).
+    """
+    pdf_cache_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads', 'pdf_cache')
+    caminho = os.path.join(pdf_cache_dir, filename)
+    
+    if os.path.exists(caminho) and filename.endswith('.pdf'):
+        return send_file(
+            caminho,
+            mimetype='application/pdf',
+            as_attachment=False
+        )
+    return "Arquivo não encontrado", 404
+
+
+@app.route('/api/avaliacao-iso/documento/<int:documento_id>/preview-pdf')
+def api_preview_word_como_pdf(documento_id):
+    """
+    API para pré-visualização de documentos Word como PDF.
+    Converte DOCX → PDF usando python-docx + reportlab para preview fiel.
+    """
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Não autenticado'}), 401
+    
+    try:
+        documento = db.obter_documento_avaliacao_iso(documento_id)
+        if not documento:
+            return jsonify({'success': False, 'error': 'Documento não encontrado'}), 404
+        
+        caminho = documento['caminho_arquivo']
+        if not os.path.exists(caminho):
+            return jsonify({'success': False, 'error': 'Arquivo não encontrado no servidor'}), 404
+        
+        extensao = documento.get('extensao') or documento['nome_original'].rsplit('.', 1)[-1].lower()
+        
+        if extensao not in ['doc', 'docx']:
+            return jsonify({'success': False, 'error': 'Formato não suportado para conversão'}), 400
+        
+        # Tentar converter Word para PDF
+        pdf_path = converter_word_para_pdf(caminho, documento_id)
+        
+        if pdf_path and os.path.exists(pdf_path):
+            # Retornar o PDF convertido
+            response = send_file(
+                pdf_path,
+                mimetype='application/pdf',
+                as_attachment=False
+            )
+            response.headers['Content-Disposition'] = f'inline; filename="{documento["nome_original"].rsplit(".", 1)[0]}.pdf"'
+            return response
+        else:
+            # Fallback: retornar o arquivo Word original
+            return jsonify({
+                'success': False, 
+                'error': 'Não foi possível converter para PDF',
+                'fallback': True
+            }), 500
+    
+    except Exception as e:
+        print(f"[ERRO] api_preview_word_como_pdf: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def converter_word_para_pdf(caminho_docx, documento_id):
+    """
+    Converte documento Word para PDF.
+    Usa LibreOffice (soffice) se disponível, senão tenta docx2pdf.
+    """
+    import subprocess
+    import tempfile
+    import shutil
+    
+    # Diretório para PDFs temporários
+    pdf_cache_dir = os.path.join('uploads', 'pdf_cache')
+    os.makedirs(pdf_cache_dir, exist_ok=True)
+    
+    # Nome do arquivo PDF de cache
+    pdf_filename = f"word_preview_{documento_id}.pdf"
+    pdf_path = os.path.join(pdf_cache_dir, pdf_filename)
+    
+    # Se já existe cache e é mais recente que o original, usar cache
+    if os.path.exists(pdf_path):
+        if os.path.getmtime(pdf_path) >= os.path.getmtime(caminho_docx):
+            print(f"[CONVERTER] Usando cache: {pdf_path}")
+            return pdf_path
+    
+    print(f"[CONVERTER] Convertendo {caminho_docx} para PDF...")
+    
+    # Método 1: Tentar LibreOffice (soffice)
+    try:
+        # Procurar LibreOffice
+        soffice_paths = [
+            'soffice',
+            'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
+            'C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe',
+            '/usr/bin/soffice',
+            '/usr/bin/libreoffice',
+            '/Applications/LibreOffice.app/Contents/MacOS/soffice'
+        ]
+        
+        soffice_cmd = None
+        for path in soffice_paths:
+            if os.path.exists(path) or shutil.which(path):
+                soffice_cmd = path
+                break
+        
+        if soffice_cmd:
+            # Usar diretório temporário para saída
+            with tempfile.TemporaryDirectory() as tmpdir:
+                # Copiar arquivo para tmpdir (evita problemas de path)
+                src_name = os.path.basename(caminho_docx)
+                tmp_src = os.path.join(tmpdir, src_name)
+                shutil.copy2(caminho_docx, tmp_src)
+                
+                # Executar conversão
+                cmd = [
+                    soffice_cmd,
+                    '--headless',
+                    '--convert-to', 'pdf',
+                    '--outdir', tmpdir,
+                    tmp_src
+                ]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                
+                # Procurar PDF gerado
+                expected_pdf = os.path.join(tmpdir, src_name.rsplit('.', 1)[0] + '.pdf')
+                if os.path.exists(expected_pdf):
+                    shutil.move(expected_pdf, pdf_path)
+                    print(f"[CONVERTER] LibreOffice: sucesso -> {pdf_path}")
+                    return pdf_path
+                else:
+                    print(f"[CONVERTER] LibreOffice: PDF não gerado. stderr={result.stderr}")
+    except Exception as e:
+        print(f"[CONVERTER] Erro LibreOffice: {e}")
+    
+    # Método 2: Tentar docx2pdf (requer MS Office no Windows)
+    try:
+        from docx2pdf import convert
+        convert(caminho_docx, pdf_path)
+        if os.path.exists(pdf_path):
+            print(f"[CONVERTER] docx2pdf: sucesso -> {pdf_path}")
+            return pdf_path
+    except ImportError:
+        print("[CONVERTER] docx2pdf não disponível")
+    except Exception as e:
+        print(f"[CONVERTER] Erro docx2pdf: {e}")
+    
+    # Método 3: Conversão simplificada usando python-docx + reportlab
+    try:
+        pdf_path_simple = converter_docx_simples(caminho_docx, pdf_path)
+        if pdf_path_simple and os.path.exists(pdf_path_simple):
+            print(f"[CONVERTER] Conversão simples: sucesso -> {pdf_path_simple}")
+            return pdf_path_simple
+    except Exception as e:
+        print(f"[CONVERTER] Erro conversão simples: {e}")
+    
+    print("[CONVERTER] Nenhum método de conversão disponível")
+    return None
+
+
+def converter_docx_simples(caminho_docx, pdf_path):
+    """
+    Conversão simplificada de DOCX para PDF usando python-docx + reportlab.
+    Mantém texto e estrutura básica.
+    """
+    try:
+        from docx import Document
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib import colors
+        from reportlab.lib.units import cm
+        from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
+        
+        doc = Document(caminho_docx)
+        
+        # Criar PDF
+        pdf = SimpleDocTemplate(
+            pdf_path,
+            pagesize=A4,
+            rightMargin=2*cm,
+            leftMargin=2*cm,
+            topMargin=2*cm,
+            bottomMargin=2*cm
+        )
+        
+        styles = getSampleStyleSheet()
+        
+        # Estilos customizados
+        styles.add(ParagraphStyle(
+            name='BodyTextCustom',
+            parent=styles['Normal'],
+            fontSize=11,
+            leading=14,
+            spaceAfter=6
+        ))
+        
+        styles.add(ParagraphStyle(
+            name='HeadingCustom',
+            parent=styles['Heading1'],
+            fontSize=14,
+            leading=18,
+            spaceAfter=12,
+            spaceBefore=12
+        ))
+        
+        elements = []
+        
+        for para in doc.paragraphs:
+            text = para.text.strip()
+            if not text:
+                elements.append(Spacer(1, 6))
+                continue
+            
+            # Detectar estilo
+            style_name = para.style.name.lower() if para.style else ''
+            
+            if 'heading' in style_name or 'título' in style_name:
+                elements.append(Paragraph(text, styles['HeadingCustom']))
+            else:
+                # Escapar caracteres especiais do ReportLab
+                text_escaped = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                try:
+                    elements.append(Paragraph(text_escaped, styles['BodyTextCustom']))
+                except:
+                    elements.append(Paragraph(text, styles['Normal']))
+        
+        # Processar tabelas
+        for table in doc.tables:
+            table_data = []
+            for row in table.rows:
+                row_data = []
+                for cell in row.cells:
+                    cell_text = cell.text.strip().replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                    row_data.append(Paragraph(cell_text, styles['Normal']))
+                table_data.append(row_data)
+            
+            if table_data:
+                t = Table(table_data)
+                t.setStyle(TableStyle([
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                    ('PADDING', (0, 0), (-1, -1), 6),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ]))
+                elements.append(Spacer(1, 12))
+                elements.append(t)
+                elements.append(Spacer(1, 12))
+        
+        if elements:
+            pdf.build(elements)
+            return pdf_path
+        
+    except ImportError as e:
+        print(f"[CONVERTER SIMPLES] Biblioteca não disponível: {e}")
+    except Exception as e:
+        print(f"[CONVERTER SIMPLES] Erro: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return None
+
+
+@app.route('/api/avaliacao-iso/documento/<int:documento_id>/preview')
+def api_preview_documento_iso(documento_id):
+    """API para pré-visualização de documento no navegador (IGUAL COTAÇÕES)"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Não autenticado'}), 401
+    
+    try:
+        documento = db.obter_documento_avaliacao_iso(documento_id)
+        if not documento:
+            return jsonify({'success': False, 'error': 'Documento não encontrado'}), 404
+        
+        caminho = documento['caminho_arquivo']
+        if not os.path.exists(caminho):
+            return jsonify({'success': False, 'error': 'Arquivo não encontrado no servidor'}), 404
+        
+        # Determina o mimetype baseado na extensão (igual cotações)
+        import mimetypes
+        mimetype, _ = mimetypes.guess_type(caminho)
+        if not mimetype:
+            mimetype = 'application/octet-stream'
+        
+        # Envia arquivo para VISUALIZAÇÃO (não download) - igual cotações
+        response = send_file(
+            caminho,
+            mimetype=mimetype,
+            as_attachment=False  # Não forçar download
+        )
+        # Força header inline para abrir no navegador (igual cotações)
+        response.headers['Content-Disposition'] = f'inline; filename="{os.path.basename(caminho)}"'
+        return response
+    
+    except Exception as e:
+        print(f"[ERRO] api_preview_documento_iso: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/avaliacao-iso/documento/<int:documento_id>/preview-word')
+def api_preview_word_documento_iso(documento_id):
+    """
+    API para pré-visualização de documentos Word (DOC/DOCX).
+    Retorna informações para visualização via Office Online Viewer ou download.
+    """
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Não autenticado'}), 401
+    
+    try:
+        documento = db.obter_documento_avaliacao_iso(documento_id)
+        if not documento:
+            return jsonify({'success': False, 'error': 'Documento não encontrado'}), 404
+        
+        caminho = documento['caminho_arquivo']
+        if not os.path.exists(caminho):
+            return jsonify({'success': False, 'error': 'Arquivo não encontrado no servidor'}), 404
+        
+        extensao = documento.get('extensao') or documento['nome_original'].rsplit('.', 1)[-1].lower()
+        
+        if extensao not in ['doc', 'docx']:
+            return jsonify({'success': False, 'error': 'Formato não suportado'}), 400
+        
+        # Construir URL pública do documento para visualizadores externos
+        base_url = os.environ.get('BASE_URL', request.host_url.rstrip('/'))
+        doc_url = f"{base_url}/api/avaliacao-iso/documento/{documento_id}/arquivo-word"
+        
+        # URL para Office Online Viewer (visualização)
+        from urllib.parse import quote
+        office_viewer_url = f"https://view.officeapps.live.com/op/embed.aspx?src={quote(doc_url, safe='')}"
+        
+        # URL para abrir diretamente no Word local (protocolo ms-word)
+        # ms-word:ofe|u| = Open For Edit
+        word_edit_url = f"ms-word:ofe|u|{doc_url}"
+        
+        return jsonify({
+            'success': True,
+            'documento_id': documento_id,
+            'nome': documento['nome_original'],
+            'extensao': extensao,
+            'urls': {
+                'download': f'/api/avaliacao-iso/documento/{documento_id}/download',
+                'arquivo': f'/api/avaliacao-iso/documento/{documento_id}/arquivo-word',
+                'viewer': office_viewer_url,
+                'word_edit': word_edit_url,
+                'doc_url': doc_url
+            }
+        })
+    
+    except Exception as e:
+        print(f"[ERRO] api_preview_word_documento_iso: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/avaliacao-iso/documento/<int:documento_id>/arquivo-word')
+def api_arquivo_word_documento_iso(documento_id):
+    """
+    Retorna o arquivo Word diretamente (para uso com Office Online Viewer e Word local).
+    Esta rota é pública para permitir acesso do Office Online Viewer.
+    """
+    try:
+        documento = db.obter_documento_avaliacao_iso(documento_id)
+        if not documento:
+            return "Documento não encontrado", 404
+        
+        caminho = documento['caminho_arquivo']
+        if not os.path.exists(caminho):
+            return "Arquivo não encontrado", 404
+        
+        extensao = documento.get('extensao') or documento['nome_original'].rsplit('.', 1)[-1].lower()
+        
+        mimetype = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        if extensao == 'doc':
+            mimetype = 'application/msword'
+        
+        response = send_file(
+            caminho,
+            mimetype=mimetype,
+            as_attachment=False,
+            download_name=documento['nome_original']
+        )
+        # Headers para permitir acesso do Office Online
+        response.headers['Content-Disposition'] = f'inline; filename="{documento["nome_original"]}"'
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response
+    
+    except Exception as e:
+        print(f"[ERRO] api_arquivo_word_documento_iso: {e}")
+        return str(e), 500
+
+
 @app.route('/api/avaliacao-iso/documento/<int:documento_id>/excluir', methods=['POST'])
 def api_excluir_documento_iso(documento_id):
     """API para excluir documento ISO"""
@@ -9111,8 +12236,8 @@ def api_excluir_documento_iso(documento_id):
 @app.route('/api/avaliacao-iso/<int:avaliacao_id>/enviar-email', methods=['POST'])
 def api_enviar_email_iso(avaliacao_id):
     """
-    API para enviar e-mail de solicitação de atualização da avaliação ISO.
-    Envia um e-mail padrão solicitando atualização da avaliação e certificado ISO.
+    API para enviar e-mail personalizado ao fornecedor.
+    Aceita mensagem editável e anexo opcional.
     """
     if 'user' not in session:
         return jsonify({'success': False, 'error': 'Não autenticado'}), 401
@@ -9123,79 +12248,57 @@ def api_enviar_email_iso(avaliacao_id):
         if not avaliacao:
             return jsonify({'success': False, 'error': 'Avaliação não encontrada'})
         
-        email_destinatario = avaliacao.get('email_fornecedor', '').strip()
+        # Obter dados do formulário
+        email_destinatario = request.form.get('email_destinatario', '').strip()
+        assunto = request.form.get('assunto', '').strip()
+        mensagem = request.form.get('mensagem', '').strip()
+        anexo = request.files.get('anexo')
+        
         if not email_destinatario:
-            return jsonify({'success': False, 'error': 'Fornecedor não possui e-mail cadastrado'})
+            return jsonify({'success': False, 'error': 'E-mail do destinatário é obrigatório'})
+        
+        if not assunto:
+            return jsonify({'success': False, 'error': 'Assunto é obrigatório'})
+        
+        if not mensagem:
+            return jsonify({'success': False, 'error': 'Mensagem é obrigatória'})
         
         nome_fornecedor = avaliacao.get('nome_fornecedor', 'Fornecedor')
         
-        # Template do e-mail
-        assunto = f"Solicitação de Atualização - Avaliação de Fornecedor (PQ021) - {nome_fornecedor}"
-        
+        # Criar mensagem HTML a partir do texto
         mensagem_html = f"""
         <html>
         <body style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6;">
-            <p>Prezados,</p>
-            
-            <p>Conforme nosso procedimento de qualidade <strong>PQ021 - Avaliação de Fornecedores</strong>, 
-            solicitamos o envio dos seguintes documentos atualizados:</p>
-            
-            <ol>
-                <li><strong>Formulário de Avaliação de Fornecedor</strong> - devidamente preenchido</li>
-                <li><strong>Certificado ISO</strong> - caso sua empresa possua certificação vigente</li>
-            </ol>
-            
-            <p>Pedimos a gentileza de enviar os documentos em formato <strong>PDF</strong> 
-            para o e-mail do setor de compras.</p>
-            
-            <p>Esta solicitação faz parte do nosso processo de auditoria ISO e é fundamental 
-            para a manutenção do cadastro de fornecedores qualificados.</p>
-            
-            <p>Caso tenham dúvidas, estamos à disposição.</p>
-            
-            <br>
-            <p>Atenciosamente,</p>
-            <p><strong>Departamento de Compras</strong><br>
-            Polimáquinas</p>
+            {mensagem.replace(chr(10), '<br>')}
         </body>
         </html>
         """
         
-        mensagem_texto = f"""
-Prezados,
-
-Conforme nosso procedimento de qualidade PQ021 - Avaliação de Fornecedores, 
-solicitamos o envio dos seguintes documentos atualizados:
-
-1. Formulário de Avaliação de Fornecedor - devidamente preenchido
-2. Certificado ISO - caso sua empresa possua certificação vigente
-
-Pedimos a gentileza de enviar os documentos em formato PDF 
-para o e-mail do setor de compras.
-
-Esta solicitação faz parte do nosso processo de auditoria ISO e é fundamental 
-para a manutenção do cadastro de fornecedores qualificados.
-
-Caso tenham dúvidas, estamos à disposição.
-
-Atenciosamente,
-Departamento de Compras
-Polimáquinas
-        """
-        
         # Enviar e-mail
         try:
-            msg = MIMEMultipart('alternative')
+            msg = MIMEMultipart('mixed')
             msg['Subject'] = assunto
             msg['From'] = EMAIL_REMETENTE
             msg['To'] = email_destinatario
             
-            # Adicionar versões texto e HTML
-            parte_texto = MIMEText(mensagem_texto, 'plain', 'utf-8')
+            # Corpo do e-mail
+            corpo = MIMEMultipart('alternative')
+            parte_texto = MIMEText(mensagem, 'plain', 'utf-8')
             parte_html = MIMEText(mensagem_html, 'html', 'utf-8')
+            corpo.attach(parte_texto)
+            corpo.attach(parte_html)
+            msg.attach(corpo)
             
-            msg.attach(parte_texto)
-            msg.attach(parte_html)
+            # Anexo (se houver)
+            if anexo and anexo.filename:
+                from email.mime.base import MIMEBase
+                from email import encoders
+                
+                anexo_part = MIMEBase('application', 'octet-stream')
+                anexo_part.set_payload(anexo.read())
+                encoders.encode_base64(anexo_part)
+                anexo_part.add_header('Content-Disposition', f'attachment; filename="{secure_filename(anexo.filename)}"')
+                msg.attach(anexo_part)
             
             # Conectar e enviar
             server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
@@ -9204,38 +12307,163 @@ Polimáquinas
             server.sendmail(EMAIL_REMETENTE, email_destinatario, msg.as_string())
             server.quit()
             
-            # Registrar envio no banco
-            db.registrar_email_avaliacao_iso(
-                avaliacao_id=avaliacao_id,
-                email_destinatario=email_destinatario,
-                assunto=assunto,
-                mensagem=mensagem_texto,
-                usuario=session['user'],
-                status='Enviado'
-            )
-            
             return jsonify({
                 'success': True, 
                 'message': f'E-mail enviado com sucesso para {email_destinatario}'
             })
             
         except Exception as e_email:
-            # Registrar falha no banco
-            db.registrar_email_avaliacao_iso(
-                avaliacao_id=avaliacao_id,
-                email_destinatario=email_destinatario,
-                assunto=assunto,
-                mensagem=mensagem_texto,
-                usuario=session['user'],
-                status='Erro',
-                erro_msg=str(e_email)
-            )
-            
             print(f"[ERRO EMAIL] {e_email}")
             return jsonify({'success': False, 'error': f'Erro ao enviar e-mail: {str(e_email)}'})
     
     except Exception as e:
         print(f"[ERRO] api_enviar_email_iso: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/avaliacao-iso/enviar-email-lote', methods=['POST'])
+def api_enviar_email_lote_iso():
+    """
+    API para enviar e-mails em lote para múltiplos fornecedores.
+    Suporta modo individual (um e-mail por fornecedor) ou único (todos em CC).
+    """
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'Não autenticado'}), 401
+    
+    try:
+        dados = request.get_json()
+        fornecedores = dados.get('fornecedores', [])
+        modo = dados.get('modo', 'individual')  # 'individual' ou 'unico'
+        tipo = dados.get('tipo', 'iso')
+        assunto = dados.get('assunto', '').strip()
+        corpo = dados.get('corpo', '').strip()
+        
+        if not fornecedores:
+            return jsonify({'success': False, 'error': 'Nenhum fornecedor selecionado'})
+        
+        if not assunto or not corpo:
+            return jsonify({'success': False, 'error': 'Assunto e mensagem são obrigatórios'})
+        
+        # Filtrar apenas fornecedores com e-mail
+        fornecedores_com_email = [f for f in fornecedores if f.get('email') and f['email'].strip()]
+        
+        if not fornecedores_com_email:
+            return jsonify({'success': False, 'error': 'Nenhum fornecedor selecionado possui e-mail cadastrado'})
+        
+        enviados = 0
+        erros = 0
+        lista_erros = []
+        
+        # Criar corpo HTML
+        corpo_html = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6;">
+            {corpo.replace(chr(10), '<br>')}
+        </body>
+        </html>
+        """
+        
+        if modo == 'unico':
+            # Enviar um único e-mail com todos em CC
+            try:
+                emails = [f['email'].strip() for f in fornecedores_com_email]
+                email_principal = emails[0]
+                emails_cc = emails[1:] if len(emails) > 1 else []
+                
+                msg = MIMEMultipart('alternative')
+                msg['Subject'] = assunto
+                msg['From'] = EMAIL_REMETENTE
+                msg['To'] = email_principal
+                if emails_cc:
+                    msg['Cc'] = ', '.join(emails_cc)
+                
+                parte_texto = MIMEText(corpo, 'plain', 'utf-8')
+                parte_html = MIMEText(corpo_html, 'html', 'utf-8')
+                msg.attach(parte_texto)
+                msg.attach(parte_html)
+                
+                # Conectar e enviar
+                server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+                server.starttls()
+                server.login(EMAIL_REMETENTE, SENHA_EMAIL)
+                
+                todos_destinatarios = [email_principal] + emails_cc
+                server.sendmail(EMAIL_REMETENTE, todos_destinatarios, msg.as_string())
+                server.quit()
+                
+                enviados = len(fornecedores_com_email)
+                print(f"[EMAIL LOTE] Enviado e-mail único para {len(todos_destinatarios)} destinatários")
+                
+            except Exception as e_email:
+                print(f"[ERRO EMAIL LOTE] {e_email}")
+                erros = len(fornecedores_com_email)
+                lista_erros.append(str(e_email))
+        
+        else:
+            # Enviar e-mails individuais
+            try:
+                server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+                server.starttls()
+                server.login(EMAIL_REMETENTE, SENHA_EMAIL)
+                
+                for forn in fornecedores_com_email:
+                    try:
+                        email_dest = forn['email'].strip()
+                        nome_forn = forn.get('nome', 'Fornecedor')
+                        
+                        # Personalizar corpo com nome do fornecedor
+                        corpo_personalizado = corpo.replace('{nome}', nome_forn).replace('{fornecedor}', nome_forn)
+                        corpo_html_personalizado = corpo_html.replace('{nome}', nome_forn).replace('{fornecedor}', nome_forn)
+                        
+                        msg = MIMEMultipart('alternative')
+                        msg['Subject'] = assunto
+                        msg['From'] = EMAIL_REMETENTE
+                        msg['To'] = email_dest
+                        
+                        parte_texto = MIMEText(corpo_personalizado, 'plain', 'utf-8')
+                        parte_html = MIMEText(corpo_html_personalizado, 'html', 'utf-8')
+                        msg.attach(parte_texto)
+                        msg.attach(parte_html)
+                        
+                        server.sendmail(EMAIL_REMETENTE, email_dest, msg.as_string())
+                        enviados += 1
+                        print(f"[EMAIL LOTE] Enviado para {email_dest} ({nome_forn})")
+                        
+                    except Exception as e_ind:
+                        erros += 1
+                        lista_erros.append(f"{forn.get('nome', '?')}: {str(e_ind)}")
+                        print(f"[ERRO EMAIL INDIVIDUAL] {forn.get('nome')}: {e_ind}")
+                
+                server.quit()
+                
+            except Exception as e_server:
+                print(f"[ERRO SERVIDOR EMAIL] {e_server}")
+                return jsonify({'success': False, 'error': f'Erro ao conectar servidor de e-mail: {str(e_server)}'})
+        
+        # Resultado
+        if enviados > 0:
+            mensagem = f'E-mails enviados com sucesso!'
+            if erros > 0:
+                mensagem += f' ({erros} erro(s))'
+            return jsonify({
+                'success': True,
+                'message': mensagem,
+                'enviados': enviados,
+                'erros': erros,
+                'lista_erros': lista_erros[:5]  # Limitar erros retornados
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Nenhum e-mail foi enviado',
+                'erros': erros,
+                'lista_erros': lista_erros[:5]
+            })
+    
+    except Exception as e:
+        print(f"[ERRO] api_enviar_email_lote_iso: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -9267,13 +12495,28 @@ def api_obter_avaliacao_iso(avaliacao_id):
         if not avaliacao:
             return jsonify({'success': False, 'error': 'Avaliação não encontrada'}), 404
         
-        avaliacao['status'] = calcular_status_avaliacao(avaliacao.get('data_vencimento'))
+        # Normalizar datas para formato DD/MM/YYYY
+        if avaliacao.get('data_ultima_avaliacao'):
+            avaliacao['data_ultima_avaliacao'] = normalizar_data_para_iso(avaliacao['data_ultima_avaliacao']) or ''
+        else:
+            avaliacao['data_ultima_avaliacao'] = ''
+            
+        if avaliacao.get('data_vencimento'):
+            avaliacao['data_vencimento'] = normalizar_data_para_iso(avaliacao['data_vencimento']) or ''
+        else:
+            avaliacao['data_vencimento'] = ''
+        
+        status, dias_restantes = calcular_status_avaliacao(avaliacao.get('data_vencimento'))
+        avaliacao['status'] = status
+        avaliacao['dias_restantes'] = dias_restantes
         avaliacao['documentos'] = db.listar_documentos_avaliacao_iso(avaliacao_id)
         
         return jsonify({'success': True, 'avaliacao': avaliacao})
     
     except Exception as e:
         print(f"[ERRO] api_obter_avaliacao_iso: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -9283,7 +12526,40 @@ def api_importar_excel_iso():
     API para importar fornecedores de um arquivo Excel.
     Recebe uma lista de fornecedores processados pelo JavaScript.
     """
+    from datetime import datetime as dt
     user = session.get('user', 'Admin')
+    
+    def validar_e_normalizar_data(data_str, campo_nome, linha_num):
+        """Valida e normaliza data para formato YYYY-MM-DD"""
+        if not data_str or data_str == '' or data_str == '-':
+            return None, None
+        
+        data_str = str(data_str).strip()
+        
+        # Tentar vários formatos
+        formatos = [
+            '%Y-%m-%d',      # 2025-01-15
+            '%d/%m/%Y',      # 15/01/2025
+            '%d-%m-%Y',      # 15-01-2025
+            '%d.%m.%Y',      # 15.01.2025
+            '%Y/%m/%d',      # 2025/01/15
+        ]
+        
+        for fmt in formatos:
+            try:
+                data_obj = dt.strptime(data_str[:10], fmt)
+                return data_obj.strftime('%Y-%m-%d'), None
+            except ValueError:
+                continue
+        
+        # Tentar parsear como ISO format
+        try:
+            data_obj = dt.fromisoformat(data_str[:10])
+            return data_obj.strftime('%Y-%m-%d'), None
+        except:
+            pass
+        
+        return None, f"{campo_nome} inválida na linha {linha_num}: '{data_str}'"
     
     try:
         dados = request.get_json()
@@ -9295,12 +12571,27 @@ def api_importar_excel_iso():
         importados = 0
         ignorados = 0
         erros = 0
+        lista_erros = []
         
-        for forn in fornecedores:
+        for idx, forn in enumerate(fornecedores, start=2):  # Linha 2 = primeira linha de dados
             nome = forn.get('nome_fornecedor', '').strip()
             if not nome:
                 erros += 1
+                lista_erros.append(f"Linha {idx}: Nome do fornecedor vazio")
                 continue
+            
+            # Validar e normalizar datas
+            data_avaliacao, erro_avaliacao = validar_e_normalizar_data(
+                forn.get('data_ultima_avaliacao'), 'Data de Avaliação', idx
+            )
+            if erro_avaliacao:
+                lista_erros.append(erro_avaliacao)
+            
+            data_vencimento, erro_vencimento = validar_e_normalizar_data(
+                forn.get('data_vencimento'), 'Data de Vencimento', idx
+            )
+            if erro_vencimento:
+                lista_erros.append(erro_vencimento)
             
             # Gerar código único baseado no nome (simplificado)
             # Usar primeiros caracteres do nome como código
@@ -9335,13 +12626,14 @@ def api_importar_excel_iso():
                 contador += 1
             
             try:
-                # Criar avaliação
+                # Criar avaliação com datas validadas
+                print(f"[IMPORT ISO] Criando: {nome} | Data Aval: {data_avaliacao} | Data Venc: {data_vencimento}")
                 db.criar_avaliacao_iso(
                     cod_fornecedor=cod_fornecedor,
                     nome_fornecedor=nome,
                     email_fornecedor=forn.get('email_fornecedor'),
-                    data_ultima_avaliacao=forn.get('data_ultima_avaliacao') or None,
-                    data_vencimento=forn.get('data_vencimento') or None,
+                    data_ultima_avaliacao=data_avaliacao,
+                    data_vencimento=data_vencimento,
                     possui_iso=forn.get('possui_iso', 'Nao'),
                     nota=forn.get('nota'),
                     observacao='Importado via Excel',
@@ -9351,14 +12643,23 @@ def api_importar_excel_iso():
                 
             except Exception as e_insert:
                 print(f"[ERRO] Importar fornecedor {nome}: {e_insert}")
+                lista_erros.append(f"Linha {idx}: Erro ao salvar '{nome}' - {str(e_insert)}")
                 erros += 1
+        
+        # Montar mensagem de resposta
+        mensagem = f'Importação concluída: {importados} importados, {ignorados} ignorados, {erros} erros'
+        if lista_erros:
+            mensagem += f'\n\n⚠️ Avisos ({len(lista_erros)}):\n' + '\n'.join(lista_erros[:10])
+            if len(lista_erros) > 10:
+                mensagem += f'\n... e mais {len(lista_erros) - 10} avisos'
         
         return jsonify({
             'success': True,
             'importados': importados,
             'ignorados': ignorados,
             'erros': erros,
-            'message': f'Importação concluída: {importados} importados, {ignorados} ignorados, {erros} erros'
+            'avisos': lista_erros,
+            'message': mensagem
         })
     
     except Exception as e:

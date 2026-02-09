@@ -37,12 +37,23 @@
             color: #fff;
             min-height: 100vh;
             position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            overflow-y: auto;
+            transition: var(--transition);
+        }
+        
+        .sidebar.collapsed {
+            margin-left: -250px;
         }
         
         .sidebar .sidebar-header {
             padding: 24px 20px;
             background: rgba(0,0,0,0.2);
         }
+        
+        .sidebar .sidebar-header h4 { font-weight: 700; letter-spacing: -0.5px; }
         
         .sidebar ul li a {
             color: rgba(255,255,255,0.7);
@@ -61,7 +72,11 @@
             width: 100%;
             padding: 24px 28px;
             margin-left: 250px;
+            min-height: 100vh;
+            transition: var(--transition);
         }
+        
+        .content.expanded { margin-left: 0; }
 
         .page-header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); }
 
@@ -104,6 +119,17 @@
         .badge-encerrada { background-color: #6c757d; }
         .badge-pendente { background-color: #ffc107; color: #000; }
         .badge-cancelada { background-color: #dc3545; }
+        
+        /* Badge de preço antigo (> 2 anos) - ícone de relógio */
+        .badge-preco-antigo {
+            background-color: rgba(255, 193, 7, 0.2);
+            color: #856404;
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 4px;
+            display: inline-block;
+        }
 
         .table { font-size: 0.85rem; }
         .table thead th {
@@ -117,6 +143,57 @@
         /* Destaques - Verde forte para melhor preço, Amarelo para melhor prazo (SEM degradê) */
         .melhor-preco { background-color: #198754 !important; color: white !important; font-weight: 700; }
         .melhor-prazo { background-color: #ffc107 !important; color: #000 !important; font-weight: 700; }
+        
+        /* Indicador de variação percentual vs Último Preço Pago */
+        .variacao-preco {
+            display: block;
+            font-size: 0.68rem;
+            font-weight: 700;
+            margin-top: 3px;
+            padding: 2px 5px;
+            border-radius: 4px;
+            line-height: 1.2;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+        /* Preço ACIMA do último (VERMELHO - pior para comprador) */
+        .variacao-preco.acima {
+            color: #ffffff;
+            background-color: #dc3545;
+        }
+        /* Preço ABAIXO do último (VERDE - melhor para comprador) */
+        .variacao-preco.abaixo {
+            color: #ffffff;
+            background-color: #198754;
+        }
+        /* Preço IGUAL ao último (NEUTRO) */
+        .variacao-preco.igual {
+            color: #6c757d;
+            background-color: rgba(108, 117, 125, 0.15);
+        }
+        /* IMPORTANTE: Cores devem ser independentes do status de "melhor fornecedor" */
+        .melhor-preco .variacao-preco.acima {
+            color: #ffffff !important;
+            background-color: #dc3545 !important;
+        }
+        .melhor-preco .variacao-preco.abaixo {
+            color: #ffffff !important;
+            background-color: #198754 !important;
+        }
+        
+        /* Células com observação - indicador visual sutil */
+        .tem-observacao { cursor: help; position: relative; }
+        .tem-observacao::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 6px;
+            height: 6px;
+            background-color: #0dcaf0;
+            border-radius: 50%;
+        }
+        /* Quando tem observação E é melhor preço, manter ícone visível */
+        .melhor-preco.tem-observacao i.fa-comment-alt { color: white !important; }
         
         .matriz-respostas { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
         .matriz-respostas th, .matriz-respostas td {
@@ -205,6 +282,10 @@
             .linha-total-fornecedor { background: #e9ecef !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             h5 { font-size: 1.2rem; margin-bottom: 12px; }
             .legenda { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            /* Variação percentual - cores mantidas independente do contexto */
+            .variacao-preco { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 0.6rem; box-shadow: none; }
+            .variacao-preco.acima { color: #ffffff !important; background-color: #dc3545 !important; }
+            .variacao-preco.abaixo { color: #ffffff !important; background-color: #198754 !important; }
         }
 
         .timeline { position: relative; padding-left: 30px; }
@@ -263,12 +344,55 @@
             background-color: #dc3545;
             color: white;
         }
+        
+        /* ========================================
+           BOTÃO TOGGLE SIDEBAR (Ultra Discreto)
+        ======================================== */
+        .sidebar-toggle {
+            position: fixed;
+            top: 72px;
+            left: 254px;
+            z-index: 1001;
+            background: transparent;
+            color: rgba(108, 117, 125, 0.4);
+            border: none;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            box-shadow: none;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            opacity: 0.5;
+        }
+        
+        .sidebar-toggle:hover { 
+            background: rgba(108, 117, 125, 0.15);
+            color: var(--text-secondary);
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        
+        .sidebar-toggle.collapsed { 
+            left: 8px; 
+            top: 12px;
+            opacity: 0.7;
+            background: rgba(108, 117, 125, 0.1);
+        }
     </style>
 </head>
 <body>
+    <!-- Botão de Toggle da Sidebar -->
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+        <i class="fas fa-bars"></i>
+    </button>
+
     <div class="wrapper">
         <!-- SIDEBAR -->
-        <nav class="sidebar">
+        <nav class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <h4 class="mb-0"><i class="fas fa-cubes me-2"></i>Polimaquinas</h4>
                 <small class="text-muted" style="font-size: 0.75rem;">Portal de Compras</small>
@@ -286,7 +410,7 @@
         </nav>
 
         <!-- CONTEÚDO -->
-        <div class="content">
+        <div class="content" id="content">
             <!-- HEADER -->
             <div class="page-header d-flex justify-content-between align-items-center">
                 <div>
@@ -341,7 +465,12 @@
 
             <!-- ITENS DA COTAÇÃO -->
             <div class="card-section">
-                <h5><i class="fas fa-box me-2"></i>Itens da Cotação ({{ cotacao.itens|length }})</h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0" style="border: none; padding: 0;"><i class="fas fa-box me-2"></i>Itens da Cotação ({{ cotacao.itens|length }})</h5>
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalAdicionarItem">
+                        <i class="fas fa-plus me-1"></i> Adicionar Item
+                    </button>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
@@ -352,17 +481,39 @@
                                 <th>Qtd</th>
                                 <th>UN</th>
                                 <th>Data Necessidade</th>
+                                <th style="width: 100px;">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for item in cotacao.itens %}
-                            <tr>
+                            <tr id="row-item-{{ item.id }}">
                                 <td class="fw-bold text-primary">{{ item.numero_sc }}</td>
                                 <td>{{ item.cod_produto }}</td>
                                 <td>{{ item.descricao_produto }}</td>
                                 <td>{{ item.quantidade }}</td>
                                 <td>{{ item.unidade }}</td>
                                 <td>{{ item.data_necessidade[:10] if item.data_necessidade else 'N/A' }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary btn-editar-item" 
+                                                data-id="{{ item.id }}"
+                                                data-sc="{{ item.numero_sc }}"
+                                                data-produto="{{ item.cod_produto }}"
+                                                data-descricao="{{ item.descricao_produto }}"
+                                                data-quantidade="{{ item.quantidade }}"
+                                                data-unidade="{{ item.unidade }}"
+                                                data-necessidade="{{ item.data_necessidade[:10] if item.data_necessidade else '' }}"
+                                                title="Editar item">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger btn-excluir-item" 
+                                                data-id="{{ item.id }}"
+                                                data-descricao="{{ item.descricao_produto }}"
+                                                title="Excluir item">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
                             </tr>
                             {% else %}
                             <tr><td colspan="6" class="text-center text-muted">Nenhum item</td></tr>
@@ -526,11 +677,11 @@
                 {% endif %}
             </div>
 
-            <!-- COMPARATIVO DE RESPOSTAS -->
+            <!-- COMPARATIVO DE PROPOSTAS -->
             {% if cotacao.respostas %}
             <div class="card-section">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0"><i class="fas fa-th me-2"></i>Comparativo de Respostas</h5>
+                    <h5 class="mb-0"><i class="fas fa-th me-2"></i>Comparativo de Propostas</h5>
                 </div>
                 
                 <div class="legenda no-print">
@@ -545,6 +696,10 @@
                     <div class="legenda-item">
                         <div class="legenda-cor" style="background: #ffc107;"></div>
                         <span><strong>Menor Prazo</strong> (por item)</span>
+                    </div>
+                    <div class="legenda-item">
+                        <span class="variacao-preco acima" style="font-size: 0.72rem; padding: 2px 6px;">+X%</span>
+                        <span><strong>Variação</strong> vs Últ. Preço Pago</span>
                     </div>
                 </div>
                 
@@ -561,6 +716,11 @@
                         }}) %}
                     {% endif %}
                 {% endfor %}
+                
+                {# Usar lista ordenada do backend se disponível #}
+                {% if fornecedores_ordenados %}
+                    {% set fornecedores_unicos = fornecedores_ordenados %}
+                {% endif %}
                 
                 <div class="matriz-wrapper">
                     <table class="matriz-respostas" id="tabelaMatriz">
@@ -585,7 +745,7 @@
                         </thead>
                         <tbody>
                             {% for item in cotacao.itens %}
-                            <tr data-item-id="{{ item.id }}">
+                            <tr data-item-id="{{ item.id }}" data-ultimo-preco="{{ item.ultimo_preco_pago or 0 }}">
                                 <td class="col-codigo">{{ item.cod_produto }}</td>
                                 <td class="col-item">{{ item.descricao_produto }}</td>
                                 <td class="col-qtd">{{ item.quantidade }} {{ item.unidade or 'UN' }}</td>
@@ -597,22 +757,33 @@
                                     {% endif %}>
                                     {% if item.ultimo_preco_pago %}
                                     <span style="color: #1565c0;">R$ {{ "{:,.2f}".format(item.ultimo_preco_pago).replace(',', 'X').replace('.', ',').replace('X', '.') }}</span>
+                                    {% if item.ultimo_preco_antigo %}
+                                    <span class="badge-preco-antigo" title="Última compra há mais de 2 anos"><i class="fas fa-clock"></i></span>
+                                    {% endif %}
+                                    {% if item.ultimo_preco_nota %}
+                                    <br><small class="text-muted" style="font-size: 0.7rem;">NF {{ item.ultimo_preco_nota }}</small>
+                                    {% endif %}
                                     {% else %}
                                     <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
                                 {% for forn in fornecedores_unicos %}
-                                    {% set resp_data = namespace(found=false, preco=0, prazo=0, subtotal=0) %}
+                                    {% set resp_data = namespace(found=false, preco=0, prazo=0, subtotal=0, obs='') %}
                                     {% for resp in cotacao.respostas %}
                                         {% if resp.nome_fornecedor == forn and resp.item_id == item.id %}
                                             {% set resp_data.found = true %}
                                             {% set resp_data.preco = resp.preco_unitario or 0 %}
                                             {% set resp_data.prazo = resp.prazo_entrega or 0 %}
                                             {% set resp_data.subtotal = resp_data.preco * item.quantidade %}
+                                            {% set resp_data.obs = resp.observacao or '' %}
                                         {% endif %}
                                     {% endfor %}
                                     {% if resp_data.found %}
-                                <td class="celula-preco grupo-forn-{{ loop.index0 % 8 }}" data-preco="{{ resp_data.preco }}" data-forn="{{ forn }}">R$ {{ "{:,.2f}".format(resp_data.preco).replace(',', 'X').replace('.', ',').replace('X', '.') }}</td>
+                                <td class="celula-preco grupo-forn-{{ loop.index0 % 8 }}{% if resp_data.obs %} tem-observacao{% endif %}" data-preco="{{ resp_data.preco }}" data-forn="{{ forn }}"
+                                    {% if resp_data.obs %}data-bs-toggle="tooltip" data-bs-placement="top" data-bs-html="true" title="<i class='fas fa-comment-alt me-1'></i>{{ resp_data.obs|e }}"{% endif %}>
+                                    <span class="valor-preco-principal">R$ {{ "{:,.2f}".format(resp_data.preco).replace(',', 'X').replace('.', ',').replace('X', '.') }}</span>{% if resp_data.obs %}<i class="fas fa-comment-alt ms-1 text-info" style="font-size: 0.7rem;"></i>{% endif %}
+                                    <span class="variacao-preco" data-variacao-calculada="false"></span>
+                                </td>
                                 <td class="celula-subtotal grupo-forn-{{ loop.index0 % 8 }}" data-subtotal="{{ resp_data.subtotal }}" data-forn="{{ forn }}">R$ {{ "{:,.2f}".format(resp_data.subtotal).replace(',', 'X').replace('.', ',').replace('X', '.') }}</td>
                                 <td class="celula-prazo grupo-forn-{{ loop.index0 % 8 }}" data-prazo="{{ resp_data.prazo }}" data-forn="{{ forn }}">{{ resp_data.prazo }} dias</td>
                                 <td class="grupo-forn-{{ loop.index0 % 8 }}">{{ forn_data_map[forn].condicao or '-' }}</td>
@@ -666,135 +837,144 @@
             </div>
             {% endif %}
 
-            <!-- RODADAS DE NEGOCIAÇÃO -->
-            {% if cotacao.rodadas_negociacao and cotacao.rodadas_negociacao|length > 0 %}
+            <!-- ============================================================
+                 RODADAS DE NEGOCIAÇÃO - MÚLTIPLOS FORNECEDORES
+                 ============================================================ -->
+            {% if cotacao.rodadas_agrupadas and cotacao.rodadas_agrupadas.fornecedores|length > 0 %}
             <div class="card-section mt-4" id="secaoRodadaNegociacao">
+                <!-- Cabeçalho - Padrão igual ao Comparativo de Propostas -->
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0"><i class="fas fa-handshake me-2"></i>Rodada de Negociação (Rodada 2)</h5>
-                    <button class="btn btn-sm btn-outline-danger" onclick="excluirTodasRodadas({{ cotacao.id }})">
-                        <i class="fas fa-trash me-1"></i> Limpar Rodada 2
-                    </button>
+                    <h5 class="mb-0"><i class="fas fa-handshake me-2"></i>Segunda Rodada de Negociação</h5>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-dark" data-bs-toggle="modal" data-bs-target="#modalIniciarNegociacao">
+                            <i class="fas fa-plus me-1"></i> Adicionar Fornecedor
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="excluirTodasRodadas({{ cotacao.id }})">
+                            <i class="fas fa-trash me-1"></i> Limpar
+                        </button>
+                    </div>
                 </div>
                 
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <strong>Valores negociados</strong> com fornecedor selecionado após primeira rodada de cotação.
+                <!-- KPIs - Fundo preto, texto branco -->
+                <div class="row mb-4 g-2">
+                    <div class="col-md-3">
+                        <div class="card border-0 h-100" style="background: #000;">
+                            <div class="card-body text-center py-3">
+                                <small class="text-white-50 d-block mb-1"><i class="fas fa-users me-1"></i>Fornecedores</small>
+                                <h3 class="mb-0 text-white fw-bold">{{ cotacao.rodadas_agrupadas.total_fornecedores }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-0 h-100" style="background: #000;">
+                            <div class="card-body text-center py-3">
+                                <small class="text-white-50 d-block mb-1"><i class="fas fa-tag me-1"></i>Melhor Proposta</small>
+                                {% if cotacao.rodadas_agrupadas.melhor_proposta %}
+                                <h4 class="mb-0 text-white fw-bold">R$ {{ "{:,.2f}".format(cotacao.rodadas_agrupadas.melhor_proposta.total_negociado_com_frete).replace(',', 'X').replace('.', ',').replace('X', '.') }}</h4>
+                                {% else %}
+                                <h4 class="mb-0 text-white fw-bold">-</h4>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-0 h-100" style="background: #000;">
+                            <div class="card-body text-center py-3">
+                                <small class="text-white-50 d-block mb-1"><i class="fas fa-piggy-bank me-1"></i>Economia Total</small>
+                                <h4 class="mb-0 text-white fw-bold">R$ {{ "{:,.2f}".format(cotacao.rodadas_agrupadas.total_economia).replace(',', 'X').replace('.', ',').replace('X', '.') }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card border-0 h-100" style="background: #000;">
+                            <div class="card-body text-center py-3">
+                                <small class="text-white-50 d-block mb-1"><i class="fas fa-trophy me-1"></i>Vencedor</small>
+                                {% if cotacao.rodadas_agrupadas.melhor_proposta %}
+                                <h6 class="mb-0 text-white fw-bold text-truncate" title="{{ cotacao.rodadas_agrupadas.melhor_proposta.nome_fornecedor }}">
+                                    {{ cotacao.rodadas_agrupadas.melhor_proposta.nome_fornecedor[:25] }}{% if cotacao.rodadas_agrupadas.melhor_proposta.nome_fornecedor|length > 25 %}...{% endif %}
+                                </h6>
+                                {% else %}
+                                <h6 class="mb-0 text-white fw-bold">-</h6>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
-                <!-- Identificar fornecedor da negociação -->
-                {% set fornecedor_negociacao = '' %}
-                {% if cotacao.rodadas_negociacao|length > 0 %}
-                    {% set fornecedor_negociacao = cotacao.rodadas_negociacao[0].nome_fornecedor %}
-                {% endif %}
-                
-                <!-- Cabeçalho com nome do fornecedor -->
-                <div class="p-3 mb-3" style="background: #000000; border-radius: 8px; color: white;">
-                    <h6 class="mb-0"><i class="fas fa-building me-2"></i>Fornecedor: {{ fornecedor_negociacao }}</h6>
-                </div>
-                
+                <!-- Tabela Comparativa de Fornecedores - Simples, sem accordion -->
                 <div class="table-responsive">
-                    <table class="table table-hover table-bordered">
-                        <thead class="table-light">
+                    <table class="table table-bordered table-hover mb-0">
+                        <thead style="background: #000; color: white;">
                             <tr>
-                                <th rowspan="2">Código</th>
-                                <th rowspan="2">Item</th>
-                                <th rowspan="2">Qtd</th>
-                                <th colspan="3" class="text-center" style="background: #e3f2fd; border-bottom: 2px solid #1976d2;">Rodada 1 (Original)</th>
-                                <th rowspan="2" class="text-center" style="background: #fff3e0;">Desc.%</th>
-                                <th colspan="3" class="text-center" style="background: #e8f5e9; border-bottom: 2px solid #388e3c;">Rodada 2 (Negociado)</th>
-                                <th rowspan="2">Economia</th>
-                                <th rowspan="2">Ações</th>
-                            </tr>
-                            <tr>
-                                <!-- Rodada 1 -->
-                                <th style="background: #e3f2fd;">Preço Unit.</th>
-                                <th style="background: #e3f2fd;">Prazo</th>
-                                <th style="background: #e3f2fd;">Total</th>
-                                <!-- Rodada 2 -->
-                                <th style="background: #e8f5e9;">Preço Unit.</th>
-                                <th style="background: #e8f5e9;">Prazo</th>
-                                <th style="background: #e8f5e9;">Total</th>
+                                <th>Fornecedor</th>
+                                <th class="text-center">Itens</th>
+                                <th class="text-center">Total R1</th>
+                                <th class="text-center">Frete R2</th>
+                                <th class="text-center">Total R2</th>
+                                <th class="text-center">Economia</th>
+                                <th class="text-center">%</th>
+                                <th class="text-center">Status</th>
+                                <th class="text-center" style="width: 90px;">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for rodada in cotacao.rodadas_negociacao %}
-                            <tr>
-                                <td class="fw-bold">{{ rodada.cod_produto }}</td>
-                                <td>{{ rodada.descricao_produto }}</td>
-                                <td>{{ rodada.quantidade }} {{ rodada.unidade or 'UN' }}</td>
-                                
-                                <!-- Rodada 1 (Original) -->
-                                <td style="background: #e3f2fd20;">R$ {{ "%.2f"|format(rodada.preco_unitario_original or 0) }}</td>
-                                <td style="background: #e3f2fd20;">{{ rodada.prazo_entrega_original or '-' }} dias</td>
-                                <td style="background: #e3f2fd20;" class="fw-bold">R$ {{ "%.2f"|format((rodada.preco_unitario_original or 0) * rodada.quantidade) }}</td>
-                                
-                                <!-- Desconto -->
-                                <td class="text-center" style="background: #fff3e020;">
-                                    {% if rodada.desconto_percentual and rodada.desconto_percentual > 0 %}
-                                        <span class="badge bg-warning text-dark">{{ "%.1f"|format(rodada.desconto_percentual) }}%</span>
-                                    {% else %}
-                                        <span class="text-muted">-</span>
+                            {% for forn in cotacao.rodadas_agrupadas.fornecedores %}
+                            <tr style="{{ 'background: #f8f9fa;' if forn.is_melhor else '' }}">
+                                <td class="fw-bold">
+                                    {{ forn.nome_fornecedor }}
+                                    {% if forn.desconto_medio > 0 %}
+                                    <small class="text-muted ms-1">({{ "%.1f"|format(forn.desconto_medio) }}% desc.)</small>
                                     {% endif %}
                                 </td>
-                                
-                                <!-- Rodada 2 (Negociado) -->
-                                <td style="background: #e8f5e920;">R$ {{ "%.2f"|format(rodada.preco_unitario_negociado or 0) }}</td>
-                                <td style="background: #e8f5e920;">{{ rodada.prazo_entrega_negociado or '-' }} dias</td>
-                                <td style="background: #e8f5e920;" class="fw-bold text-success">R$ {{ "%.2f"|format((rodada.preco_unitario_negociado or 0) * rodada.quantidade) }}</td>
-                                
-                                <!-- Economia -->
-                                {% set economia = ((rodada.preco_unitario_original or 0) - (rodada.preco_unitario_negociado or 0)) * rodada.quantidade %}
-                                <td class="fw-bold {{ 'text-success' if economia > 0 else 'text-danger' }}">
-                                    {% if economia > 0 %}
-                                        -R$ {{ "%.2f"|format(economia) }}
-                                    {% elif economia < 0 %}
-                                        +R$ {{ "%.2f"|format(economia|abs) }}
+                                <td class="text-center">{{ forn.itens|length }}</td>
+                                <td class="text-center text-muted">
+                                    R$ {{ "{:,.2f}".format(forn.total_original_com_frete).replace(',', 'X').replace('.', ',').replace('X', '.') }}
+                                </td>
+                                <td class="text-center">
+                                    R$ {{ "{:,.2f}".format(forn.frete_negociado).replace(',', 'X').replace('.', ',').replace('X', '.') }}
+                                </td>
+                                <td class="text-center fw-bold" style="{{ 'background: #198754; color: white;' if forn.is_melhor else '' }}">
+                                    R$ {{ "{:,.2f}".format(forn.total_negociado_com_frete).replace(',', 'X').replace('.', ',').replace('X', '.') }}
+                                </td>
+                                <td class="text-center fw-bold text-success">
+                                    {% if forn.economia_absoluta > 0 %}
+                                    -R$ {{ "{:,.2f}".format(forn.economia_absoluta).replace(',', 'X').replace('.', ',').replace('X', '.') }}
                                     {% else %}
-                                        R$ 0,00
+                                    R$ 0,00
                                     {% endif %}
                                 </td>
-                                
-                                <!-- Ações -->
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary" 
-                                            onclick="editarRodadaNegociacao({{ rodada.id }}, {{ rodada.preco_unitario_original or 0 }}, {{ rodada.preco_unitario_negociado }}, {{ rodada.prazo_entrega_negociado or 0 }}, '{{ rodada.observacao or '' }}', {{ rodada.desconto_percentual or 0 }})"
-                                            title="Editar valores negociados">
+                                <td class="text-center">
+                                    {% if forn.economia_percentual > 0 %}
+                                    <span class="badge bg-warning text-dark">{{ "%.1f"|format(forn.economia_percentual) }}%</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">0%</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if forn.is_melhor %}
+                                    <span class="badge bg-success">Melhor</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-dark" 
+                                            onclick="abrirModalEditarFornecedorR2Completo({{ forn.fornecedor_id }}, '{{ forn.nome_fornecedor }}', {{ forn.frete_negociado }})"
+                                            title="Editar">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <button class="btn btn-sm btn-outline-danger" 
-                                            onclick="excluirRodadaNegociacao({{ rodada.id }}, {{ cotacao.id }})"
-                                            title="Excluir item da negociação">
+                                    <button class="btn btn-sm btn-outline-secondary" 
+                                            onclick="excluirFornecedorRodada2({{ cotacao.id }}, {{ forn.fornecedor_id }}, '{{ forn.nome_fornecedor }}')" 
+                                            title="Excluir">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </td>
                             </tr>
                             {% endfor %}
-                            
-                            <!-- Totais -->
-                            <tr class="table-secondary fw-bold">
-                                <td colspan="5" class="text-end">TOTAL GERAL:</td>
-                                {% set total_original = namespace(val=0) %}
-                                {% set total_negociado = namespace(val=0) %}
-                                {% for rodada in cotacao.rodadas_negociacao %}
-                                    {% set total_original.val = total_original.val + ((rodada.preco_unitario_original or 0) * rodada.quantidade) %}
-                                    {% set total_negociado.val = total_negociado.val + ((rodada.preco_unitario_negociado or 0) * rodada.quantidade) %}
-                                {% endfor %}
-                                <td class="text-primary">R$ {{ "%.2f"|format(total_original.val) }}</td>
-                                <td></td>
-                                <td colspan="2"></td>
-                                <td class="text-success">R$ {{ "%.2f"|format(total_negociado.val) }}</td>
-                                <td class="text-success">-R$ {{ "%.2f"|format(total_original.val - total_negociado.val) }}</td>
-                                <td></td>
-                            </tr>
                         </tbody>
                     </table>
                 </div>
                 
-                {% if cotacao.rodadas_negociacao[0].observacao %}
-                <div class="alert alert-warning mt-3">
-                    <strong><i class="fas fa-comment me-2"></i>Observação:</strong> {{ cotacao.rodadas_negociacao[0].observacao }}
-                </div>
-                {% endif %}
             </div>
             {% else %}
             <!-- Botão para iniciar negociação quando não houver rodadas -->
@@ -803,15 +983,249 @@
                 <div class="text-center py-4">
                     <i class="fas fa-handshake fa-3x text-muted mb-3"></i>
                     <h5 class="text-muted mb-3">Nenhuma rodada de negociação iniciada</h5>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalIniciarNegociacao">
-                        <i class="fas fa-plus me-2"></i>Iniciar Rodada de Negociação
+                    <p class="text-muted mb-3">Inicie a segunda rodada para negociar melhores condições com os fornecedores.</p>
+                    <button class="btn btn-dark btn-lg" data-bs-toggle="modal" data-bs-target="#modalIniciarNegociacao">
+                        <i class="fas fa-plus me-2"></i>Iniciar Segunda Rodada de Negociação
                     </button>
                 </div>
             </div>
             {% endif %}
             {% endif %}
+            
+            <!-- Modal: Editar Fornecedor Rodada 2 - COMPLETO (com itens) -->
+            <div class="modal fade" id="modalEditarFornecedorR2Completo" tabindex="-1">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header" style="background: #000; color: white;">
+                            <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Editar Negociação - Rodada 2</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" id="editR2CompletoFornecedorId">
+                            
+                            <!-- Cabeçalho Fornecedor -->
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Fornecedor</label>
+                                    <input type="text" class="form-control bg-light" id="editR2CompletoFornecedorNome" readonly>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold"><i class="fas fa-truck me-1"></i>Frete R2 (R$)</label>
+                                    <input type="text" class="form-control" id="editR2CompletoFreteNegociado" 
+                                           placeholder="0,00" oninput="formatarMoedaModal(this); recalcularTotaisModalCompleto();">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold"><i class="fas fa-percent me-1"></i>Desconto Global</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="editR2CompletoDescontoGlobal" 
+                                               min="0" max="100" step="0.5" placeholder="0">
+                                        <span class="input-group-text">%</span>
+                                        <button class="btn btn-outline-dark" type="button" onclick="aplicarDescontoGlobalCompleto()">
+                                            Aplicar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Tabela de Itens Editável -->
+                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                <table class="table table-sm table-bordered table-hover" id="tabelaItensEditR2">
+                                    <thead style="background: #343a40; color: white; position: sticky; top: 0;">
+                                        <tr>
+                                            <th style="width: 40%;">Item / Descrição</th>
+                                            <th class="text-center" style="width: 10%;">Qtd</th>
+                                            <th class="text-end" style="width: 15%;">Preço R1 (Unit.)</th>
+                                            <th class="text-end" style="width: 15%;">Preço R2 (Unit.)</th>
+                                            <th class="text-center" style="width: 10%;">Desc. %</th>
+                                            <th class="text-end" style="width: 10%;">Total R2</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyItensEditR2">
+                                        <!-- Preenchido via JS -->
+                                    </tbody>
+                                    <tfoot style="background: #f8f9fa; font-weight: bold;">
+                                        <tr>
+                                            <td colspan="3" class="text-end">Subtotal Itens:</td>
+                                            <td colspan="3" class="text-end" id="editR2SubtotalItens">R$ 0,00</td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="3" class="text-end">+ Frete:</td>
+                                            <td colspan="3" class="text-end" id="editR2ValorFrete">R$ 0,00</td>
+                                        </tr>
+                                        <tr style="background: #000; color: white;">
+                                            <td colspan="3" class="text-end">TOTAL GERAL R2:</td>
+                                            <td colspan="3" class="text-end" id="editR2TotalGeral">R$ 0,00</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                            
+                            <!-- Resumo da Economia -->
+                            <div class="alert alert-success mt-3 mb-0" id="alertEconomiaEditR2" style="display: none;">
+                                <div class="row text-center">
+                                    <div class="col-md-4">
+                                        <small class="text-muted">Total R1</small>
+                                        <div class="fw-bold" id="editR2TotalR1">R$ 0,00</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <small class="text-muted">Economia</small>
+                                        <div class="fw-bold text-success" id="editR2Economia">-R$ 0,00</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <small class="text-muted">Percentual</small>
+                                        <div class="fw-bold"><span class="badge bg-warning text-dark" id="editR2EconomiaPercent">0%</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-dark" onclick="salvarEdicaoFornecedorR2Completo()">
+                                <i class="fas fa-save me-1"></i>Salvar Todas as Alterações
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
 
+        </div>
+    </div>
+
+    <!-- MODAL ADICIONAR ITEM À COTAÇÃO -->
+    <div class="modal fade" id="modalAdicionarItem" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus-circle me-2"></i>Adicionar Item à Cotação</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info" id="alertAddItemInfo">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Adicione um novo item à cotação. Informe o <strong>Número da SC</strong> e o <strong>Código do Produto</strong> para preencher automaticamente os dados da solicitação.
+                    </div>
+                    
+                    <!-- Alerta de sucesso quando dados são preenchidos automaticamente -->
+                    <div class="alert alert-success d-none" id="alertAddItemSucesso">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <span id="alertAddItemSucessoMsg">Dados preenchidos automaticamente da solicitação!</span>
+                    </div>
+                    
+                    <!-- Alerta de aviso quando SC existe mas produto não -->
+                    <div class="alert alert-warning d-none" id="alertAddItemAviso">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <span id="alertAddItemAvisoMsg"></span>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">Número SC</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="addItemSC" placeholder="Ex: 000123">
+                                <button class="btn btn-outline-primary" type="button" id="btnBuscarSolicitacao" title="Buscar dados da solicitação">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Deixe vazio para item manual</small>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">Código Produto *</label>
+                            <input type="text" class="form-control" id="addItemCodProduto" placeholder="Ex: MAT-001" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">Unidade</label>
+                            <input type="text" class="form-control" id="addItemUnidade" placeholder="UN" value="UN">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descrição do Produto *</label>
+                        <input type="text" class="form-control" id="addItemDescricao" placeholder="Descrição completa do produto" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Quantidade *</label>
+                            <input type="number" class="form-control" id="addItemQuantidade" placeholder="0" min="0.01" step="0.01" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Data Necessidade</label>
+                            <input type="date" class="form-control" id="addItemDataNecessidade">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Observação (opcional)</label>
+                        <textarea class="form-control" id="addItemObs" rows="2" placeholder="Informações adicionais sobre o item..."></textarea>
+                    </div>
+                    
+                    <!-- Campo oculto para indicar se dados vieram da solicitação -->
+                    <input type="hidden" id="addItemOrigemSolicitacao" value="0">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" id="btnAdicionarItem">
+                        <i class="fas fa-plus me-1"></i>Adicionar Item
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR ITEM DA COTAÇÃO -->
+    <div class="modal fade" id="modalEditarItem" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Editar Item da Cotação</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editItemId">
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">Número SC</label>
+                            <input type="text" class="form-control" id="editItemSC" placeholder="Ex: 000123">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">Código Produto *</label>
+                            <input type="text" class="form-control" id="editItemCodProduto" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">Unidade</label>
+                            <input type="text" class="form-control" id="editItemUnidade" value="UN">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descrição do Produto *</label>
+                        <input type="text" class="form-control" id="editItemDescricao" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Quantidade *</label>
+                            <input type="number" class="form-control" id="editItemQuantidade" min="0.01" step="0.01" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Data Necessidade</label>
+                            <input type="date" class="form-control" id="editItemDataNecessidade">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn btn-warning" id="btnSalvarEditarItem">
+                        <i class="fas fa-save me-1"></i>Salvar Alterações
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -856,19 +1270,18 @@
                         
                         <div id="listaFornecedores" class="border rounded" style="max-height: 250px; overflow-y: auto; display: none;"></div>
                         
-                        <div id="fornecedorSelecionado" class="alert alert-success d-none mt-3">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-check-circle me-2"></i>
-                                <div class="flex-grow-1">
-                                    <strong id="selNome"></strong><br>
-                                    <small class="text-muted">
-                                        <span id="selCodigo"></span> | 
-                                        <span id="selEmail"></span> | 
-                                        <span id="selTelefone"></span>
-                                    </small>
-                                </div>
-                                <button type="button" class="btn btn-sm btn-outline-danger" id="btnLimparSelecao">
-                                    <i class="fas fa-times"></i>
+                        <!-- Área para mostrar múltiplos fornecedores selecionados -->
+                        <div id="fornecedoresSelecionadosArea" class="mt-3 d-none">
+                            <label class="form-label fw-bold text-success">
+                                <i class="fas fa-check-circle me-1"></i>
+                                Fornecedores Selecionados (<span id="contadorSelecionados">0</span>):
+                            </label>
+                            <div id="tagsSelecionados" class="d-flex flex-wrap gap-2 p-2 border rounded bg-light" style="min-height: 50px;">
+                                <!-- Tags inseridas via JavaScript -->
+                            </div>
+                            <div class="d-flex justify-content-end mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-danger" id="btnLimparTodosSelecionados">
+                                    <i class="fas fa-times me-1"></i>Limpar Todos
                                 </button>
                             </div>
                         </div>
@@ -902,7 +1315,7 @@
                         <i class="fas fa-times me-1"></i>Cancelar
                     </button>
                     <button type="button" class="btn btn-success" id="btnAdicionarForn">
-                        <i class="fas fa-plus me-1"></i>Adicionar Fornecedor
+                        <i class="fas fa-plus me-1"></i>Adicionar Fornecedor(es)
                     </button>
                 </div>
             </div>
@@ -1071,7 +1484,7 @@
 
     <!-- MODAL EDITAR FORNECEDOR -->
     <div class="modal fade" id="modalEditarFornecedor" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-info text-white">
                     <h5 class="modal-title"><i class="fas fa-user-edit me-2"></i>Editar Informações do Fornecedor</h5>
@@ -1079,7 +1492,11 @@
                 </div>
                 <div class="modal-body py-4">
                     <input type="hidden" id="editFornecedorId">
-                    <div class="row g-3">
+                    <input type="hidden" id="editFornecedorCotacaoId" value="{{ cotacao.id }}">
+                    
+                    <!-- Dados Básicos do Fornecedor -->
+                    <h6 class="fw-bold text-info mb-3"><i class="fas fa-user me-2"></i>Dados do Fornecedor</h6>
+                    <div class="row g-3 mb-4">
                         <div class="col-12">
                             <label class="form-label fw-bold">Nome do Fornecedor *</label>
                             <input type="text" class="form-control form-control-lg" id="inputEditFornecedorNome" placeholder="Digite o nome do fornecedor" required>
@@ -1091,6 +1508,74 @@
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Telefone</label>
                             <input type="text" class="form-control" id="inputEditFornecedorTelefone" placeholder="(00) 00000-0000">
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Proposta Segunda Rodada -->
+                    <div class="p-3 rounded" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 1px dashed #1976d2;">
+                        <h6 class="fw-bold text-primary mb-3">
+                            <i class="fas fa-handshake me-2"></i>Proposta da Segunda Rodada (opcional)
+                        </h6>
+                        <p class="small text-muted mb-3">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Preencha os campos abaixo para inserir ou atualizar a proposta da segunda rodada deste fornecedor.
+                        </p>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold"><i class="fas fa-percent text-warning me-1"></i>Desconto Global (%)</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="inputEditFornecedorDescontoR2" 
+                                           min="0" max="100" step="0.5" value="" placeholder="0">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <small class="text-muted">Aplicado a todos os itens da proposta original</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold"><i class="fas fa-truck me-1"></i>Frete Negociado (R$)</label>
+                                <input type="text" class="form-control" id="inputEditFornecedorFreteR2" 
+                                       placeholder="0,00" oninput="formatarMoedaModal(this)">
+                            </div>
+                        </div>
+                        
+                        <div class="row g-3 mt-2">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold"><i class="fas fa-calendar me-1"></i>Prazo Negociado (dias)</label>
+                                <input type="number" class="form-control" id="inputEditFornecedorPrazoR2" 
+                                       min="0" placeholder="Ex: 15">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold"><i class="fas fa-file-alt me-1"></i>Condição de Pagamento</label>
+                                <input type="text" class="form-control" id="inputEditFornecedorCondicaoR2" 
+                                       placeholder="Ex: 30/60/90 DDL">
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <label class="form-label fw-bold"><i class="fas fa-paperclip text-success me-1"></i>Anexar Orçamento/Proposta R2</label>
+                            <input type="file" class="form-control" id="inputEditFornecedorAnexoR2" 
+                                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+                            <small class="text-muted">PDF, imagens, Word ou Excel (máx. 10MB)</small>
+                            <div id="previewAnexoEditR2" class="mt-2" style="display: none;">
+                                <span class="badge bg-success"><i class="fas fa-check me-1"></i><span id="nomeAnexoEditR2"></span></span>
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removerAnexoEditR2()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <label class="form-label fw-bold">Observação da Negociação</label>
+                            <textarea class="form-control" id="inputEditFornecedorObsR2" rows="2" 
+                                      placeholder="Ex: Valores negociados via telefone em DD/MM/AAAA"></textarea>
+                        </div>
+                        
+                        <!-- Indicador de R2 existente -->
+                        <div id="indicadorR2Existente" class="alert alert-success mt-3 py-2" style="display: none;">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <span id="textoR2Existente">Este fornecedor já possui proposta na segunda rodada.</span>
                         </div>
                     </div>
                 </div>
@@ -1323,6 +1808,31 @@
                         </div>
                     </div>
                     
+                    <!-- Anexo de Orçamento PDF -->
+                    <div class="card border-primary mb-3">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="mb-0"><i class="fas fa-paperclip me-2"></i>Anexar Orçamento (PDF)</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <input type="file" class="form-control" id="inputAnexoOrcamento" 
+                                           accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
+                                    <small class="text-muted">Formatos aceitos: PDF, Word, Excel, Imagens (máx. 16MB)</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <div id="anexoAtualInfo" class="d-none">
+                                        <span class="badge bg-success me-2">
+                                            <i class="fas fa-check-circle me-1"></i>
+                                            <span id="nomeAnexoAtual">Anexo existente</span>
+                                        </span>
+                                        <small class="text-muted">(novo arquivo substitui)</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div id="loadingModal" class="text-center py-4 d-none">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Carregando...</span>
@@ -1457,13 +1967,37 @@
                             <textarea class="form-control" id="observacaoNegociacao" rows="2" 
                                       placeholder="Ex: Valores negociados via telefone em DD/MM/AAAA"></textarea>
                         </div>
+                        
+                        <!-- Campo de Frete Negociado -->
+                        <div class="mb-3 p-3" style="background: #f8f9fa; border-radius: 8px;">
+                            <label class="form-label fw-bold"><i class="fas fa-truck me-2"></i>Frete Negociado (R$)</label>
+                            <input type="text" class="form-control" id="freteNegociacao" 
+                                   placeholder="0,00" oninput="formatarMoedaModal(this)" style="max-width: 200px;">
+                            <small class="text-muted">Valor do frete negociado para esta segunda rodada</small>
+                        </div>
+                        
+                        <!-- Campo de Anexo para Segunda Rodada -->
+                        <div class="mb-3 p-3" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-radius: 8px; border: 1px dashed #4caf50;">
+                            <label class="form-label fw-bold"><i class="fas fa-paperclip me-2 text-success"></i>Anexar Orçamento da Segunda Rodada (opcional)</label>
+                            <input type="file" class="form-control" id="inputAnexoRodada2" 
+                                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+                            <small class="text-muted d-block mt-1">
+                                <i class="fas fa-info-circle me-1"></i>Formatos aceitos: PDF, imagens, Word, Excel (máx. 10MB)
+                            </small>
+                            <div id="previewAnexoRodada2" class="mt-2" style="display: none;">
+                                <span class="badge bg-success"><i class="fas fa-check me-1"></i><span id="nomeAnexoRodada2"></span></span>
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removerAnexoRodada2()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         <i class="fas fa-times me-1"></i>Cancelar
                     </button>
-                    <button type="button" class="btn btn-success" onclick="salvarRodadaNegociacao()" id="btnSalvarNegociacao" disabled>
+                    <button type="button" class="btn btn-dark" onclick="salvarRodadaNegociacao()" id="btnSalvarNegociacao" disabled>
                         <i class="fas fa-save me-1"></i>Salvar Rodada de Negociação
                     </button>
                 </div>
@@ -1541,7 +2075,8 @@
     
     const COTACAO_ID = {{ cotacao.id }};
     let modoFornecedor = 'cadastrado';
-    let fornecedorSelecionado = null;
+    // Map para armazenar múltiplos fornecedores selecionados (código => dados)
+    let fornecedoresSelecionados = new Map();
     let timeoutBusca = null;
     
     // ============ UTILITÁRIOS ============
@@ -1557,9 +2092,62 @@
         return parseFloat(valor).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
     
+    /**
+     * Formata input de moeda no padrão BR (1.250,50)
+     */
+    function formatarMoedaModal(input) {
+        let valor = input.value;
+        
+        // Remove tudo exceto números, vírgula e ponto
+        valor = valor.replace(/[^\d.,]/g, '');
+        
+        // Limita a 2 casas decimais após vírgula
+        const partes = valor.split(',');
+        if (partes.length > 2) {
+            valor = partes[0] + ',' + partes.slice(1).join('').substring(0, 2);
+        } else if (partes.length === 2) {
+            valor = partes[0] + ',' + partes[1].substring(0, 2);
+        }
+        
+        input.value = valor;
+    }
+    
     function converterParaDecimal(valorBR) {
         if (!valorBR || String(valorBR).trim() === '') return 0;
-        return parseFloat(String(valorBR).replace(/\./g, '').replace(',', '.')) || 0;
+        
+        let str = String(valorBR).trim();
+        
+        // Detectar se o valor está em formato decimal (ponto como separador) ou BR (vírgula)
+        // Formato BR: "1.250,50" ou "11,20"
+        // Formato decimal: "1250.50" ou "11.20"
+        
+        const temVirgula = str.includes(',');
+        const temPonto = str.includes('.');
+        
+        if (temVirgula && temPonto) {
+            // Formato BR com milhar: "1.250,50" -> remover pontos de milhar, converter vírgula
+            return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+        } else if (temVirgula && !temPonto) {
+            // Formato BR simples: "11,20" -> converter vírgula para ponto
+            return parseFloat(str.replace(',', '.')) || 0;
+        } else if (!temVirgula && temPonto) {
+            // Formato decimal: "11.20" ou "1250.50" -> usar direto
+            // CUIDADO: Se tiver mais de um ponto, é milhar BR: "1.250" (sem decimal)
+            const partes = str.split('.');
+            if (partes.length === 2 && partes[1].length <= 2) {
+                // "11.20" -> decimal normal
+                return parseFloat(str) || 0;
+            } else if (partes.length > 2) {
+                // "1.250.000" -> milhar BR sem decimal, remover pontos
+                return parseFloat(str.replace(/\./g, '')) || 0;
+            } else {
+                // "11.20" ou "1250.5" -> decimal
+                return parseFloat(str) || 0;
+            }
+        } else {
+            // Sem separadores: "1120" -> número inteiro
+            return parseFloat(str) || 0;
+        }
     }
     
     function mostrarToast(mensagem, tipo = 'success') {
@@ -1592,6 +2180,294 @@
         }
     }
     
+    // ============ BUSCA AUTOMÁTICA DE SOLICITAÇÃO ============
+    
+    // Função para buscar dados da solicitação e preencher automaticamente
+    async function buscarDadosSolicitacao() {
+        const numeroSC = document.getElementById('addItemSC').value.trim();
+        const codProduto = document.getElementById('addItemCodProduto').value.trim();
+        
+        // Limpa alertas anteriores
+        document.getElementById('alertAddItemSucesso').classList.add('d-none');
+        document.getElementById('alertAddItemAviso').classList.add('d-none');
+        document.getElementById('alertAddItemInfo').classList.remove('d-none');
+        document.getElementById('addItemOrigemSolicitacao').value = '0';
+        
+        // Reseta estilo dos campos
+        ['addItemDescricao', 'addItemQuantidade', 'addItemUnidade', 'addItemDataNecessidade'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.classList.remove('bg-success-subtle', 'border-success');
+            }
+        });
+        
+        // Se não tem número da SC, não busca
+        if (!numeroSC) {
+            return;
+        }
+        
+        // Mostra indicador de loading no botão
+        const btnBuscar = document.getElementById('btnBuscarSolicitacao');
+        const iconOriginal = btnBuscar.innerHTML;
+        btnBuscar.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btnBuscar.disabled = true;
+        
+        try {
+            // Monta URL com parâmetros
+            let url = `/api/solicitacao/buscar?numero_sc=${encodeURIComponent(numeroSC)}`;
+            if (codProduto) {
+                url += `&cod_produto=${encodeURIComponent(codProduto)}`;
+            }
+            
+            const response = await fetch(url);
+            const result = await response.json();
+            
+            if (result.success && result.encontrada) {
+                // Solicitação encontrada! Preenche os campos
+                const sol = result.solicitacao;
+                
+                document.getElementById('addItemCodProduto').value = sol.cod_produto || '';
+                document.getElementById('addItemDescricao').value = sol.descricao_produto || '';
+                document.getElementById('addItemQuantidade').value = sol.quantidade || '';
+                document.getElementById('addItemUnidade').value = sol.unidade || 'UN';
+                document.getElementById('addItemDataNecessidade').value = sol.data_necessidade || '';
+                document.getElementById('addItemObs').value = sol.observacao || '';
+                document.getElementById('addItemOrigemSolicitacao').value = '1';
+                
+                // Destaca campos preenchidos automaticamente
+                ['addItemDescricao', 'addItemQuantidade', 'addItemUnidade', 'addItemDataNecessidade'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && el.value) {
+                        el.classList.add('bg-success-subtle', 'border-success');
+                    }
+                });
+                
+                // Mostra alerta de sucesso
+                document.getElementById('alertAddItemInfo').classList.add('d-none');
+                document.getElementById('alertAddItemSucesso').classList.remove('d-none');
+                document.getElementById('alertAddItemSucessoMsg').innerHTML = 
+                    `<strong>Dados preenchidos automaticamente!</strong> SC ${sol.numero_sc}` +
+                    (sol.solicitante ? ` - Solicitante: ${sol.solicitante}` : '') +
+                    (result.total_itens > 1 ? ` (${result.total_itens} itens na SC)` : '');
+                
+                mostrarToast('Dados da solicitação carregados!', 'success');
+                
+            } else if (result.sc_existe) {
+                // SC existe mas produto não corresponde
+                document.getElementById('alertAddItemInfo').classList.add('d-none');
+                document.getElementById('alertAddItemAviso').classList.remove('d-none');
+                
+                let msg = result.message;
+                if (result.produtos_disponiveis && result.produtos_disponiveis.length > 0) {
+                    msg += '<br><small>Produtos disponíveis nesta SC: ';
+                    msg += result.produtos_disponiveis.map(p => 
+                        `<strong>${p.CodProduto}</strong> (${p.DescricaoProduto?.substring(0, 30) || 'Sem descrição'}...)`
+                    ).join(', ');
+                    msg += '</small>';
+                }
+                document.getElementById('alertAddItemAvisoMsg').innerHTML = msg;
+                
+            } else {
+                // Não encontrada
+                if (numeroSC) {
+                    document.getElementById('alertAddItemInfo').classList.add('d-none');
+                    document.getElementById('alertAddItemAviso').classList.remove('d-none');
+                    document.getElementById('alertAddItemAvisoMsg').textContent = 
+                        result.message || `Solicitação ${numeroSC} não encontrada ou já possui pedido. Preencha os dados manualmente.`;
+                }
+            }
+            
+        } catch (error) {
+            console.error('Erro ao buscar solicitação:', error);
+            mostrarToast('Erro ao buscar solicitação: ' + error.message, 'danger');
+        } finally {
+            // Restaura botão
+            btnBuscar.innerHTML = iconOriginal;
+            btnBuscar.disabled = false;
+        }
+    }
+    
+    // Event listeners para busca automática
+    document.getElementById('btnBuscarSolicitacao')?.addEventListener('click', buscarDadosSolicitacao);
+    
+    // Busca automática quando código do produto é alterado (se SC está preenchido)
+    document.getElementById('addItemCodProduto')?.addEventListener('blur', function() {
+        const numeroSC = document.getElementById('addItemSC').value.trim();
+        if (numeroSC && this.value.trim()) {
+            buscarDadosSolicitacao();
+        }
+    });
+    
+    // Busca automática quando SC é alterado (se código do produto está preenchido)
+    document.getElementById('addItemSC')?.addEventListener('blur', function() {
+        const codProduto = document.getElementById('addItemCodProduto').value.trim();
+        if (this.value.trim() && codProduto) {
+            buscarDadosSolicitacao();
+        }
+    });
+    
+    // Limpa o modal quando é aberto
+    document.getElementById('modalAdicionarItem')?.addEventListener('show.bs.modal', function() {
+        // Limpa todos os campos
+        document.getElementById('addItemSC').value = '';
+        document.getElementById('addItemCodProduto').value = '';
+        document.getElementById('addItemDescricao').value = '';
+        document.getElementById('addItemQuantidade').value = '';
+        document.getElementById('addItemUnidade').value = 'UN';
+        document.getElementById('addItemDataNecessidade').value = '';
+        document.getElementById('addItemObs').value = '';
+        document.getElementById('addItemOrigemSolicitacao').value = '0';
+        
+        // Reseta alertas
+        document.getElementById('alertAddItemSucesso').classList.add('d-none');
+        document.getElementById('alertAddItemAviso').classList.add('d-none');
+        document.getElementById('alertAddItemInfo').classList.remove('d-none');
+        
+        // Reseta estilo dos campos
+        ['addItemDescricao', 'addItemQuantidade', 'addItemUnidade', 'addItemDataNecessidade'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.classList.remove('bg-success-subtle', 'border-success');
+            }
+        });
+    });
+    
+    // ============ GERENCIAMENTO DE ITENS DA COTAÇÃO ============
+    
+    // Adicionar novo item
+    document.getElementById('btnAdicionarItem')?.addEventListener('click', async function() {
+        const sc = document.getElementById('addItemSC').value.trim();
+        const codProduto = document.getElementById('addItemCodProduto').value.trim();
+        const descricao = document.getElementById('addItemDescricao').value.trim();
+        const quantidade = parseFloat(document.getElementById('addItemQuantidade').value) || 0;
+        const unidade = document.getElementById('addItemUnidade').value.trim() || 'UN';
+        const dataNecessidade = document.getElementById('addItemDataNecessidade').value;
+        const observacao = document.getElementById('addItemObs').value.trim();
+        
+        // Validações
+        if (!codProduto) {
+            mostrarToast('Informe o código do produto', 'warning');
+            return;
+        }
+        if (!descricao) {
+            mostrarToast('Informe a descrição do produto', 'warning');
+            return;
+        }
+        if (quantidade <= 0) {
+            mostrarToast('Informe uma quantidade válida', 'warning');
+            return;
+        }
+        
+        try {
+            const result = await apiCall(`/api/cotacao/${COTACAO_ID}/item`, 'POST', {
+                numero_sc: sc || 'MANUAL',
+                cod_produto: codProduto,
+                descricao_produto: descricao,
+                quantidade: quantidade,
+                unidade: unidade,
+                data_necessidade: dataNecessidade,
+                observacao: observacao
+            });
+            
+            if (result.success) {
+                mostrarToast('Item adicionado com sucesso!', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('modalAdicionarItem')).hide();
+                setTimeout(() => location.reload(), 800);
+            } else {
+                throw new Error(result.error || 'Erro ao adicionar item');
+            }
+        } catch (error) {
+            mostrarToast('Erro: ' + error.message, 'danger');
+        }
+    });
+    
+    // Abrir modal de edição
+    document.querySelectorAll('.btn-editar-item').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('editItemId').value = this.dataset.id;
+            document.getElementById('editItemSC').value = this.dataset.sc || '';
+            document.getElementById('editItemCodProduto').value = this.dataset.produto || '';
+            document.getElementById('editItemDescricao').value = this.dataset.descricao || '';
+            document.getElementById('editItemQuantidade').value = this.dataset.quantidade || '';
+            document.getElementById('editItemUnidade').value = this.dataset.unidade || 'UN';
+            document.getElementById('editItemDataNecessidade').value = this.dataset.necessidade || '';
+            
+            new bootstrap.Modal(document.getElementById('modalEditarItem')).show();
+        });
+    });
+    
+    // Salvar edição do item
+    document.getElementById('btnSalvarEditarItem')?.addEventListener('click', async function() {
+        const itemId = document.getElementById('editItemId').value;
+        const sc = document.getElementById('editItemSC').value.trim();
+        const codProduto = document.getElementById('editItemCodProduto').value.trim();
+        const descricao = document.getElementById('editItemDescricao').value.trim();
+        const quantidade = parseFloat(document.getElementById('editItemQuantidade').value) || 0;
+        const unidade = document.getElementById('editItemUnidade').value.trim() || 'UN';
+        const dataNecessidade = document.getElementById('editItemDataNecessidade').value;
+        
+        // Validações
+        if (!codProduto) {
+            mostrarToast('Informe o código do produto', 'warning');
+            return;
+        }
+        if (!descricao) {
+            mostrarToast('Informe a descrição do produto', 'warning');
+            return;
+        }
+        if (quantidade <= 0) {
+            mostrarToast('Informe uma quantidade válida', 'warning');
+            return;
+        }
+        
+        try {
+            const result = await apiCall(`/api/cotacao/${COTACAO_ID}/item/${itemId}`, 'POST', {
+                numero_sc: sc || 'MANUAL',
+                cod_produto: codProduto,
+                descricao_produto: descricao,
+                quantidade: quantidade,
+                unidade: unidade,
+                data_necessidade: dataNecessidade
+            });
+            
+            if (result.success) {
+                mostrarToast('Item atualizado com sucesso!', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('modalEditarItem')).hide();
+                setTimeout(() => location.reload(), 800);
+            } else {
+                throw new Error(result.error || 'Erro ao atualizar item');
+            }
+        } catch (error) {
+            mostrarToast('Erro: ' + error.message, 'danger');
+        }
+    });
+    
+    // Excluir item
+    document.querySelectorAll('.btn-excluir-item').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const itemId = this.dataset.id;
+            const descricao = this.dataset.descricao;
+            
+            if (!confirm(`Deseja realmente excluir o item "${descricao}"?\n\nAtenção: Se houver respostas de fornecedores associadas a este item, elas também serão removidas.`)) {
+                return;
+            }
+            
+            try {
+                const result = await apiCall(`/api/cotacao/${COTACAO_ID}/item/${itemId}/excluir`, 'POST');
+                
+                if (result.success) {
+                    mostrarToast('Item excluído com sucesso!', 'success');
+                    // Remove a linha da tabela sem recarregar
+                    document.getElementById(`row-item-${itemId}`)?.remove();
+                } else {
+                    throw new Error(result.error || 'Erro ao excluir item');
+                }
+            } catch (error) {
+                mostrarToast('Erro: ' + error.message, 'danger');
+            }
+        });
+    });
+    
     // ============ BUSCA DE FORNECEDORES ============
     async function buscarFornecedores(termo) {
         const lista = document.getElementById('listaFornecedores');
@@ -1610,22 +2486,35 @@
             
             if (data.success && data.fornecedores && data.fornecedores.length > 0) {
                 console.log('[BUSCA] Encontrados:', data.fornecedores.length);
-                lista.innerHTML = data.fornecedores.map(f => `
-                    <div class="lista-fornecedor-item" data-fornecedor='${JSON.stringify(f).replace(/'/g, "&#39;")}'>
-                        <div class="fw-bold">${escapeHtml(f.nome)}</div>
-                        <small class="text-muted">
+                lista.innerHTML = '';
+                lista.className = 'list-group border rounded';
+                lista.style.maxHeight = '250px';
+                lista.style.overflowY = 'auto';
+                
+                data.fornecedores.forEach(f => {
+                    const chave = f.codigo || f.nome;
+                    const selecionado = fornecedoresSelecionados.has(chave);
+                    
+                    const item = document.createElement('div');
+                    item.className = `list-group-item list-group-item-action ${selecionado ? 'active bg-success text-white' : ''}`;
+                    item.dataset.codigo = chave;
+                    item.dataset.fornecedor = JSON.stringify(f);
+                    item.style.cursor = 'pointer';
+                    item.innerHTML = `
+                        <div class="fw-bold">
+                            ${escapeHtml(f.nome)}
+                            ${selecionado ? '<i class="fas fa-check-circle ms-2 text-white"></i>' : ''}
+                        </div>
+                        <small class="${selecionado ? 'text-white-50' : 'text-muted'}">
                             <i class="fas fa-barcode me-1"></i>${escapeHtml(f.codigo)}
                             ${f.email ? `<span class="ms-2"><i class="fas fa-envelope me-1"></i>${escapeHtml(f.email)}</span>` : ''}
                         </small>
-                    </div>
-                `).join('');
-                
-                // Bind click events
-                lista.querySelectorAll('.lista-fornecedor-item').forEach(item => {
+                    `;
                     item.addEventListener('click', function() {
-                        const f = JSON.parse(this.dataset.fornecedor);
-                        selecionarFornecedor(f);
+                        const fornecedor = JSON.parse(this.dataset.fornecedor);
+                        selecionarFornecedor(fornecedor);
                     });
+                    lista.appendChild(item);
                 });
             } else {
                 lista.innerHTML = '<div class="text-center py-3 text-muted"><i class="fas fa-search me-2"></i>Nenhum fornecedor encontrado</div>';
@@ -1636,70 +2525,162 @@
     }
     
     function selecionarFornecedor(f) {
-        fornecedorSelecionado = f;
-        document.getElementById('selNome').textContent = f.nome;
-        document.getElementById('selCodigo').textContent = 'Cód: ' + f.codigo;
-        document.getElementById('selEmail').textContent = f.email || 'Sem email';
-        document.getElementById('selTelefone').textContent = f.telefone || 'Sem telefone';
-        document.getElementById('fornCodigo').value = f.codigo;
-        document.getElementById('fornecedorSelecionado').classList.remove('d-none');
-        document.getElementById('listaFornecedores').style.display = 'none';
-        document.getElementById('buscaFornecedor').value = '';
+        // Toggle: se já está selecionado, remove; senão, adiciona
+        const chave = f.codigo || f.nome; // usa código se disponível, senão nome
+        
+        if (fornecedoresSelecionados.has(chave)) {
+            fornecedoresSelecionados.delete(chave);
+        } else {
+            fornecedoresSelecionados.set(chave, f);
+        }
+        
+        atualizarVisualizacaoSelecionados();
+        atualizarEstatusListaFornecedores();
+    }
+    
+    function atualizarVisualizacaoSelecionados() {
+        const area = document.getElementById('fornecedoresSelecionadosArea');
+        const container = document.getElementById('tagsSelecionados');
+        const contador = document.getElementById('contadorSelecionados');
+        
+        if (fornecedoresSelecionados.size === 0) {
+            area.classList.add('d-none');
+            return;
+        }
+        
+        area.classList.remove('d-none');
+        contador.textContent = fornecedoresSelecionados.size;
+        container.innerHTML = '';
+        
+        fornecedoresSelecionados.forEach((f, chave) => {
+            const tag = document.createElement('span');
+            tag.className = 'badge bg-success d-inline-flex align-items-center py-2 px-3';
+            tag.style.fontSize = '0.9rem';
+            tag.innerHTML = `
+                <i class="fas fa-user me-2"></i>
+                <span class="me-2">${escapeHtml(f.nome)}</span>
+                <span class="text-white-50 me-2">(${escapeHtml(f.codigo || 'Sem código')})</span>
+                <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.7rem;" 
+                        onclick="removerFornecedorSelecionado('${escapeHtml(chave)}')"></button>
+            `;
+            container.appendChild(tag);
+        });
+    }
+    
+    function atualizarEstatusListaFornecedores() {
+        // Atualiza visualmente os itens da lista para mostrar quais estão selecionados
+        const lista = document.getElementById('listaFornecedores');
+        if (!lista) return;
+        
+        lista.querySelectorAll('.list-group-item').forEach(item => {
+            const codigo = item.dataset.codigo;
+            if (fornecedoresSelecionados.has(codigo)) {
+                item.classList.add('active', 'bg-success', 'text-white');
+                // Adiciona ícone de check se não existir
+                if (!item.querySelector('.fa-check-circle')) {
+                    const icon = document.createElement('i');
+                    icon.className = 'fas fa-check-circle ms-2 text-white';
+                    item.querySelector('.fw-bold')?.appendChild(icon);
+                }
+            } else {
+                item.classList.remove('active', 'bg-success', 'text-white');
+                item.querySelector('.fa-check-circle')?.remove();
+            }
+        });
+    }
+    
+    function removerFornecedorSelecionado(chave) {
+        fornecedoresSelecionados.delete(chave);
+        atualizarVisualizacaoSelecionados();
+        atualizarEstatusListaFornecedores();
     }
     
     function limparSelecao() {
-        fornecedorSelecionado = null;
+        fornecedoresSelecionados.clear();
         document.getElementById('fornCodigo').value = '';
-        document.getElementById('fornecedorSelecionado').classList.add('d-none');
+        document.getElementById('fornecedoresSelecionadosArea').classList.add('d-none');
+        document.getElementById('tagsSelecionados').innerHTML = '';
         document.getElementById('buscaFornecedor').value = '';
         document.getElementById('listaFornecedores').style.display = 'none';
+        atualizarEstatusListaFornecedores();
     }
     
     // ============ ADICIONAR FORNECEDOR ============
     async function adicionarFornecedor() {
-        let dados = {};
+        const btn = document.getElementById('btnAdicionarForn');
         
         if (modoFornecedor === 'cadastrado') {
-            if (!fornecedorSelecionado) {
-                mostrarToast('Selecione um fornecedor da lista', 'warning');
+            // Modo de fornecedores cadastrados - usa multi-select
+            if (fornecedoresSelecionados.size === 0) {
+                mostrarToast('Selecione pelo menos um fornecedor da lista', 'warning');
                 return;
             }
-            dados = {
-                nome: fornecedorSelecionado.nome,
-                email: fornecedorSelecionado.email || '',
-                telefone: fornecedorSelecionado.telefone || '',
-                cod_fornecedor: fornecedorSelecionado.codigo
-            };
+            
+            // Prepara array de fornecedores para a API bulk
+            const fornecedores = [];
+            fornecedoresSelecionados.forEach((f, chave) => {
+                fornecedores.push({
+                    nome: f.nome,
+                    email: f.email || '',
+                    telefone: f.telefone || '',
+                    cod_fornecedor: f.codigo || ''
+                });
+            });
+            
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin me-1"></i>Adicionando ${fornecedores.length} fornecedor(es)...`;
+            
+            try {
+                const result = await apiCall(`/api/cotacao/${COTACAO_ID}/fornecedores/bulk`, 'POST', {fornecedores});
+                
+                if (result.success) {
+                    let msg = `✅ ${result.adicionados} fornecedor(es) adicionado(s)`;
+                    if (result.ignorados > 0) {
+                        msg += ` | ⚠️ ${result.ignorados} já existia(m)`;
+                    }
+                    if (result.erros > 0) {
+                        msg += ` | ❌ ${result.erros} com erro`;
+                    }
+                    mostrarToast(msg, result.erros > 0 ? 'warning' : 'success');
+                    setTimeout(() => location.reload(), 800);
+                } else {
+                    throw new Error(result.error || 'Erro desconhecido');
+                }
+            } catch (error) {
+                mostrarToast('Erro: ' + error.message, 'danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-plus me-1"></i>Adicionar Fornecedor(es)';
+            }
         } else {
+            // Modo manual - um fornecedor por vez
             const nome = document.getElementById('fornNome').value.trim();
             if (!nome) {
                 mostrarToast('Nome do fornecedor é obrigatório', 'warning');
                 return;
             }
-            dados = {
+            const dados = {
                 nome: nome,
                 email: document.getElementById('fornEmail').value.trim(),
                 telefone: document.getElementById('fornTelefone').value.trim(),
                 cod_fornecedor: ''
             };
-        }
-        
-        const btn = document.getElementById('btnAdicionarForn');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Adicionando...';
-        
-        try {
-            const result = await apiCall(`/api/cotacao/${COTACAO_ID}/fornecedor`, 'POST', dados);
-            if (result.success) {
-                mostrarToast('Fornecedor adicionado com sucesso!', 'success');
-                setTimeout(() => location.reload(), 500);
-            } else {
-                throw new Error(result.error || 'Erro desconhecido');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Adicionando...';
+            
+            try {
+                const result = await apiCall(`/api/cotacao/${COTACAO_ID}/fornecedor`, 'POST', dados);
+                if (result.success) {
+                    mostrarToast('Fornecedor adicionado com sucesso!', 'success');
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    throw new Error(result.error || 'Erro desconhecido');
+                }
+            } catch (error) {
+                mostrarToast('Erro: ' + error.message, 'danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-plus me-1"></i>Adicionar Fornecedor';
             }
-        } catch (error) {
-            mostrarToast('Erro: ' + error.message, 'danger');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-plus me-1"></i>Adicionar Fornecedor';
         }
     }
     
@@ -1741,21 +2722,88 @@
         
         console.log('[ABRIR MODAL EDITAR] ID:', id, 'Nome:', nome, 'Email:', email, 'Tel:', telefone);
         
+        // Preencher dados básicos
         document.getElementById('editFornecedorId').value = id;
         document.getElementById('inputEditFornecedorNome').value = nome;
         document.getElementById('inputEditFornecedorEmail').value = email || '';
         document.getElementById('inputEditFornecedorTelefone').value = telefone || '';
         
+        // Limpar campos da R2
+        document.getElementById('inputEditFornecedorDescontoR2').value = '';
+        document.getElementById('inputEditFornecedorFreteR2').value = '';
+        document.getElementById('inputEditFornecedorPrazoR2').value = '';
+        document.getElementById('inputEditFornecedorCondicaoR2').value = '';
+        document.getElementById('inputEditFornecedorAnexoR2').value = '';
+        document.getElementById('inputEditFornecedorObsR2').value = '';
+        document.getElementById('previewAnexoEditR2').style.display = 'none';
+        document.getElementById('indicadorR2Existente').style.display = 'none';
+        
+        // Verificar se já existe R2 para este fornecedor
+        verificarR2Existente(id);
+        
         new bootstrap.Modal(document.getElementById('modalEditarFornecedor')).show();
+    }
+    
+    // Verificar se fornecedor já tem proposta R2
+    function verificarR2Existente(fornecedorId) {
+        const rodadasAgrupadas = {{ cotacao.rodadas_agrupadas|tojson|safe if cotacao.rodadas_agrupadas else '{"fornecedores":[]}' }};
+        
+        if (rodadasAgrupadas && rodadasAgrupadas.fornecedores) {
+            const fornR2 = rodadasAgrupadas.fornecedores.find(f => f.fornecedor_id == fornecedorId);
+            
+            if (fornR2) {
+                // Fornecedor já tem R2 - preencher dados existentes
+                document.getElementById('indicadorR2Existente').style.display = 'block';
+                document.getElementById('textoR2Existente').textContent = 
+                    `Este fornecedor já possui proposta na segunda rodada (${fornR2.qtd_itens} itens, desconto médio: ${(fornR2.desconto_medio || 0).toFixed(1)}%).`;
+                
+                // Preencher desconto médio (se disponível)
+                if (fornR2.desconto_medio) {
+                    document.getElementById('inputEditFornecedorDescontoR2').value = fornR2.desconto_medio.toFixed(1);
+                }
+                
+                // Preencher frete negociado
+                if (fornR2.frete_negociado > 0) {
+                    document.getElementById('inputEditFornecedorFreteR2').value = formatarMoeda(fornR2.frete_negociado);
+                }
+            }
+        }
+    }
+    
+    // Preview do arquivo anexado
+    document.getElementById('inputEditFornecedorAnexoR2')?.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            document.getElementById('nomeAnexoEditR2').textContent = this.files[0].name;
+            document.getElementById('previewAnexoEditR2').style.display = 'block';
+        }
+    });
+    
+    // Remover anexo selecionado
+    function removerAnexoEditR2() {
+        document.getElementById('inputEditFornecedorAnexoR2').value = '';
+        document.getElementById('previewAnexoEditR2').style.display = 'none';
     }
     
     async function salvarEdicaoFornecedor() {
         const id = document.getElementById('editFornecedorId').value;
+        const cotacaoId = document.getElementById('editFornecedorCotacaoId').value;
         const nome = document.getElementById('inputEditFornecedorNome').value.trim();
         const email = document.getElementById('inputEditFornecedorEmail').value.trim();
         const telefone = document.getElementById('inputEditFornecedorTelefone').value.trim();
         
+        // Dados da R2
+        const descontoR2 = document.getElementById('inputEditFornecedorDescontoR2').value;
+        const freteR2Input = document.getElementById('inputEditFornecedorFreteR2').value;
+        const prazoR2 = document.getElementById('inputEditFornecedorPrazoR2').value;
+        const condicaoR2 = document.getElementById('inputEditFornecedorCondicaoR2').value;
+        const obsR2 = document.getElementById('inputEditFornecedorObsR2').value;
+        const anexoR2 = document.getElementById('inputEditFornecedorAnexoR2').files[0];
+        
+        // Converter frete para número
+        const freteR2 = freteR2Input ? converterParaDecimal(freteR2Input) : null;
+        
         console.log('[EDITAR] ID:', id, 'Nome:', nome, 'Email:', email, 'Telefone:', telefone);
+        console.log('[EDITAR R2] Desconto:', descontoR2, 'Frete:', freteR2, 'Prazo:', prazoR2);
         
         if (!nome) {
             mostrarToast('Nome do fornecedor é obrigatório', 'warning');
@@ -1767,8 +2815,12 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
         
         try {
+            // Verificar se tem dados R2 para criar/atualizar proposta
+            const temDadosR2 = descontoR2 || freteR2 || prazoR2 || anexoR2;
+            
             console.log('[EDITAR] Enviando requisição para:', `/api/cotacao/fornecedor/${id}/editar`);
             
+            // 1. Primeiro salva dados básicos do fornecedor
             const result = await apiCall(`/api/cotacao/fornecedor/${id}/editar`, 'POST', {
                 nome: nome,
                 email: email,
@@ -1777,23 +2829,125 @@
             
             console.log('[EDITAR] Resposta recebida:', result);
             
-            if (result.success) {
-                mostrarToast('Informações atualizadas!', 'success');
-                bootstrap.Modal.getInstance(document.getElementById('modalEditarFornecedor')).hide();
-                console.log('[EDITAR] Recarregando página em 500ms...');
-                setTimeout(() => {
-                    console.log('[EDITAR] Executando reload...');
-                    location.reload();
-                }, 500);
-            } else {
+            if (!result.success) {
                 throw new Error(result.error);
             }
+            
+            // 2. Se tiver dados R2, criar/atualizar proposta da segunda rodada
+            if (temDadosR2) {
+                console.log('[EDITAR R2] Criando/atualizando proposta R2...');
+                
+                const resultR2 = await criarOuAtualizarPropostaR2(cotacaoId, id, {
+                    desconto: descontoR2 ? parseFloat(descontoR2) : 0,
+                    frete: freteR2 || 0,
+                    prazo: prazoR2 ? parseInt(prazoR2) : null,
+                    condicao: condicaoR2,
+                    observacao: obsR2
+                });
+                
+                // 3. Se tiver anexo, fazer upload
+                if (anexoR2) {
+                    console.log('[EDITAR R2] Fazendo upload do anexo...');
+                    await uploadAnexoR2(cotacaoId, id, anexoR2);
+                }
+            }
+            
+            mostrarToast('Informações atualizadas com sucesso!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('modalEditarFornecedor')).hide();
+            
+            console.log('[EDITAR] Recarregando página em 500ms...');
+            setTimeout(() => {
+                console.log('[EDITAR] Executando reload...');
+                location.reload();
+            }, 500);
+            
         } catch (error) {
             console.error('[EDITAR] Erro:', error);
             mostrarToast('Erro: ' + error.message, 'danger');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-save me-1"></i> Salvar Alterações';
         }
+    }
+    
+    // Criar ou atualizar proposta R2 para um fornecedor
+    async function criarOuAtualizarPropostaR2(cotacaoId, fornecedorId, dados) {
+        // Buscar itens do fornecedor (respostas da R1) para criar R2
+        const respostas = {{ cotacao.respostas|tojson|safe if cotacao.respostas else '[]' }};
+        
+        // Filtrar respostas deste fornecedor
+        const respostasFornecedor = respostas.filter(r => r.fornecedor_id == fornecedorId);
+        
+        if (respostasFornecedor.length === 0) {
+            console.log('[R2] Fornecedor não tem respostas na R1');
+            return { success: true, message: 'Nenhum item para atualizar' };
+        }
+        
+        // Criar array de itens com desconto aplicado
+        const itens = respostasFornecedor.map(resp => {
+            const precoOriginal = parseFloat(resp.preco_unitario) || 0;
+            const desconto = dados.desconto || 0;
+            const precoNegociado = precoOriginal * (1 - desconto / 100);
+            
+            return {
+                item_id: resp.item_id,
+                preco_original: precoOriginal,
+                preco_negociado: precoNegociado,
+                prazo_original: resp.prazo_entrega,
+                prazo_negociado: dados.prazo || resp.prazo_entrega,
+                desconto_percentual: desconto
+            };
+        });
+        
+        console.log('[R2] Enviando itens:', itens);
+        
+        const response = await fetch(`/api/cotacao/${cotacaoId}/rodada-negociacao`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fornecedor_id: fornecedorId,
+                itens: itens,
+                observacao: dados.observacao || '',
+                desconto_percentual: dados.desconto || 0,
+                frete_negociado: dados.frete || 0
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.error || 'Erro ao salvar proposta R2');
+        }
+        
+        // Atualizar frete se informado
+        if (dados.frete > 0) {
+            await fetch(`/api/cotacao/${cotacaoId}/rodada-fornecedor/${fornecedorId}/frete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ frete_negociado: dados.frete })
+            });
+        }
+        
+        return result;
+    }
+    
+    // Upload do anexo R2
+    async function uploadAnexoR2(cotacaoId, fornecedorId, arquivo) {
+        const formData = new FormData();
+        formData.append('arquivo', arquivo);
+        formData.append('fornecedor_id', fornecedorId);
+        
+        const response = await fetch(`/api/cotacao/${cotacaoId}/rodada-negociacao/anexo`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.error || 'Erro ao fazer upload do anexo');
+        }
+        
+        return result;
     }
     
     // ============ EDITAR RESPOSTA ============
@@ -2029,6 +3183,219 @@
         });
     }
     
+    // ============ VARIAÇÃO PERCENTUAL vs ÚLTIMO PREÇO PAGO ============
+    function calcularVariacoesUltimoPreco() {
+        const tabela = document.getElementById('tabelaMatriz');
+        if (!tabela) return;
+        
+        tabela.querySelectorAll('tbody tr[data-item-id]').forEach(linha => {
+            const ultimoPreco = parseFloat(linha.dataset.ultimoPreco) || 0;
+            if (ultimoPreco <= 0) return; // Sem último preço: não exibir indicador
+            
+            linha.querySelectorAll('.celula-preco').forEach(celula => {
+                const precoCotado = parseFloat(celula.dataset.preco) || 0;
+                const spanVariacao = celula.querySelector('.variacao-preco');
+                if (!spanVariacao) return;
+                
+                if (precoCotado <= 0) {
+                    spanVariacao.textContent = '';
+                    spanVariacao.className = 'variacao-preco';
+                    return;
+                }
+                
+                const variacao = ((precoCotado - ultimoPreco) / ultimoPreco) * 100;
+                
+                spanVariacao.className = 'variacao-preco'; // Reset classes
+                
+                if (Math.abs(variacao) < 0.01) {
+                    // Preço igual
+                    spanVariacao.textContent = '0%';
+                    spanVariacao.classList.add('igual');
+                } else if (variacao > 0) {
+                    // Preço acima do último
+                    spanVariacao.innerHTML = '<i class="fas fa-arrow-up" style="font-size:0.55rem;"></i> +' + variacao.toFixed(1) + '%';
+                    spanVariacao.classList.add('acima');
+                } else {
+                    // Preço abaixo do último
+                    spanVariacao.innerHTML = '<i class="fas fa-arrow-down" style="font-size:0.55rem;"></i> ' + variacao.toFixed(1) + '%';
+                    spanVariacao.classList.add('abaixo');
+                }
+                
+                spanVariacao.dataset.variacaoCalculada = 'true';
+            });
+        });
+        
+        console.log('[VARIAÇÃO] Indicadores de variação vs último preço calculados.');
+    }
+
+    // ============ ORDENAÇÃO DINÂMICA DE FORNECEDORES POR COMPETITIVIDADE ============
+    function reordenarFornecedoresPorCompetitividade() {
+        const tabela = document.getElementById('tabelaMatriz');
+        if (!tabela) return;
+        
+        console.log('[ORDENACAO] Iniciando reordenação de fornecedores...');
+        
+        // 1. Extrair lista de fornecedores do cabeçalho
+        const headerFornecedores = tabela.querySelectorAll('thead tr:first-child .header-fornecedor');
+        if (headerFornecedores.length === 0) return;
+        
+        // 2. Coletar dados de cada fornecedor
+        const fornecedoresData = [];
+        
+        headerFornecedores.forEach((header, index) => {
+            const nomeFornecedor = header.textContent.trim();
+            let melhoresPrecos = 0;
+            let somaTotal = 0;
+            let qtdItensValidos = 0;
+            
+            // Para cada linha de item, verificar se este fornecedor tem o melhor preço
+            tabela.querySelectorAll('tbody tr[data-item-id]').forEach(linhaItem => {
+                const celulasPreco = linhaItem.querySelectorAll('.celula-preco');
+                const celulasSubtotal = linhaItem.querySelectorAll('.celula-subtotal');
+                
+                if (celulasPreco.length > index) {
+                    const celulaForn = celulasPreco[index];
+                    const precoForn = parseFloat(celulaForn.dataset.preco) || 0;
+                    
+                    if (precoForn > 0) {
+                        // Verificar se é o melhor preço desta linha
+                        let menorPreco = Infinity;
+                        celulasPreco.forEach(c => {
+                            const p = parseFloat(c.dataset.preco) || 0;
+                            if (p > 0 && p < menorPreco) {
+                                menorPreco = p;
+                            }
+                        });
+                        
+                        // Tolerância de 0.01 para arredondamentos
+                        if (Math.abs(precoForn - menorPreco) < 0.01) {
+                            melhoresPrecos++;
+                        }
+                        
+                        somaTotal += precoForn;
+                        qtdItensValidos++;
+                    }
+                }
+            });
+            
+            // Adicionar frete ao total
+            const celulaTotalFornecedor = tabela.querySelector(`.celula-total-fornecedor[data-forn="${nomeFornecedor}"]`);
+            let totalComFrete = somaTotal;
+            if (celulaTotalFornecedor) {
+                totalComFrete = parseFloat(celulaTotalFornecedor.dataset.total) || somaTotal;
+            }
+            
+            const valorMedio = qtdItensValidos > 0 ? somaTotal / qtdItensValidos : Infinity;
+            
+            fornecedoresData.push({
+                nome: nomeFornecedor,
+                indiceOriginal: index,
+                melhoresPrecos: melhoresPrecos,
+                somaTotal: totalComFrete,
+                valorMedio: valorMedio,
+                qtdItensValidos: qtdItensValidos
+            });
+            
+            console.log(`[ORDENACAO] ${nomeFornecedor}: ${melhoresPrecos} melhores preços, total=${totalComFrete.toFixed(2)}, média=${valorMedio.toFixed(2)}`);
+        });
+        
+        // 3. Ordenar fornecedores por competitividade
+        const fornecedoresOrdenados = fornecedoresData.sort((a, b) => {
+            // 1º: Maior quantidade de melhores preços
+            if (a.melhoresPrecos !== b.melhoresPrecos) {
+                return b.melhoresPrecos - a.melhoresPrecos;
+            }
+            // 2º: Menor soma total
+            if (Math.abs(a.somaTotal - b.somaTotal) > 0.01) {
+                return a.somaTotal - b.somaTotal;
+            }
+            // 3º: Menor valor médio
+            return a.valorMedio - b.valorMedio;
+        });
+        
+        // Verificar se a ordem mudou
+        const ordemMudou = fornecedoresOrdenados.some((f, i) => f.indiceOriginal !== i);
+        
+        if (!ordemMudou) {
+            console.log('[ORDENACAO] Fornecedores já estão na ordem correta');
+            return;
+        }
+        
+        console.log('[ORDENACAO] Reordenando colunas...', fornecedoresOrdenados.map(f => f.nome));
+        
+        // 4. Reordenar colunas do cabeçalho
+        const headerRow1 = tabela.querySelector('thead tr:first-child');
+        const headerRow2 = tabela.querySelector('thead tr:nth-child(2)');
+        
+        // Coletar cabeçalhos da primeira linha (fornecedores)
+        const headers1 = Array.from(headerRow1.querySelectorAll('.header-fornecedor'));
+        // Coletar cabeçalhos da segunda linha (Preço Unit., Total Item, Prazo, Cond.)
+        const headers2 = Array.from(headerRow2.querySelectorAll('.sub-header'));
+        
+        // Reordenar e reinserir
+        fornecedoresOrdenados.forEach((fornData, novoIndex) => {
+            const antigoIndex = fornData.indiceOriginal;
+            
+            // Mover cabeçalho da primeira linha
+            headerRow1.appendChild(headers1[antigoIndex]);
+            
+            // Mover 4 sub-headers correspondentes (Preço Unit., Total Item, Prazo, Cond.)
+            for (let i = 0; i < 4; i++) {
+                headerRow2.appendChild(headers2[antigoIndex * 4 + i]);
+            }
+        });
+        
+        // 5. Reordenar células das linhas de dados
+        tabela.querySelectorAll('tbody tr').forEach(linha => {
+            if (linha.classList.contains('linha-frete')) {
+                // Linha de frete: reordenar células de frete (colspan=4)
+                const celulasFrete = Array.from(linha.querySelectorAll('td[data-forn]'));
+                fornecedoresOrdenados.forEach((fornData) => {
+                    const celulaFrete = celulasFrete.find(c => c.dataset.forn === fornData.nome);
+                    if (celulaFrete) {
+                        linha.appendChild(celulaFrete);
+                    }
+                });
+            } else if (linha.classList.contains('linha-total-fornecedor')) {
+                // Linha de total: reordenar células de total (colspan=4)
+                const celulasTotal = Array.from(linha.querySelectorAll('.celula-total-fornecedor'));
+                fornecedoresOrdenados.forEach((fornData) => {
+                    const celulaTotal = celulasTotal.find(c => c.dataset.forn === fornData.nome);
+                    if (celulaTotal) {
+                        linha.appendChild(celulaTotal);
+                    }
+                });
+            } else if (linha.dataset.itemId) {
+                // Linha de item: reordenar grupos de 4 células por fornecedor
+                const todasCelulas = Array.from(linha.querySelectorAll('td'));
+                const celulasFixas = todasCelulas.slice(0, 4); // Código, Descrição, Qtd, Último Preço
+                const celulasFornecedores = todasCelulas.slice(4); // Células dos fornecedores
+                
+                // Agrupar células por fornecedor (4 células: preço, total, prazo, cond)
+                const gruposPorFornecedor = [];
+                for (let i = 0; i < celulasFornecedores.length; i += 4) {
+                    gruposPorFornecedor.push(celulasFornecedores.slice(i, i + 4));
+                }
+                
+                // Reordenar grupos
+                const gruposOrdenados = fornecedoresOrdenados.map(fornData => 
+                    gruposPorFornecedor[fornData.indiceOriginal]
+                );
+                
+                // Limpar linha e reconstruir
+                linha.innerHTML = '';
+                celulasFixas.forEach(c => linha.appendChild(c));
+                gruposOrdenados.forEach(grupo => {
+                    if (grupo) {
+                        grupo.forEach(c => linha.appendChild(c));
+                    }
+                });
+            }
+        });
+        
+        console.log('[ORDENACAO] Reordenação concluída!');
+    }
+    
     // ============ ANEXAR ORÇAMENTO ============
     function abrirModalAnexo(btn) {
         const id = btn.dataset.id;
@@ -2157,6 +3524,13 @@
         document.getElementById('inputCondicaoFornecedor').value = '';
         document.getElementById('inputObsFornecedor').value = '';
         
+        // Limpar campo de anexo
+        const inputAnexo = document.getElementById('inputAnexoOrcamento');
+        if (inputAnexo) {
+            inputAnexo.value = '';
+        }
+        document.getElementById('anexoAtualInfo').classList.add('d-none');
+        
         // Mostrar status
         const statusBadge = document.getElementById('modalStatusBadge');
         if (status === 'Respondido') {
@@ -2184,6 +3558,13 @@
                     }
                     document.getElementById('inputCondicaoFornecedor').value = data.fornecedor.condicao || '';
                     document.getElementById('inputObsFornecedor').value = data.fornecedor.observacao || '';
+                    
+                    // Mostrar se existe anexo
+                    if (data.fornecedor.arquivo_anexo) {
+                        const nomeArquivo = data.fornecedor.arquivo_anexo.split('/').pop();
+                        document.getElementById('nomeAnexoAtual').textContent = nomeArquivo;
+                        document.getElementById('anexoAtualInfo').classList.remove('d-none');
+                    }
                 }
                 
                 renderizarItensModal(data.itens);
@@ -2258,6 +3639,10 @@
         const condicao = document.getElementById('inputCondicaoFornecedor').value;
         const observacao = document.getElementById('inputObsFornecedor').value;
         
+        // Arquivo de anexo (se houver)
+        const inputAnexo = document.getElementById('inputAnexoOrcamento');
+        const arquivoAnexo = inputAnexo && inputAnexo.files.length > 0 ? inputAnexo.files[0] : null;
+        
         const respostas = [];
         let temPreenchido = false;
         
@@ -2289,6 +3674,7 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Salvando...';
         
         try {
+            // 1. Salvar respostas da cotação
             const result = await apiCall(`/api/cotacao/fornecedor/${fornecedorId}/salvar-respostas`, 'POST', {
                 respostas: respostas,
                 frete: frete,
@@ -2296,13 +3682,36 @@
                 observacao: observacao
             });
             
-            if (result.success) {
-                mostrarToast(result.message || 'Respostas salvas com sucesso!', 'success');
-                bootstrap.Modal.getInstance(document.getElementById('modalResponderCotacao')).hide();
-                setTimeout(() => location.reload(), 800);
-            } else {
+            if (!result.success) {
                 throw new Error(result.error);
             }
+            
+            // 2. Se há arquivo, faz upload do anexo
+            if (arquivoAnexo) {
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Enviando anexo...';
+                
+                const formData = new FormData();
+                formData.append('arquivo', arquivoAnexo);
+                
+                const uploadResult = await fetch(`/api/cotacao/fornecedor/${fornecedorId}/anexo`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const uploadJson = await uploadResult.json();
+                
+                if (!uploadJson.success) {
+                    console.warn('[ANEXO] Erro no upload:', uploadJson.error);
+                    mostrarToast('Respostas salvas, mas o anexo falhou: ' + uploadJson.error, 'warning');
+                } else {
+                    mostrarToast('Respostas e anexo salvos com sucesso!', 'success');
+                }
+            } else {
+                mostrarToast(result.message || 'Respostas salvas com sucesso!', 'success');
+            }
+            
+            bootstrap.Modal.getInstance(document.getElementById('modalResponderCotacao')).hide();
+            setTimeout(() => location.reload(), 800);
+            
         } catch (error) {
             console.error('[SALVAR RESPOSTAS] Erro:', error);
             mostrarToast('Erro: ' + error.message, 'danger');
@@ -2311,9 +3720,40 @@
         }
     }
     
+    // ============ TOGGLE SIDEBAR ============
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const content = document.getElementById('content');
+        const toggleBtn = document.getElementById('sidebarToggle');
+        
+        sidebar.classList.toggle('collapsed');
+        content.classList.toggle('expanded');
+        toggleBtn.classList.toggle('collapsed');
+        
+        localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+    }
+    
     // ============ INICIALIZAÇÃO ============
     document.addEventListener('DOMContentLoaded', function() {
         console.log('[COTAÇÃO] Inicializando módulo...');
+        
+        // Restaurar estado da sidebar
+        const sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (sidebarCollapsed) {
+            document.getElementById('sidebar').classList.add('collapsed');
+            document.getElementById('content').classList.add('expanded');
+            document.getElementById('sidebarToggle').classList.add('collapsed');
+        }
+        
+        // Inicializa tooltips do Bootstrap (para observações no comparativo)
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl, {
+                html: true,
+                trigger: 'hover focus'
+            });
+        });
+        console.log('[COTAÇÃO] Tooltips inicializados:', tooltipTriggerList.length);
         
         // Toggle modo fornecedor
         document.getElementById('btnModoCadastrado').addEventListener('click', function() {
@@ -2345,8 +3785,8 @@
             document.getElementById('listaFornecedores').style.display = 'none';
         });
         
-        // Limpar seleção
-        document.getElementById('btnLimparSelecao').addEventListener('click', limparSelecao);
+        // Limpar todos os selecionados
+        document.getElementById('btnLimparTodosSelecionados').addEventListener('click', limparSelecao);
         
         // Adicionar fornecedor
         document.getElementById('btnAdicionarForn').addEventListener('click', adicionarFornecedor);
@@ -2400,7 +3840,7 @@
         // Reset modal ao abrir
         document.getElementById('modalFornecedor').addEventListener('show.bs.modal', function() {
             modoFornecedor = 'cadastrado';
-            fornecedorSelecionado = null;
+            fornecedoresSelecionados.clear();
             document.getElementById('btnModoCadastrado').classList.add('active');
             document.getElementById('btnModoManual').classList.remove('active');
             document.getElementById('modoCadastrado').style.display = 'block';
@@ -2458,6 +3898,12 @@
         
         // Destaque matriz
         destacarMelhoresMatriz();
+        
+        // Calcular variações percentuais vs último preço pago
+        calcularVariacoesUltimoPreco();
+        
+        // Reordenar fornecedores por competitividade
+        reordenarFornecedoresPorCompetitividade();
         
         console.log('[COTAÇÃO] Módulo inicializado com sucesso!');
     });
@@ -2754,6 +4200,14 @@ Departamento de Compras`;
     }
     
     /**
+     * Formata número para exibição em formato BR (vírgula decimal)
+     */
+    function formatarParaBR(valor) {
+        if (valor === null || valor === undefined || isNaN(valor)) return '0,00';
+        return parseFloat(valor).toFixed(2).replace('.', ',');
+    }
+    
+    /**
      * Renderiza tabela com itens para negociação
      */
     function renderizarTabelaNegociacao() {
@@ -2762,6 +4216,9 @@ Departamento de Compras`;
         
         dadosItensNegociacao.forEach((item, index) => {
             const tr = document.createElement('tr');
+            // CORREÇÃO: Usar formato BR (vírgula) desde o início para consistência
+            const precoOriginalBR = formatarParaBR(item.preco_original);
+            
             tr.innerHTML = `
                 <td class="text-center">
                     <input type="checkbox" class="checkbox-item" data-index="${index}" checked>
@@ -2771,7 +4228,7 @@ Departamento de Compras`;
                     <small class="text-muted">${item.descricao}</small>
                 </td>
                 <td>${item.quantidade} ${item.unidade}</td>
-                <td style="background: #e3f2fd20;">R$ ${item.preco_original.toFixed(2)}</td>
+                <td style="background: #e3f2fd20;">R$ ${precoOriginalBR}</td>
                 <td style="background: #e3f2fd20;">${item.prazo_original} dias</td>
                 <td style="background: #fff3e020;">
                     <input type="number" class="form-control form-control-sm desconto-item" 
@@ -2780,7 +4237,7 @@ Departamento de Compras`;
                 </td>
                 <td style="background: #e8f5e920;">
                     <input type="text" class="form-control form-control-sm preco-negociado" 
-                           data-index="${index}" value="${item.preco_original.toFixed(2)}" 
+                           data-index="${index}" value="${precoOriginalBR}" 
                            oninput="formatarMoedaModal(this)">
                 </td>
                 <td style="background: #e8f5e920;">
@@ -2854,6 +4311,9 @@ Departamento de Compras`;
     function salvarRodadaNegociacao() {
         const fornecedorId = document.getElementById('fornecedorNegociacao').value;
         const observacao = document.getElementById('observacaoNegociacao').value;
+        const freteStr = document.getElementById('freteNegociacao')?.value || '0';
+        const frete = converterParaDecimal(freteStr);
+        const anexoInput = document.getElementById('inputAnexoRodada2');
         
         if (!fornecedorId) {
             mostrarToast('Selecione um fornecedor', 'warning');
@@ -2871,8 +4331,18 @@ Departamento de Compras`;
             const prazoNegociado = parseInt(document.querySelector(`.prazo-negociado[data-index="${index}"]`).value) || 0;
             const descontoItem = parseFloat(document.querySelector(`.desconto-item[data-index="${index}"]`).value) || 0;
             
-            // Converter preço BR para decimal
-            let precoNegociado = parseFloat(precoNegociadoStr.replace(/\./g, '').replace(',', '.'));
+            // CORREÇÃO: Usar função de conversão inteligente
+            let precoNegociado = converterParaDecimal(precoNegociadoStr);
+            
+            // VALIDAÇÃO ANTI-MULTIPLICAÇÃO: Detectar valores absurdos
+            // Se o preço negociado for mais de 50x o preço original, provavelmente é erro
+            const precoOriginal = item.preco_original || 0;
+            if (precoOriginal > 0 && precoNegociado > precoOriginal * 50) {
+                console.warn(`[ALERTA] Preço suspeito para ${item.cod_produto}: original=${precoOriginal}, negociado=${precoNegociado}`);
+                mostrarToast(`Preço suspeito para ${item.cod_produto}: R$ ${precoNegociado.toFixed(2)} (original: R$ ${precoOriginal.toFixed(2)}). Verifique o valor.`, 'warning');
+                temErro = true;
+                return;
+            }
             
             if (isNaN(precoNegociado) || precoNegociado <= 0) {
                 mostrarToast(`Preço inválido para ${item.cod_produto}`, 'danger');
@@ -2882,7 +4352,7 @@ Departamento de Compras`;
             
             itensNegociados.push({
                 item_id: item.item_id,
-                preco_original: item.preco_original,
+                preco_original: precoOriginal,
                 preco_negociado: precoNegociado,
                 prazo_original: item.prazo_original,
                 prazo_negociado: prazoNegociado,
@@ -2897,29 +4367,96 @@ Departamento de Compras`;
             return;
         }
         
-        // Enviar para API
+        // Primeiro salva a rodada de negociação
         fetch(`/api/cotacao/${cotacaoIdNeg}/rodada-negociacao`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 fornecedor_id: fornecedorId,
                 itens: itensNegociados,
-                observacao: observacao
+                observacao: observacao,
+                frete_negociado: frete
             })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                mostrarToast(data.message, 'success');
-                setTimeout(() => location.reload(), 1500);
+                // Se houver frete, atualizar separadamente
+                if (frete > 0) {
+                    return fetch(`/api/cotacao/${cotacaoIdNeg}/rodada-fornecedor/${fornecedorId}/frete`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ frete_negociado: frete })
+                    }).then(() => data);
+                }
+                return data;
             } else {
-                mostrarToast(data.error || 'Erro ao salvar negociação', 'danger');
+                throw new Error(data.error || 'Erro ao salvar negociação');
             }
+        })
+        .then(data => {
+            // Se houver anexo, fazer upload
+            if (anexoInput && anexoInput.files && anexoInput.files.length > 0) {
+                const formData = new FormData();
+                formData.append('arquivo', anexoInput.files[0]);
+                formData.append('fornecedor_id', fornecedorId);
+                formData.append('rodada', '2');
+                
+                return fetch(`/api/cotacao/${cotacaoIdNeg}/rodada-negociacao/anexo`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(anexoData => {
+                    if (anexoData.success) {
+                        mostrarToast('Negociação e anexo salvos com sucesso!', 'success');
+                    } else {
+                        mostrarToast('Negociação salva, mas erro ao salvar anexo: ' + (anexoData.error || 'Erro desconhecido'), 'warning');
+                    }
+                    return data;
+                });
+            }
+            return data;
+        })
+        .then(data => {
+            mostrarToast(data.message || 'Negociação salva com sucesso', 'success');
+            setTimeout(() => location.reload(), 1500);
         })
         .catch(error => {
             console.error('Erro:', error);
-            mostrarToast('Erro ao salvar negociação', 'danger');
+            mostrarToast(error.message || 'Erro ao salvar negociação', 'danger');
         });
+    }
+    
+    /**
+     * Preview do anexo da rodada 2
+     */
+    document.getElementById('inputAnexoRodada2')?.addEventListener('change', function() {
+        const previewDiv = document.getElementById('previewAnexoRodada2');
+        const nomeSpan = document.getElementById('nomeAnexoRodada2');
+        
+        if (this.files && this.files.length > 0) {
+            const file = this.files[0];
+            // Verificar tamanho (máx 10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                mostrarToast('Arquivo muito grande! Máximo 10MB.', 'danger');
+                this.value = '';
+                previewDiv.style.display = 'none';
+                return;
+            }
+            nomeSpan.textContent = file.name;
+            previewDiv.style.display = 'block';
+        } else {
+            previewDiv.style.display = 'none';
+        }
+    });
+    
+    /**
+     * Remove anexo da rodada 2
+     */
+    function removerAnexoRodada2() {
+        document.getElementById('inputAnexoRodada2').value = '';
+        document.getElementById('previewAnexoRodada2').style.display = 'none';
     }
     
     /**
@@ -2960,7 +4497,15 @@ Departamento de Compras`;
         const observacao = document.getElementById('editObservacaoNegociacao').value;
         const desconto = parseFloat(document.getElementById('editDescontoNegociado').value) || 0;
         
-        const preco = parseFloat(precoStr.replace(/\./g, '').replace(',', '.'));
+        // CORREÇÃO: Usar função de conversão inteligente
+        const preco = converterParaDecimal(precoStr);
+        
+        // Validar limite de valor (proteger contra multiplicação)
+        const precoOriginal = parseFloat(document.getElementById('editPrecoOriginal').value) || 0;
+        if (precoOriginal > 0 && preco > precoOriginal * 50) {
+            mostrarToast('Preço parece estar incorreto (muito maior que o original). Verifique!', 'warning');
+            return;
+        }
         
         if (isNaN(preco) || preco <= 0) {
             mostrarToast('Preço inválido', 'danger');
@@ -3022,16 +4567,17 @@ Departamento de Compras`;
     function excluirTodasRodadas(cotacaoId) {
         if (!confirm('Tem certeza que deseja LIMPAR TODA a Rodada 2?\nEsta ação não pode ser desfeita.')) return;
         
-        // Como não temos API específica para deletar tudo, precisamos pegar os IDs
-        const rodadas = {{ cotacao.rodadas_negociacao|tojson|safe if cotacao.rodadas_negociacao else '[]' }};
+        // Pega dados agrupados de fornecedores
+        const rodadasAgrupadas = {{ cotacao.rodadas_agrupadas|tojson|safe if cotacao.rodadas_agrupadas else '{"fornecedores":[]}' }};
         
-        if (rodadas.length === 0) {
+        if (!rodadasAgrupadas.fornecedores || rodadasAgrupadas.fornecedores.length === 0) {
             mostrarToast('Nenhuma rodada para excluir', 'warning');
             return;
         }
         
-        let promises = rodadas.map(r => {
-            return fetch(`/api/cotacao/rodada/${r.id}/excluir`, { method: 'POST' })
+        // Exclui todos os fornecedores
+        let promises = rodadasAgrupadas.fornecedores.map(forn => {
+            return fetch(`/api/cotacao/${cotacaoId}/rodada-fornecedor/${forn.fornecedor_id}/excluir`, { method: 'POST' })
                 .then(response => response.json());
         });
         
@@ -3049,6 +4595,325 @@ Departamento de Compras`;
                 console.error('Erro:', error);
                 mostrarToast('Erro ao limpar rodadas', 'danger');
             });
+    }
+    
+    /**
+     * Excluir fornecedor específico da rodada 2
+     */
+    function excluirFornecedorRodada2(cotacaoId, fornecedorId, nomeFornecedor) {
+        if (!confirm(`Tem certeza que deseja excluir "${nomeFornecedor}" da Rodada 2?\n\nTodos os itens negociados com este fornecedor serão removidos.`)) return;
+        
+        fetch(`/api/cotacao/${cotacaoId}/rodada-fornecedor/${fornecedorId}/excluir`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarToast(`${nomeFornecedor} removido da Rodada 2`, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    mostrarToast(data.error || 'Erro ao excluir fornecedor', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                mostrarToast('Erro ao excluir fornecedor', 'danger');
+            });
+    }
+    
+    /**
+     * Abrir modal para editar fornecedor na Rodada 2 (frete e desconto)
+     */
+    function abrirModalEditarFornecedorR2(fornecedorId, nomeFornecedor, freteAtual, descontoMedio) {
+        document.getElementById('editR2FornecedorId').value = fornecedorId;
+        document.getElementById('editR2FornecedorNome').value = nomeFornecedor;
+        document.getElementById('editR2FreteNegociado').value = freteAtual ? freteAtual.toFixed(2).replace('.', ',') : '0,00';
+        document.getElementById('editR2DescontoGlobal').value = descontoMedio ? descontoMedio.toFixed(1) : '0';
+        
+        new bootstrap.Modal(document.getElementById('modalEditarFornecedorR2')).show();
+    }
+    
+    /**
+     * Salvar edição do fornecedor na Rodada 2
+     */
+    function salvarEdicaoFornecedorR2() {
+        const fornecedorId = document.getElementById('editR2FornecedorId').value;
+        const freteStr = document.getElementById('editR2FreteNegociado').value;
+        const descontoGlobal = parseFloat(document.getElementById('editR2DescontoGlobal').value) || 0;
+        
+        // Converter frete BR para decimal
+        const frete = parseFloat(freteStr.replace(/\./g, '').replace(',', '.')) || 0;
+        
+        // Atualizar frete
+        fetch(`/api/cotacao/${COTACAO_ID}/rodada-fornecedor/${fornecedorId}/frete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frete_negociado: frete })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Se houver desconto global, aplicar a todos os itens
+                if (descontoGlobal > 0) {
+                    return aplicarDescontoGlobalFornecedor(fornecedorId, descontoGlobal);
+                }
+                return { success: true };
+            } else {
+                throw new Error(data.error || 'Erro ao atualizar frete');
+            }
+        })
+        .then(result => {
+            mostrarToast('Fornecedor atualizado com sucesso', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('modalEditarFornecedorR2')).hide();
+            setTimeout(() => location.reload(), 1000);
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            mostrarToast(error.message || 'Erro ao salvar alterações', 'danger');
+        });
+    }
+    
+    /**
+     * Aplicar desconto global a todos os itens de um fornecedor
+     */
+    async function aplicarDescontoGlobalFornecedor(fornecedorId, desconto) {
+        // Buscar rodadas do fornecedor e aplicar desconto a cada uma
+        const rodadasAgrupadas = {{ cotacao.rodadas_agrupadas|tojson|safe if cotacao.rodadas_agrupadas else '{"fornecedores":[]}' }};
+        const fornecedor = rodadasAgrupadas.fornecedores.find(f => f.fornecedor_id == fornecedorId);
+        
+        if (!fornecedor || !fornecedor.itens) return { success: true };
+        
+        // Atualizar cada item com o desconto
+        for (const item of fornecedor.itens) {
+            const precoOriginal = item.preco_unitario_original || 0;
+            const precoComDesconto = precoOriginal * (1 - desconto / 100);
+            
+            await fetch(`/api/cotacao/rodada/${item.id}/editar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    preco_negociado: precoComDesconto,
+                    desconto_percentual: desconto
+                })
+            });
+        }
+        
+        return { success: true };
+    }
+
+    // ============================================================================
+    // FUNÇÕES PARA MODAL DE EDIÇÃO COMPLETO (COM ITENS) - RODADA 2
+    // ============================================================================
+    
+    // Variável global para armazenar dados do fornecedor sendo editado
+    let dadosFornecedorEditandoR2 = null;
+    
+    /**
+     * Abrir modal completo para editar fornecedor na Rodada 2 (com todos os itens)
+     */
+    function abrirModalEditarFornecedorR2Completo(fornecedorId, nomeFornecedor, freteAtual) {
+        const rodadasAgrupadas = {{ cotacao.rodadas_agrupadas|tojson|safe if cotacao.rodadas_agrupadas else '{"fornecedores":[]}' }};
+        const fornecedor = rodadasAgrupadas.fornecedores.find(f => f.fornecedor_id == fornecedorId);
+        
+        if (!fornecedor) {
+            mostrarToast('Fornecedor não encontrado', 'danger');
+            return;
+        }
+        
+        // Guardar dados para uso posterior
+        dadosFornecedorEditandoR2 = fornecedor;
+        
+        // Preencher cabeçalho
+        document.getElementById('editR2CompletoFornecedorId').value = fornecedorId;
+        document.getElementById('editR2CompletoFornecedorNome').value = nomeFornecedor;
+        document.getElementById('editR2CompletoFreteNegociado').value = freteAtual ? freteAtual.toFixed(2).replace('.', ',') : '0,00';
+        document.getElementById('editR2CompletoDescontoGlobal').value = '';
+        
+        // Preencher tabela de itens
+        const tbody = document.getElementById('tbodyItensEditR2');
+        tbody.innerHTML = '';
+        
+        if (fornecedor.itens && fornecedor.itens.length > 0) {
+            fornecedor.itens.forEach((item, index) => {
+                // IMPORTANTE: Usar os nomes de campos corretos do backend
+                // preco_unitario_original = preço da R1 (primeira rodada)
+                // preco_unitario_negociado = preço da R2 (segunda rodada negociada)
+                const precoOriginal = item.preco_unitario_original || 0;
+                const precoNegociado = item.preco_unitario_negociado || precoOriginal;
+                const desconto = item.desconto_percentual || 0;
+                const quantidade = item.quantidade || 1;
+                const totalItem = precoNegociado * quantidade;
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <strong>${item.nome_item || item.descricao_produto || item.cod_produto || 'Item ' + (index + 1)}</strong>
+                        ${item.descricao_produto ? '<br><small class="text-muted">' + item.descricao_produto + '</small>' : ''}
+                        <input type="hidden" class="item-id" value="${item.id}">
+                        <input type="hidden" class="item-quantidade" value="${quantidade}">
+                        <input type="hidden" class="item-preco-original" value="${precoOriginal}">
+                    </td>
+                    <td class="text-center">${quantidade}</td>
+                    <td class="text-end text-muted">${formatarMoedaBR(precoOriginal)}</td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm text-end item-preco-negociado" 
+                               value="${precoNegociado.toFixed(2).replace('.', ',')}"
+                               oninput="formatarMoedaModal(this); recalcularTotaisModalCompleto();">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm text-center item-desconto" 
+                               value="${desconto.toFixed(1)}" min="0" max="100" step="0.5"
+                               onchange="aplicarDescontoItem(this); recalcularTotaisModalCompleto();">
+                    </td>
+                    <td class="text-end fw-bold item-total">${formatarMoedaBR(totalItem)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        // Calcular e mostrar totais
+        recalcularTotaisModalCompleto();
+        
+        // Mostrar alerta de economia
+        document.getElementById('alertEconomiaEditR2').style.display = 'block';
+        
+        // Abrir modal
+        new bootstrap.Modal(document.getElementById('modalEditarFornecedorR2Completo')).show();
+    }
+    
+    /**
+     * Aplicar desconto a um item específico (recalcula preço)
+     */
+    function aplicarDescontoItem(input) {
+        const tr = input.closest('tr');
+        const precoOriginal = parseFloat(tr.querySelector('.item-preco-original').value) || 0;
+        const desconto = parseFloat(input.value) || 0;
+        const precoComDesconto = precoOriginal * (1 - desconto / 100);
+        
+        const inputPreco = tr.querySelector('.item-preco-negociado');
+        inputPreco.value = precoComDesconto.toFixed(2).replace('.', ',');
+    }
+    
+    /**
+     * Aplicar desconto global a todos os itens no modal
+     */
+    function aplicarDescontoGlobalCompleto() {
+        const desconto = parseFloat(document.getElementById('editR2CompletoDescontoGlobal').value) || 0;
+        if (desconto <= 0) {
+            mostrarToast('Informe um percentual de desconto válido', 'warning');
+            return;
+        }
+        
+        const linhas = document.querySelectorAll('#tbodyItensEditR2 tr');
+        linhas.forEach(tr => {
+            const inputDesconto = tr.querySelector('.item-desconto');
+            inputDesconto.value = desconto.toFixed(1);
+            aplicarDescontoItem(inputDesconto);
+        });
+        
+        recalcularTotaisModalCompleto();
+        mostrarToast(`Desconto de ${desconto}% aplicado a todos os itens`, 'success');
+    }
+    
+    /**
+     * Recalcular totais do modal completo
+     */
+    function recalcularTotaisModalCompleto() {
+        let subtotalItens = 0;
+        let totalOriginal = 0;
+        
+        const linhas = document.querySelectorAll('#tbodyItensEditR2 tr');
+        linhas.forEach(tr => {
+            const quantidade = parseFloat(tr.querySelector('.item-quantidade').value) || 1;
+            const precoOriginal = parseFloat(tr.querySelector('.item-preco-original').value) || 0;
+            const precoNegociadoStr = tr.querySelector('.item-preco-negociado').value;
+            const precoNegociado = parseFloat(precoNegociadoStr.replace(/\./g, '').replace(',', '.')) || 0;
+            
+            const totalItem = precoNegociado * quantidade;
+            tr.querySelector('.item-total').textContent = formatarMoedaBR(totalItem);
+            
+            subtotalItens += totalItem;
+            totalOriginal += precoOriginal * quantidade;
+        });
+        
+        // Frete
+        const freteStr = document.getElementById('editR2CompletoFreteNegociado').value;
+        const frete = parseFloat(freteStr.replace(/\./g, '').replace(',', '.')) || 0;
+        
+        // Frete original (da R1)
+        const freteOriginal = dadosFornecedorEditandoR2 ? (dadosFornecedorEditandoR2.frete_original || 0) : 0;
+        totalOriginal += freteOriginal;
+        
+        // Total Geral
+        const totalGeral = subtotalItens + frete;
+        
+        // Economia
+        const economia = totalOriginal - totalGeral;
+        const economiaPercent = totalOriginal > 0 ? (economia / totalOriginal * 100) : 0;
+        
+        // Atualizar campos
+        document.getElementById('editR2SubtotalItens').textContent = formatarMoedaBR(subtotalItens);
+        document.getElementById('editR2ValorFrete').textContent = formatarMoedaBR(frete);
+        document.getElementById('editR2TotalGeral').textContent = formatarMoedaBR(totalGeral);
+        
+        document.getElementById('editR2TotalR1').textContent = formatarMoedaBR(totalOriginal);
+        document.getElementById('editR2Economia').textContent = economia > 0 ? '-' + formatarMoedaBR(economia) : formatarMoedaBR(0);
+        document.getElementById('editR2EconomiaPercent').textContent = economiaPercent.toFixed(1) + '%';
+    }
+    
+    /**
+     * Salvar todas as edições do modal completo
+     */
+    async function salvarEdicaoFornecedorR2Completo() {
+        const fornecedorId = document.getElementById('editR2CompletoFornecedorId').value;
+        const freteStr = document.getElementById('editR2CompletoFreteNegociado').value;
+        const frete = parseFloat(freteStr.replace(/\./g, '').replace(',', '.')) || 0;
+        
+        try {
+            // Primeiro, salvar o frete
+            const freteResponse = await fetch(`/api/cotacao/${COTACAO_ID}/rodada-fornecedor/${fornecedorId}/frete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ frete_negociado: frete })
+            });
+            
+            if (!freteResponse.ok) throw new Error('Erro ao salvar frete');
+            
+            // Depois, salvar cada item
+            const linhas = document.querySelectorAll('#tbodyItensEditR2 tr');
+            for (const tr of linhas) {
+                const itemId = tr.querySelector('.item-id').value;
+                const precoNegociadoStr = tr.querySelector('.item-preco-negociado').value;
+                const precoNegociado = parseFloat(precoNegociadoStr.replace(/\./g, '').replace(',', '.')) || 0;
+                const desconto = parseFloat(tr.querySelector('.item-desconto').value) || 0;
+                
+                const itemResponse = await fetch(`/api/cotacao/rodada/${itemId}/editar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        preco_negociado: precoNegociado,
+                        desconto_percentual: desconto
+                    })
+                });
+                
+                if (!itemResponse.ok) {
+                    console.warn(`Erro ao salvar item ${itemId}`);
+                }
+            }
+            
+            mostrarToast('Todas as alterações foram salvas!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('modalEditarFornecedorR2Completo')).hide();
+            setTimeout(() => location.reload(), 1000);
+            
+        } catch (error) {
+            console.error('Erro:', error);
+            mostrarToast(error.message || 'Erro ao salvar alterações', 'danger');
+        }
+    }
+    
+    /**
+     * Formatar valor para moeda BR
+     */
+    function formatarMoedaBR(valor) {
+        return 'R$ ' + valor.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
 
     // ============================================================================

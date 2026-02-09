@@ -55,7 +55,10 @@
         .sidebar-header {
             padding: 20px;
             border-bottom: 1px solid rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.2);
         }
+        
+        .sidebar .sidebar-header h4 { font-weight: 700; letter-spacing: -0.5px; }
 
         .sidebar ul.components { padding: 10px 0; }
 
@@ -643,7 +646,10 @@
                                                 {% if item.EmailFornecedor %}
                                                 <button onclick="event.stopPropagation(); enviarEmailTerceiros('{{ item.EmailFornecedor }}', '{{ item['Número Pedido'] }}', '{{ item['Item Pedido'] }}', '{{ item['Produto OP'] }}', '{{ item['Data Entrega Prevista'] if item['Data Entrega Prevista'] else 'N/A' }}', '{{ item.Fornecedor }}');" 
                                                         class="btn btn-sm btn-outline-primary border-0" 
-                                                        title="Enviar E-mail: {{ item.EmailFornecedor }}">
+                                                        title="Enviar E-mail: {{ item.EmailFornecedor }}"
+                                                        data-btn-email-terceiros="true"
+                                                        data-terceiro-id="{{ item['Número Pedido'] }}-{{ item['Item Pedido'] }}"
+                                                        data-bs-toggle="tooltip">
                                                     <i class="fas fa-envelope fa-lg"></i>
                                                 </button>
                                                 {% else %}
@@ -779,6 +785,126 @@
 
     </div> <!-- Fecha content -->
 </div> <!-- Fecha wrapper -->
+
+<!-- ========================================
+     MODAL DE PRÉVIA E ENVIO DE E-MAIL
+======================================== -->
+<div class="modal fade" id="modalEnvioEmailTerceiros" tabindex="-1" aria-labelledby="modalEnvioEmailTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <!-- Header -->
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%);">
+                <div>
+                    <h5 class="modal-title mb-0" id="modalEnvioEmailTitulo">
+                        <i class="fas fa-envelope me-2"></i>Enviar E-mail de Cobrança
+                    </h5>
+                    <small id="modalEmailSubtitulo" class="d-block mt-1 opacity-90"></small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <!-- Body -->
+            <div class="modal-body">
+                <!-- Alerta de bloqueio 24h -->
+                <div id="alertaBloqueio24h" class="alert alert-warning d-none mb-3">
+                    <i class="fas fa-clock me-2"></i>
+                    <strong>Atenção:</strong> E-mail já enviado recentemente.
+                    <span id="infoBloqueio24h"></span>
+                </div>
+                
+                <!-- Info do destinatário -->
+                <div class="bg-light rounded p-3 mb-3">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted d-block">Fornecedor</small>
+                            <strong id="emailFornecedorNome" class="text-dark"></strong>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted d-block">E-mail</small>
+                            <strong id="emailDestinatario" class="text-primary"></strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Formulário -->
+                <form id="formEnvioEmail">
+                    <input type="hidden" id="emailTipo" value="terceiros">
+                    <input type="hidden" id="emailIdentificador" value="">
+                    <input type="hidden" id="emailRaw" value="">
+                    <input type="hidden" id="emailPedido" value="">
+                    <input type="hidden" id="emailItem" value="">
+                    <input type="hidden" id="emailDataPrevista" value="">
+                    <input type="hidden" id="emailProduto" value="">
+                    
+                    <!-- Assunto -->
+                    <div class="mb-3">
+                        <label for="emailAssunto" class="form-label fw-bold">
+                            <i class="fas fa-heading me-1 text-muted"></i>Assunto
+                        </label>
+                        <input type="text" class="form-control" id="emailAssunto" required>
+                    </div>
+                    
+                    <!-- Corpo do email -->
+                    <div class="mb-3">
+                        <label for="emailCorpo" class="form-label fw-bold">
+                            <i class="fas fa-align-left me-1 text-muted"></i>Mensagem
+                        </label>
+                        <textarea class="form-control" id="emailCorpo" rows="10" required style="font-family: monospace; font-size: 0.9rem;"></textarea>
+                        <small class="text-muted mt-1 d-block">
+                            <i class="fas fa-info-circle me-1"></i>Você pode editar o texto antes de enviar
+                        </small>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Footer Normal -->
+            <div class="modal-footer border-0" id="modalEmailFooterNormal">
+                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-primary px-4" id="btnConfirmarEnvioEmail" onclick="confirmarEnvioEmailTerceiros()">
+                    <i class="fas fa-paper-plane me-2"></i>Enviar E-mail
+                </button>
+            </div>
+            
+            <!-- Footer de loading -->
+            <div class="modal-footer border-0 d-none" id="modalEmailFooterLoading">
+                <div class="w-100 text-center py-2">
+                    <div class="spinner-border text-primary me-2" role="status" style="width: 1.5rem; height: 1.5rem;">
+                        <span class="visually-hidden">Enviando...</span>
+                    </div>
+                    <span class="text-muted">Enviando e-mail...</span>
+                </div>
+            </div>
+            
+            <!-- Footer de sucesso -->
+            <div class="modal-footer border-0 d-none" id="modalEmailFooterSucesso">
+                <div class="w-100 text-center py-3">
+                    <div class="text-success mb-2">
+                        <i class="fas fa-check-circle fa-3x"></i>
+                    </div>
+                    <h5 class="text-success mb-1">E-mail enviado com sucesso!</h5>
+                    <small class="text-muted" id="emailEnviadoPara"></small>
+                </div>
+            </div>
+            
+            <!-- Footer de erro -->
+            <div class="modal-footer border-0 d-none" id="modalEmailFooterErro">
+                <div class="w-100 text-center py-3">
+                    <div class="text-danger mb-2">
+                        <i class="fas fa-times-circle fa-3x"></i>
+                    </div>
+                    <h5 class="text-danger mb-1">Erro ao enviar e-mail</h5>
+                    <small class="text-muted" id="emailErroMsg"></small>
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Fechar</button>
+                        <button type="button" class="btn btn-primary px-4" onclick="resetarModalEmailTerceiros()">Tentar Novamente</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -1003,30 +1129,257 @@
     }
     
     // ==========================================
-    // FUNÇÃO PARA ENVIAR EMAIL DE COBRANÇA
+    // SISTEMA DE E-MAIL APRIMORADO - TERCEIROS
     // ==========================================
-    function enviarEmailTerceiros(email, pedido, item, produto, dataEntrega, fornecedor) {
-        if (!confirm(`Enviar e-mail de cobrança do Pedido ${pedido} - Item ${item} (${produto})?`)) return;
+    let modalEnvioEmailTerceiros = null;
+    let statusEnviosTerceiros = {}; // Cache de status de envios
+    
+    // Inicializa modal no carregamento
+    document.addEventListener('DOMContentLoaded', function() {
+        modalEnvioEmailTerceiros = new bootstrap.Modal(document.getElementById('modalEnvioEmailTerceiros'));
         
-        fetch('/enviar_cobranca', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                email: email, 
-                pedido: `${pedido} - Item ${item}`, 
-                fornecedor: fornecedor, 
-                data: dataEntrega, 
-                produto: produto 
-            })
-        })
-        .then(response => response.json())
-        .then(data => { 
-            alert(data.success ? '✅ E-mail de cobrança enviado com sucesso!' : '❌ Erro ao enviar: ' + data.message); 
-        })
-        .catch(error => { 
-            console.error('Erro:', error); 
-            alert('❌ Erro ao enviar e-mail de cobrança.'); 
+        // Carrega status de envios para todos os itens visíveis
+        carregarStatusEnviosLoteTerceiros();
+    });
+    
+    // Função auxiliar para obter saudação baseada na hora
+    function obterSaudacao() {
+        const hora = new Date().getHours();
+        if (hora >= 5 && hora < 12) return "Bom dia";
+        if (hora >= 12 && hora < 18) return "Boa tarde";
+        return "Boa noite";
+    }
+    
+    // Carrega status de envios em lote
+    async function carregarStatusEnviosLoteTerceiros() {
+        const itens = [];
+        document.querySelectorAll('[data-terceiro-id]').forEach(el => {
+            const id = el.dataset.terceiroId;
+            if (id) {
+                itens.push({ tipo: 'terceiros', identificador: id });
+            }
         });
+        
+        if (itens.length === 0) return;
+        
+        try {
+            const response = await fetch('/api/email/verificar-lote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ itens })
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                statusEnviosTerceiros = data.resultados;
+                atualizarBotoesEmailTerceiros();
+            }
+        } catch (error) {
+            console.error('Erro ao carregar status de envios:', error);
+        }
+    }
+    
+    // Atualiza visual dos botões de email baseado no status 24h
+    function atualizarBotoesEmailTerceiros() {
+        document.querySelectorAll('[data-btn-email-terceiros]').forEach(btn => {
+            const id = btn.dataset.terceiroId;
+            const chave = `terceiros_${id}`;
+            const status = statusEnviosTerceiros[chave];
+            
+            if (status && !status.pode_enviar) {
+                btn.classList.remove('btn-outline-primary');
+                btn.classList.add('btn-outline-secondary');
+                btn.innerHTML = '<i class="fas fa-envelope-open-text fa-lg"></i>';
+                btn.title = `E-mail enviado em ${status.ultimo_envio}. Aguarde ${Math.ceil(status.minutos_restantes / 60)}h para reenviar.`;
+                btn.dataset.bloqueado = 'true';
+            } else {
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-outline-primary');
+                btn.innerHTML = '<i class="fas fa-envelope fa-lg"></i>';
+                btn.dataset.bloqueado = 'false';
+            }
+        });
+    }
+    
+    // Abre modal de envio de email para Terceiros
+    async function enviarEmailTerceiros(email, pedido, item, produto, dataEntrega, fornecedor) {
+        if (!email || email.trim() === '') {
+            alert('❌ E-mail do fornecedor não cadastrado.');
+            return;
+        }
+        
+        const identificador = `${pedido}-${item}`;
+        
+        try {
+            const response = await fetch('/api/email/verificar-envio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tipo: 'terceiros', identificador: identificador })
+            });
+            const statusData = await response.json();
+            
+            // Preenche dados no modal
+            document.getElementById('emailTipo').value = 'terceiros';
+            document.getElementById('emailIdentificador').value = identificador;
+            document.getElementById('emailRaw').value = email;
+            document.getElementById('emailPedido').value = pedido;
+            document.getElementById('emailItem').value = item;
+            document.getElementById('emailDataPrevista').value = dataEntrega;
+            document.getElementById('emailProduto').value = produto;
+            
+            // Informações do fornecedor
+            document.getElementById('emailFornecedorNome').textContent = fornecedor;
+            document.getElementById('emailDestinatario').textContent = email;
+            document.getElementById('modalEmailSubtitulo').textContent = `Pedido ${pedido} - Item ${item} (Terceiros)`;
+            
+            // Monta assunto e corpo
+            const saudacao = statusData.saudacao || obterSaudacao();
+            const assunto = `Cobrança: Industrialização Externa - Pedido ${pedido} Item ${item} - ${fornecedor}`;
+            const corpo = `${saudacao}, ${fornecedor}
+
+Solicitamos atualização urgente sobre o item de industrialização externa abaixo:
+
+📦 DADOS DO SERVIÇO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Pedido: ${pedido}
+• Item: ${item}
+• Produto/Serviço: ${produto}
+• Previsão de Entrega: ${dataEntrega}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Por favor, informar:
+1. Nova previsão de entrega
+2. Status atual do serviço (em processamento, aguardando material, pronto para expedição, etc.)
+3. Nota fiscal, se já disponível
+
+Este serviço é parte integrante de nosso processo produtivo e solicitamos atenção prioritária.
+
+Fico no aguardo de um retorno urgente.
+
+Atenciosamente,
+Departamento de Compras
+Polimáquinas`;
+            
+            document.getElementById('emailAssunto').value = assunto;
+            document.getElementById('emailCorpo').value = corpo;
+            
+            // Mostra/esconde alerta de bloqueio 24h
+            const alertaBloqueio = document.getElementById('alertaBloqueio24h');
+            const btnEnviar = document.getElementById('btnConfirmarEnvioEmail');
+            
+            if (!statusData.pode_enviar) {
+                alertaBloqueio.classList.remove('d-none');
+                document.getElementById('infoBloqueio24h').textContent = 
+                    `Último envio: ${statusData.ultimo_envio}. Aguarde ${Math.ceil(statusData.minutos_restantes / 60)} horas para reenviar.`;
+                btnEnviar.disabled = true;
+                btnEnviar.innerHTML = '<i class="fas fa-clock me-2"></i>Aguarde 24h';
+            } else {
+                alertaBloqueio.classList.add('d-none');
+                btnEnviar.disabled = false;
+                btnEnviar.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Enviar E-mail';
+            }
+            
+            // Reset visual do modal
+            resetarModalEmailVisualTerceiros();
+            
+            // Abre o modal
+            modalEnvioEmailTerceiros.show();
+            
+        } catch (error) {
+            console.error('Erro ao verificar status de envio:', error);
+            alert('❌ Erro ao preparar envio de e-mail. Tente novamente.');
+        }
+    }
+    
+    // Reset visual do modal
+    function resetarModalEmailVisualTerceiros() {
+        document.getElementById('modalEmailFooterNormal').classList.remove('d-none');
+        document.getElementById('modalEmailFooterLoading').classList.add('d-none');
+        document.getElementById('modalEmailFooterSucesso').classList.add('d-none');
+        document.getElementById('modalEmailFooterErro').classList.add('d-none');
+        document.querySelector('#modalEnvioEmailTerceiros .modal-body').style.display = 'block';
+    }
+    
+    // Reset completo do modal para tentar novamente
+    function resetarModalEmailTerceiros() {
+        resetarModalEmailVisualTerceiros();
+        document.getElementById('btnConfirmarEnvioEmail').disabled = false;
+        document.getElementById('btnConfirmarEnvioEmail').innerHTML = '<i class="fas fa-paper-plane me-2"></i>Enviar E-mail';
+    }
+    
+    // Confirma e envia o email
+    async function confirmarEnvioEmailTerceiros() {
+        const tipo = document.getElementById('emailTipo').value;
+        const identificador = document.getElementById('emailIdentificador').value;
+        const email = document.getElementById('emailRaw').value;
+        const pedido = document.getElementById('emailPedido').value;
+        const item = document.getElementById('emailItem').value;
+        const dataPrevista = document.getElementById('emailDataPrevista').value;
+        const produto = document.getElementById('emailProduto').value;
+        const assunto = document.getElementById('emailAssunto').value;
+        const corpo = document.getElementById('emailCorpo').value;
+        const fornecedor = document.getElementById('emailFornecedorNome').textContent;
+        
+        // Validação básica
+        if (!assunto.trim() || !corpo.trim()) {
+            alert('❌ Preencha o assunto e a mensagem do e-mail.');
+            return;
+        }
+        
+        // Mostra loading
+        document.getElementById('modalEmailFooterNormal').classList.add('d-none');
+        document.getElementById('modalEmailFooterLoading').classList.remove('d-none');
+        
+        try {
+            const response = await fetch('/enviar_cobranca', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: email,
+                    pedido: `${pedido} - Item ${item}`,
+                    fornecedor: fornecedor,
+                    data: dataPrevista,
+                    produto: produto,
+                    assunto: assunto,
+                    corpo: corpo,
+                    tipo: tipo,
+                    identificador: identificador
+                })
+            });
+            
+            const data = await response.json();
+            
+            // Esconde loading
+            document.getElementById('modalEmailFooterLoading').classList.add('d-none');
+            
+            if (data.success) {
+                // Mostra sucesso
+                document.querySelector('#modalEnvioEmailTerceiros .modal-body').style.display = 'none';
+                document.getElementById('modalEmailFooterSucesso').classList.remove('d-none');
+                document.getElementById('emailEnviadoPara').textContent = `Enviado para: ${email}`;
+                
+                // Atualiza cache e botões
+                const chave = `${tipo}_${identificador}`;
+                statusEnviosTerceiros[chave] = { pode_enviar: false };
+                atualizarBotoesEmailTerceiros();
+                
+                // Fecha modal automaticamente após 2.5 segundos
+                setTimeout(() => {
+                    modalEnvioEmailTerceiros.hide();
+                    resetarModalEmailVisualTerceiros();
+                }, 2500);
+            } else {
+                // Mostra erro
+                document.getElementById('modalEmailFooterErro').classList.remove('d-none');
+                document.getElementById('emailErroMsg').textContent = data.message || 'Erro desconhecido';
+            }
+            
+        } catch (error) {
+            console.error('Erro ao enviar e-mail:', error);
+            document.getElementById('modalEmailFooterLoading').classList.add('d-none');
+            document.getElementById('modalEmailFooterErro').classList.remove('d-none');
+            document.getElementById('emailErroMsg').textContent = 'Erro de conexão. Verifique sua internet.';
+        }
     }
     
     // ==========================================
